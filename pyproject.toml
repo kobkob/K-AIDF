@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kobkob-kaidf-generator"
+version = "0.1.0"
+description = "Generate a K-AIDF methodology repo scaffold from a YAML spec."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0.1",
+  "jsonschema>=4.22.0",
+]
+
+[project.scripts]
+kaidf-gen = "kaidf_gen.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+kaidf_gen = ["schemas/*.json", "templates/library/**/*"]

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "version",
+    "repo",
+    "sections"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "repo": {
+      "type": "object",
+      "required": [
+        "name",
+        "files"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileSpec"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "files"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/fileSpec"
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "$defs": {
+    "fileSpec": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "description": "Use `library:<key>` to pull from bundled template library."
+        },
+        "inline": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array",
+            "null"
+          ],
+          "description": "Inline file content (will be stringified)."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
