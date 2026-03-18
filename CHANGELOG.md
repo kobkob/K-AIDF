@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to this workspace repository will be documented in this file.
+
+The format is based on Keep a Changelog and the workspace follows SemVer while in `0.y.z` development.
+
+## [Unreleased]
+
+### Added
+
+- root workspace documentation and MIT license
+- root repository standards: `.gitignore`, `.editorconfig`, `CODEOWNERS`, and `CONTRIBUTING.md`
+- workspace context tracking in `CONTEXT.md`
+- documented project structure for the nested `kobkob-kaidf-generator`, `agent-aidf`, and `mcp-aidf` repositories
+
