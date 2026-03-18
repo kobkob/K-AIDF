@@ -1,0 +1,7 @@
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "7777:7777"
+    environment:
+      - SECRET_KEY=your-secret-key-here
