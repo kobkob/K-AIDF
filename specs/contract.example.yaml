@@ -41,12 +41,22 @@ stable_id:
 
 metadata:
   required_front_matter: false
+  v2_plan:
+    required_front_matter: true
+    required_fields:
+      - id
+      - title
+      - document_class
+      - phase
+      - visibility
+      - status
 
 indexing:
   default_include:
     - README.md
     - docs/**/*.md
     - docs/**/*.csv
+  prompts_exposed_by_default: true
 
 editing:
   agent_editable:
@@ -56,8 +66,3 @@ editing:
   protected_from_implicit_renames:
     - README.md
     - docs/**
-
-skills:
-  present_in_v1: false
-  reserved_path: skills/
-  note: Optional future extension for reusable workflow capabilities.

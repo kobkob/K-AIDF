@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - baseline generator tests for output generation, force behavior, template loading, and unsafe-path handling
 - additional coverage for loader/schema failures, template key normalization, and CLI success/error paths
 - an initial repository contract document and machine-readable contract example for downstream agent and MCP integration
+- contract refinement to expose prompt documents by default and define explicit front matter as a version 2 plan
 
 ## [0.1.1] - 2026-03-17
 

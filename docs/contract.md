@@ -33,7 +33,6 @@ This contract does not yet define:
 - cross-document workflow state machines
 - approval/sign-off schemas
 - rich front matter requirements
-- a skill execution runtime
 
 ## Repository Root
 
@@ -126,7 +125,18 @@ Consumers must derive meaning from:
 - file extension
 - directory role
 
-Future versions may add optional or required metadata blocks, but version 1 should not assume them.
+Contract version 2 should introduce explicit front matter for indexable markdown documents.
+
+Planned version 2 metadata fields:
+
+- `id`
+- `title`
+- `document_class`
+- `phase`
+- `visibility`
+- `status`
+
+Version 1 consumers must not assume front matter exists. Version 2 consumers should prefer explicit metadata over path inference where available.
 
 ## Indexing Rules For MCP
 
@@ -136,11 +146,15 @@ Future versions may add optional or required metadata blocks, but version 1 shou
 - `docs/**/*.md`
 - `docs/**/*.csv`
 
+In contract version 1, prompt documents are exposed by default. `mcp-aidf` should therefore treat prompt files as normal indexable repository content unless a deployment-specific policy overrides that default.
+
 `mcp-aidf` should not assume every file is public or user-facing. In version 1:
 
 - `templates/` content is indexable
 - `prompts/` content is indexable
 - governance files are indexable if the deployment chooses to expose them
+
+For contract version 2, visibility should move from deployment-only policy into explicit document metadata where appropriate.
 
 If a deployment needs stricter visibility rules, that policy should be layered on top of this contract rather than inferred from missing metadata.
 
@@ -158,22 +172,6 @@ Agents should avoid:
 - inventing hidden metadata conventions not defined by the contract
 - treating generated template library files as if they were runtime state stores
 
-## Skills
-
-A `skills/` section may be added to generated repositories, but it should be optional in contract version 1.
-
-Recommendation:
-
-- reserve `skills/` for reusable workflow capabilities, agent playbooks, or task-specific guidance
-- do not make `agent-aidf` or `mcp-aidf` depend on `skills/` existing yet
-- if introduced later, define it as a first-class document class with its own indexing and editability rules
-
-Why optional:
-
-- the current generator does not emit a `skills/` tree
-- skills are useful, but they are a higher-level capability layer than the current repository baseline
-- adding them now as mandatory would create contract surface area without implementation support
-
 ## Machine-Readable Example
 
 See `specs/contract.example.yaml` for a compact machine-readable example of this contract.
@@ -184,6 +182,7 @@ See `specs/contract.example.yaml` for a compact machine-readable example of this
 - adding new optional directories is backward-compatible
 - changing stable IDs or required paths is contract-breaking
 - making optional metadata mandatory is contract-breaking
+- moving from implicit visibility to explicit visibility metadata is a contract version change
 
 ## Immediate Integration Guidance
 
@@ -191,5 +190,4 @@ For early integration work:
 
 - `kobkob-kaidf-generator` owns the canonical path structure
 - `agent-aidf` should operate on repository-relative paths and document classes
-- `mcp-aidf` should use repository-relative paths as fetch IDs and index `docs/` plus selected root files
-
+- `mcp-aidf` should use repository-relative paths as fetch IDs and index `docs/` plus selected root files, including prompt documents by default
