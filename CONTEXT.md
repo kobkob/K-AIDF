@@ -69,16 +69,19 @@ python -c "import app"
 
 ## Next Recommended Step
 
-Finalize repository versioning and remote configuration before first push, then clean up the generator rough edges:
+Finalize repository tagging before first push, then clean up the generator rough edges:
 
-1. decide the initial public version tags for the workspace root, `agent-aidf`, and `mcp-aidf`
-2. decide the next public version tag for `kobkob-kaidf-generator`
-3. replace deprecated schema loading in `src/kaidf_gen/schema.py`
-4. fix or modernize the JSON Schema declaration to remove the metaschema warning
-5. verify the new lint/format gates locally once `ruff` is available
+1. create the initial public tags:
+   - workspace root: `v0.1.0`
+   - `agent-aidf`: `v0.1.0`
+   - `mcp-aidf`: `v0.1.0`
+   - `kobkob-kaidf-generator`: `v0.1.1`
+2. replace deprecated schema loading in `src/kaidf_gen/schema.py`
+3. fix or modernize the JSON Schema declaration to remove the metaschema warning
+4. verify the new lint/format gates locally once `ruff` is available
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-repository tagging decisions, then `kobkob-kaidf-generator` warning cleanup
+generator warning cleanup after tag creation

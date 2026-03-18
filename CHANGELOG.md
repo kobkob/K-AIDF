@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-17
+
 ### Added
 
 - root workspace documentation and MIT license
