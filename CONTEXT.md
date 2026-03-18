@@ -24,6 +24,7 @@ The root directory documents how they fit together. Each child project owns its 
 - `scripts/dev.sh` now recreates broken local virtual environments and runs the dev loop directly from `src/`
 - baseline generator coverage now includes generation flow, force behavior, template lookup, and unsafe-path handling
 - generator coverage now also includes loader/schema failures, template key normalization, and CLI success/error paths
+- an initial generated-repository contract now exists in `kobkob-kaidf-generator/docs/contract.md`
 
 ### `agent-aidf`
 
@@ -55,7 +56,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, and `dev.sh` operational debugging
+- generator warning cleanup, baseline test expansion, CLI coverage, `dev.sh` operational debugging, and initial contract definition
 
 ## Known Rough Edges
 
@@ -75,11 +76,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. define the shared generated-repository contract for `agent-aidf` and `mcp-aidf`
+2. refine the contract with the first concrete metadata and visibility decisions needed by `agent-aidf` and `mcp-aidf`
 3. expand generator coverage further only where the contract introduces new invariants
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then generated-repository contract work
+local lint verification, then contract refinement for downstream integration
