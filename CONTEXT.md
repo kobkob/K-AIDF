@@ -62,24 +62,23 @@ python -c "import app"
 
 ## Remote Status
 
-- workspace root: not configured yet because the root repository was not initialized at the start
-- `kobkob-kaidf-generator`: `origin` is configured
-- `agent-aidf`: no remote configured yet
-- `mcp-aidf`: no remote configured yet
+- workspace root: `origin` configured as `https://github.com/kobkob/K-AIDF.git`
+- `kobkob-kaidf-generator`: `origin` configured as `https://github.com/kobkob/kobkob-kaidf-generator.git`
+- `agent-aidf`: `origin` configured as `https://github.com/kobkob/agent-aidf.git`
+- `mcp-aidf`: `origin` configured as `https://github.com/kobkob/mcp-aidf.git`
 
 ## Next Recommended Step
 
 Finalize repository versioning and remote configuration before first push, then clean up the generator rough edges:
 
-1. initialize and commit the workspace root repository
-2. configure intended remotes for the root, `agent-aidf`, and `mcp-aidf`
-3. decide the next public version tag for `kobkob-kaidf-generator`
-4. replace deprecated schema loading in `src/kaidf_gen/schema.py`
-5. fix or modernize the JSON Schema declaration to remove the metaschema warning
-6. verify the new lint/format gates locally once `ruff` is available
+1. decide the initial public version tags for the workspace root, `agent-aidf`, and `mcp-aidf`
+2. decide the next public version tag for `kobkob-kaidf-generator`
+3. replace deprecated schema loading in `src/kaidf_gen/schema.py`
+4. fix or modernize the JSON Schema declaration to remove the metaschema warning
+5. verify the new lint/format gates locally once `ruff` is available
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-repository versioning and remote setup, then `kobkob-kaidf-generator` warning cleanup
+repository tagging decisions, then `kobkob-kaidf-generator` warning cleanup

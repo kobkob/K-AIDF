@@ -12,4 +12,4 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - root repository standards: `.gitignore`, `.editorconfig`, `CODEOWNERS`, and `CONTRIBUTING.md`
 - workspace context tracking in `CONTEXT.md`
 - documented project structure for the nested `kobkob-kaidf-generator`, `agent-aidf`, and `mcp-aidf` repositories
-
+- remote and release guidance for the workspace and child repositories
