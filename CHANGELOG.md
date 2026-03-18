@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Added
 
 - baseline generator tests for output generation, force behavior, template loading, and unsafe-path handling
+- additional coverage for loader/schema failures, template key normalization, and CLI success/error paths
 
 ## [0.1.1] - 2026-03-17
 
