@@ -13,10 +13,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+
       - name: Verify baseline files
         run: |
           test -f README.md
           test -f LICENSE
           test -f CONTRIBUTING.md
           test -f CODEOWNERS
-
+          test -f CHANGELOG.md
+          test -f RELEASING.md
