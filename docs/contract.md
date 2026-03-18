@@ -127,14 +127,69 @@ Consumers must derive meaning from:
 
 Contract version 2 should introduce explicit front matter for indexable markdown documents.
 
-Planned version 2 metadata fields:
+Version 2 should use YAML front matter at the top of markdown files:
+
+```yaml
+---
+id: docs/01-intent-constraints/prompts/framing.prompt.md
+title: Framing Prompt
+document_class: prompt-doc
+phase: 01-intent-constraints
+visibility: internal
+status: active
+---
+```
+
+Required version 2 fields:
 
 - `id`
+  Description: stable document identifier
+  Rule: must be unique within the repository
+
 - `title`
+  Description: human-readable title
+  Rule: required for markdown documents that are indexed or fetched directly
+
 - `document_class`
+  Allowed values:
+  - `core-doc`
+  - `template-doc`
+  - `prompt-doc`
+  - `governance-doc`
+
 - `phase`
+  Description: logical phase identifier
+  Rule: should match the phase directory for `docs/NN-*` content
+  Example: `00-overview`, `01-intent-constraints`
+
 - `visibility`
+  Allowed values:
+  - `public`
+  - `internal`
+  - `private`
+
 - `status`
+  Allowed values:
+  - `draft`
+  - `active`
+  - `deprecated`
+  - `archived`
+
+Field semantics:
+
+- `id` becomes the preferred fetch identifier for version 2 consumers
+- repository-relative path remains a fallback compatibility identifier
+- `visibility` controls default MCP exposure policy
+- `status` controls lifecycle signaling, not existence
+
+Initial version 2 scope:
+
+- required first for indexable markdown documents:
+  - `README.md`
+  - `docs/**/*.md`
+- not required initially for:
+  - `.csv` templates
+  - non-markdown governance files
 
 Version 1 consumers must not assume front matter exists. Version 2 consumers should prefer explicit metadata over path inference where available.
 
@@ -155,6 +210,15 @@ In contract version 1, prompt documents are exposed by default. `mcp-aidf` shoul
 - governance files are indexable if the deployment chooses to expose them
 
 For contract version 2, visibility should move from deployment-only policy into explicit document metadata where appropriate.
+
+Recommended version 2 MCP behavior:
+
+- index documents when `visibility` is `public` or `internal`
+- exclude documents by default when `visibility` is `private`
+- allow deployment policy to further restrict `internal` documents
+- return metadata-derived `id` as the primary fetch identifier
+- accept repository-relative path as a backward-compatible alias when practical
+- expose `title`, `document_class`, `phase`, `visibility`, and `status` in search result metadata
 
 If a deployment needs stricter visibility rules, that policy should be layered on top of this contract rather than inferred from missing metadata.
 
@@ -191,3 +255,9 @@ For early integration work:
 - `kobkob-kaidf-generator` owns the canonical path structure
 - `agent-aidf` should operate on repository-relative paths and document classes
 - `mcp-aidf` should use repository-relative paths as fetch IDs and index `docs/` plus selected root files, including prompt documents by default
+
+For version 2 planning:
+
+- `kobkob-kaidf-generator` should be able to emit markdown documents with compliant YAML front matter
+- `agent-aidf` should prefer metadata-aware document selection when front matter exists
+- `mcp-aidf` should migrate from path-only indexing to metadata-aware indexing and fetch behavior

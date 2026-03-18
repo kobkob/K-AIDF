@@ -19,6 +19,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - additional coverage for loader/schema failures, template key normalization, and CLI success/error paths
 - an initial repository contract document and machine-readable contract example for downstream agent and MCP integration
 - contract refinement to expose prompt documents by default and define explicit front matter as a version 2 plan
+- a concrete version 2 front matter schema and metadata-driven MCP behavior plan
 
 ## [0.1.1] - 2026-03-17
 
