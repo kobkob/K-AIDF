@@ -13,6 +13,12 @@ dependencies = [
   "jsonschema>=4.22.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.11.0",
+]
+
 [project.scripts]
 kaidf-gen = "kaidf_gen.cli:main"
 
@@ -21,3 +27,14 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 kaidf_gen = ["schemas/*.json", "templates/library/**/*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

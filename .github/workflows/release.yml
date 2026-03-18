@@ -21,11 +21,23 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pip install -e .
+          pip install -e ".[dev]"
           pip install build
 
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+
+      - name: Lint Python
+        run: python -m ruff check .
+
+      - name: Check Python formatting
+        run: python -m ruff format --check .
+
       - name: Run tests
-        run: PYTHONPATH=src python -m pytest -q
+        run: python -m pytest -q
 
       - name: Build distributions
         run: python -m build
@@ -36,4 +48,3 @@ jobs:
           generate_release_notes: true
           files: |
             dist/*
-
