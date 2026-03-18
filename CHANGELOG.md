@@ -8,7 +8,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
-- repository metadata and development baseline
+- standard repository metadata: `CODEOWNERS`, `CONTRIBUTING.md`, and MIT license text
+- development baseline: GitHub CI, PR template, and release workflow
+- release hygiene: `RELEASING.md`, changelog maintenance, and tag-based GitHub releases
+- quality gates: markdown linting plus `ruff` lint and format checks in CI
 
 ## [0.1.0] - 2026-03-17
 
@@ -17,4 +20,3 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - initial CLI generator for K-AIDF repository scaffolding
 - YAML spec validation with JSON Schema
 - packaged template library and example spec
-
