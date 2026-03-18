@@ -21,7 +21,8 @@ The root directory documents how they fit together. Each child project owns its 
 - tests pass locally with `PYTHONPATH=src python -m pytest -q`
 - schema loading no longer uses deprecated `importlib.resources.open_text`
 - bundled JSON Schema is aligned with draft-07 compatibility for current validator support
-- one unrelated local modification exists in `scripts/dev.sh`
+- `scripts/dev.sh` now recreates broken local virtual environments and runs the dev loop directly from `src/`
+- baseline generator coverage now includes generation flow, force behavior, template lookup, and unsafe-path handling
 
 ### `agent-aidf`
 
@@ -53,6 +54,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
+- generator warning cleanup, baseline test expansion, and `dev.sh` operational debugging
 
 ## Known Rough Edges
 
@@ -69,14 +71,14 @@ python -c "import app"
 
 ## Next Recommended Step
 
-Finalize repository tagging before first push, then clean up the generator rough edges:
+Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. expand `kobkob-kaidf-generator` test coverage beyond spec validation
+2. expand `kobkob-kaidf-generator` tests further around schema edge cases, template behavior, and CLI paths
 3. define the shared generated-repository contract for `agent-aidf` and `mcp-aidf`
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then generator test expansion
+local lint verification, then broader generator test and contract work
