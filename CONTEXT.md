@@ -26,6 +26,7 @@ The root directory documents how they fit together. Each child project owns its 
 - generator coverage now also includes loader/schema failures, template key normalization, and CLI success/error paths
 - an initial generated-repository contract now exists in `kobkob-kaidf-generator/docs/contract.md`
 - the contract now treats prompt documents as exposed by default for MCP indexing and plans explicit front matter for contract version 2
+- the contract now includes a concrete version 2 YAML front matter shape and metadata-driven MCP behavior plan
 
 ### `agent-aidf`
 
@@ -57,7 +58,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, `dev.sh` operational debugging, and contract refinement for downstream integration
+- generator warning cleanup, baseline test expansion, CLI coverage, `dev.sh` operational debugging, and concrete version 2 metadata planning
 
 ## Known Rough Edges
 
@@ -77,11 +78,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide the first concrete version 2 metadata schema and where it will live in generated markdown documents
+2. decide how the generator spec should express version 2 front matter so generated markdown can emit it deterministically
 3. expand generator coverage further only where the refined contract introduces new invariants
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then version 2 metadata design
+local lint verification, then generator support for version 2 metadata emission
