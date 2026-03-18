@@ -8,11 +8,14 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
-- repository initialization, contributor metadata, and development baseline
+- repository initialization as a nested Git repository on `main`
+- standard repository metadata: `.gitignore`, `CODEOWNERS`, `CONTRIBUTING.md`, and MIT license
+- development baseline: `.editorconfig`, GitHub CI, PR template, and release workflow
+- release hygiene: `RELEASING.md`, changelog maintenance, and tag-based GitHub releases
+- quality gates: markdown linting and baseline file validation in CI
 
 ## [0.1.0] - 2026-03-17
 
 ### Added
 
 - initial project definition for the K-AIDF agent
-
