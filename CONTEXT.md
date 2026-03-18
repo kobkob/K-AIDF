@@ -19,6 +19,8 @@ The root directory documents how they fit together. Each child project owns its 
 - CI, PR template, release workflow, changelog, and releasing guide are in place
 - quality gates are defined with markdown linting and `ruff`
 - tests pass locally with `PYTHONPATH=src python -m pytest -q`
+- schema loading no longer uses deprecated `importlib.resources.open_text`
+- bundled JSON Schema is aligned with draft-07 compatibility for current validator support
 - one unrelated local modification exists in `scripts/dev.sh`
 
 ### `agent-aidf`
@@ -56,8 +58,6 @@ python -c "import app"
 
 ### `kobkob-kaidf-generator`
 
-- tests emit a deprecation warning from `importlib.resources.open_text` in `src/kaidf_gen/schema.py`
-- tests emit a JSON Schema metaschema warning
 - local `ruff` checks were added to CI but were not run in this sandbox because `ruff` is not installed here
 
 ## Remote Status
@@ -71,17 +71,12 @@ python -c "import app"
 
 Finalize repository tagging before first push, then clean up the generator rough edges:
 
-1. create the initial public tags:
-   - workspace root: `v0.1.0`
-   - `agent-aidf`: `v0.1.0`
-   - `mcp-aidf`: `v0.1.0`
-   - `kobkob-kaidf-generator`: `v0.1.1`
-2. replace deprecated schema loading in `src/kaidf_gen/schema.py`
-3. fix or modernize the JSON Schema declaration to remove the metaschema warning
-4. verify the new lint/format gates locally once `ruff` is available
+1. verify the new lint/format gates locally once `ruff` is available
+2. expand `kobkob-kaidf-generator` test coverage beyond spec validation
+3. define the shared generated-repository contract for `agent-aidf` and `mcp-aidf`
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-generator warning cleanup after tag creation
+local lint verification, then generator test expansion
