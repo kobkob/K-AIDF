@@ -20,7 +20,21 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+
+      - name: Lint Python
+        run: python -m ruff check .
+
+      - name: Check Python formatting
+        run: python -m ruff format --check .
 
       - name: Validate server module
         run: |
@@ -36,4 +50,3 @@ jobs:
           generate_release_notes: true
           files: |
             mcp-aidf-*.tar.gz
-
