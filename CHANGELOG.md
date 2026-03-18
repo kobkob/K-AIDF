@@ -10,6 +10,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - removed deprecated schema loading in `src/kaidf_gen/schema.py`
 - aligned the bundled JSON Schema with draft-07 compatibility to avoid validator metaschema warnings in current environments
+- made `scripts/dev.sh` recreate stale virtual environments and use `python -m pip` instead of a brittle `pip` shim
+- removed avoidable install and network dependence from `scripts/dev.sh` by running tests and CLI commands directly from `src/`
+
+### Added
+
+- baseline generator tests for output generation, force behavior, template loading, and unsafe-path handling
 
 ## [0.1.1] - 2026-03-17
 
