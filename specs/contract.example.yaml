@@ -1,0 +1,63 @@
+contract_version: 1
+
+repository:
+  required_root_files:
+    - README.md
+    - LICENSE
+    - CODEOWNERS
+  optional_root_files:
+    - SECURITY.md
+
+  required_directories:
+    - docs/00-overview
+    - docs/01-intent-constraints
+
+document_classes:
+  core-doc:
+    description: Human-readable methodology or project document.
+    match:
+      - README.md
+      - docs/**/*.md
+
+  template-doc:
+    description: Reusable fill-in artifact.
+    match:
+      - docs/**/templates/*
+
+  prompt-doc:
+    description: Prompt input for guided execution.
+    match:
+      - docs/**/prompts/*.prompt.md
+
+  governance-doc:
+    description: Repository governance artifact.
+    match:
+      - LICENSE
+      - CODEOWNERS
+      - SECURITY.md
+
+stable_id:
+  type: repo_relative_path
+
+metadata:
+  required_front_matter: false
+
+indexing:
+  default_include:
+    - README.md
+    - docs/**/*.md
+    - docs/**/*.csv
+
+editing:
+  agent_editable:
+    - README.md
+    - docs/**/*.md
+    - docs/**/*.csv
+  protected_from_implicit_renames:
+    - README.md
+    - docs/**
+
+skills:
+  present_in_v1: false
+  reserved_path: skills/
+  note: Optional future extension for reusable workflow capabilities.
