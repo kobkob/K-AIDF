@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kobkob-kaidf-generator"
-version = "0.1.1"
+version = "0.1.2"
 description = "Generate a K-AIDF methodology repo scaffold from a YAML spec."
 readme = "README.md"
 requires-python = ">=3.10"
