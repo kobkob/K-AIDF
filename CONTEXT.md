@@ -32,6 +32,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the contract now defines a canonical doctrine package layout under `docs/00-overview/`
 - the default generator spec now emits the canonical doctrine package under `docs/00-overview/`
 - the canonical doctrine package is now explicitly version 2 and treated as a rigid-ranking anchor set in `mcp-aidf`
+- the default generator spec now also emits an initial best-practice variant package under `docs/00-overview/best-practices/`
 
 ### `agent-aidf`
 
@@ -88,11 +89,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether the generator should emit an initial best-practice variant package or keep variants as documented manual extensions
-3. formalize how `mcp-aidf` should rank domain-specific best-practice variants for specific queries without weakening canonical doctrine precedence
+2. formalize how `mcp-aidf` should rank domain-specific best-practice variants for specific queries without weakening canonical doctrine precedence
+3. decide whether doctrine variant categories should remain path-derived only or gain explicit metadata later
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine variant design and MCP ranking refinement
+local lint verification, then doctrine variant ranking and metadata refinement
