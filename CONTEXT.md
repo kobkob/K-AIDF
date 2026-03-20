@@ -30,6 +30,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the generator spec now supports deterministic front matter emission through repo defaults, section defaults, and per-file metadata
 - the generator now has a documented script surface in the README: `dev.sh`, `check.sh`, and `generate-v2-example.sh`
 - the contract now defines a canonical doctrine package layout under `docs/00-overview/`
+- the default generator spec now emits the canonical doctrine package under `docs/00-overview/`
 
 ### `agent-aidf`
 
@@ -64,7 +65,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, doctrine-aware MCP interpretation, and canonical doctrine package design
+- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, doctrine-aware MCP interpretation, canonical doctrine package design, and default doctrine emission
 
 ## Known Rough Edges
 
@@ -85,10 +86,10 @@ Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
 2. decide whether the default spec should start emitting version 2 front matter now or remain a contract-only example
-3. decide whether the default generator spec should emit the canonical doctrine package immediately or add it in a later doctrine-focused spec
+3. decide how much of the doctrine package should move into version 2 front matter and downstream MCP ranking rules
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine package emission strategy
+local lint verification, then doctrine package metadata/ranking refinement
