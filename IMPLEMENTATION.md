@@ -32,10 +32,11 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - ✅ OAuth linking flow works
 - ✅ Basic local repository-backed search/fetch implementation
 - ✅ Doctrine-aware classification over generic indexed documents
+- ✅ Rigid ranking for canonical doctrine files under `docs/00-overview/`
 - 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement
-1. Add tests for repository indexing, doctrine ranking, and fetch lookup
-2. Refine doctrine classification with explicit metadata when doctrine documents are formalized
+1. Add tests for repository indexing, rigid doctrine ranking, and fetch lookup
+2. Refine doctrine classification further as doctrine packages and best-practice variants expand
 3. Add proper logging and monitoring
 4. Support more than one repository root if needed

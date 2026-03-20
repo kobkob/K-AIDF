@@ -47,6 +47,8 @@ Doctrine-aware categories currently inferred by the server:
 - `training`
 - `general`
 
+Canonical doctrine files under `docs/00-overview/` receive rigid ranking priority for doctrine-oriented queries.
+
 ### OAuth 2.1 Authentication
 - `GET /.well-known/oauth-authorization-server` - OAuth server metadata
 - `GET /.well-known/oauth-protected-resource` - Protected resource metadata
@@ -122,7 +124,7 @@ Docker Compose also expects:
 `search`:
 - performs a simple local index scan over the configured repository root
 - searches path, title, ID, phase, class, and document body
-- returns metadata, doctrine category, doctrine priority, and a short snippet
+- returns metadata, doctrine category, canonical doctrine status, doctrine priority, detailed ranking components, and a short snippet
 
 `fetch`:
 - resolves a document by metadata `id` when front matter exists

@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - real `search` and `fetch` behavior over contract-defined K-AIDF files
 - optional front matter awareness for metadata IDs, titles, visibility, and document classes
 - doctrine-aware categories and ranking metadata derived from manifesto/governance/best-practice content
+- rigid ranking and detailed score metadata for canonical doctrine package files
 
 ## [0.1.0] - 2026-03-17
 

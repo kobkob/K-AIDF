@@ -15,15 +15,24 @@ SERVER_VERSION = "0.1.1"
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
+CANONICAL_DOCTRINE_FILES = {
+    "docs/00-overview/manifesto.md": "manifesto",
+    "docs/00-overview/principles.md": "principles",
+    "docs/00-overview/best-practices.md": "best-practices",
+    "docs/00-overview/governance.md": "governance",
+    "docs/00-overview/maturity.md": "maturity",
+    "docs/00-overview/implementation.md": "implementation",
+    "MANIFESTO.md": "manifesto",
+}
 DOCTRINE_PRIORITY = {
-    "manifesto": 100,
-    "principles": 90,
-    "governance": 80,
-    "best-practices": 75,
-    "maturity": 70,
-    "implementation": 65,
-    "training": 60,
-    "general": 10,
+    "manifesto": 1000,
+    "principles": 900,
+    "governance": 800,
+    "best-practices": 700,
+    "maturity": 600,
+    "implementation": 500,
+    "training": 400,
+    "general": 100,
 }
 
 
@@ -92,9 +101,9 @@ def _infer_document_class(rel_path: str) -> str:
 
 
 def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
+    if rel_path in CANONICAL_DOCTRINE_FILES:
+        return CANONICAL_DOCTRINE_FILES[rel_path]
     text = "\n".join([rel_path, title, body]).casefold()
-    if "manifesto" in text:
-        return "manifesto"
     if "principles" in text or "princípios" in text or "principios" in text:
         return "principles"
     if "boas práticas" in text or "best practice" in text or "best practices" in text:
@@ -112,6 +121,14 @@ def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
 
 def _doctrine_priority(category: str) -> int:
     return DOCTRINE_PRIORITY.get(category, 0)
+
+
+def _is_canonical_doctrine(rel_path: str) -> bool:
+    return rel_path in CANONICAL_DOCTRINE_FILES
+
+
+def _normalize_label(value: str) -> str:
+    return value.strip().casefold().replace(" ", "-")
 
 
 def _infer_phase(rel_path: str) -> str:
@@ -138,6 +155,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "visibility": front_matter.get("visibility", "internal"),
         "status": front_matter.get("status", "active"),
         "doctrine_category": doctrine_category,
+        "canonical_doctrine": _is_canonical_doctrine(rel_path),
         "doctrine_priority": _doctrine_priority(doctrine_category),
         "content": raw_text,
         "body": body,
@@ -153,6 +171,7 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
     query_norm = query.strip().casefold()
     if not query_norm:
         return []
+    query_label = _normalize_label(query)
     results: list[tuple[int, dict[str, Any]]] = []
     for doc in _load_index():
         haystack = "\n".join(
@@ -168,18 +187,36 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
         ).casefold()
         if query_norm not in haystack:
             continue
-        score = 0
+        score_details = {
+            "title": 0,
+            "id": 0,
+            "path": 0,
+            "body": 0,
+            "doctrine_category": 0,
+            "doctrine_exact": 0,
+            "canonical_doctrine": 0,
+            "doctrine_priority": 0,
+        }
         if query_norm in doc["title"].casefold():
-            score += 5
+            score_details["title"] = 50
         if query_norm in doc["id"].casefold():
-            score += 4
+            score_details["id"] = 40
         if query_norm in doc["path"].casefold():
-            score += 3
+            score_details["path"] = 30
         if query_norm in doc["body"].casefold():
-            score += 1
-        if query_norm in doc["doctrine_category"].casefold():
-            score += 6
-        score += min(doc["doctrine_priority"] // 20, 4)
+            score_details["body"] = 10
+        category_label = _normalize_label(doc["doctrine_category"])
+        if query_label == category_label:
+            score_details["doctrine_exact"] = 500
+        elif query_norm in doc["doctrine_category"].casefold():
+            score_details["doctrine_category"] = 150
+        if doc["canonical_doctrine"]:
+            score_details["canonical_doctrine"] = 200
+        score_details["doctrine_priority"] = doc["doctrine_priority"]
+        score = sum(score_details.values())
+        doc = dict(doc)
+        doc["ranking"] = score_details
+        doc["score"] = score
         results.append((score, doc))
     results.sort(key=lambda item: (-item[0], item[1]["path"]))
     trimmed: list[dict[str, Any]] = []
@@ -191,7 +228,10 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 "title": doc["title"],
                 "document_class": doc["document_class"],
                 "doctrine_category": doc["doctrine_category"],
+                "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
+                "score": doc["score"],
+                "ranking": doc["ranking"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],
@@ -210,6 +250,7 @@ def _fetch_document(doc_id: str) -> dict[str, Any] | None:
                 "title": doc["title"],
                 "document_class": doc["document_class"],
                 "doctrine_category": doc["doctrine_category"],
+                "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
