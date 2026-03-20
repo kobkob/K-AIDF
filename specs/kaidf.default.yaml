@@ -14,12 +14,22 @@ repo:
 sections:
   - path: "docs/00-overview"
     files:
+      - path: "manifesto.md"
+        content: "library:docs/00-overview/manifesto.md"
       - path: "kaidf.md"
         content: "library:docs/00-overview/kaidf.md"
       - path: "glossary.md"
         content: "library:docs/00-overview/glossary.md"
       - path: "principles.md"
         content: "library:docs/00-overview/principles.md"
+      - path: "best-practices.md"
+        content: "library:docs/00-overview/best-practices.md"
+      - path: "governance.md"
+        content: "library:docs/00-overview/governance.md"
+      - path: "maturity.md"
+        content: "library:docs/00-overview/maturity.md"
+      - path: "implementation.md"
+        content: "library:docs/00-overview/implementation.md"
       - path: "decision-rights.md"
         content: "library:docs/00-overview/decision-rights.md"
 

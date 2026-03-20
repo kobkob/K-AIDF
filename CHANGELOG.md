@@ -26,6 +26,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - generator support for deterministic front matter emission via repo defaults, section defaults, and per-file metadata
 - README-backed operational scripts for fast checks and version 2 example generation
 - canonical doctrine package layout defined under `docs/00-overview/` with one stable file per doctrine area
+- default generation now emits the canonical doctrine package files under `docs/00-overview/`
 
 ## [0.1.1] - 2026-03-17
 

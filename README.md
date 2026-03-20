@@ -73,7 +73,7 @@ PYTHONPATH=src python -m kaidf_gen.cli generate specs/kaidf.metadata-v2.example.
 The main specs currently in the repository are:
 
 - `specs/kaidf.default.yaml`
-  Purpose: baseline generated repository layout
+  Purpose: baseline generated repository layout, including the canonical doctrine package under `docs/00-overview/`
 
 - `specs/kaidf.metadata-v2.example.yaml`
   Purpose: example generated repository using version 2-style metadata/front matter emission
@@ -91,6 +91,7 @@ This is the current source of truth for:
 
 - stable IDs
 - document classes
+- canonical doctrine package paths
 - prompt exposure defaults
 - version 2 front matter fields
 - MCP indexing expectations

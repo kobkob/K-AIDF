@@ -16,6 +16,11 @@ def test_generate_default_spec_writes_expected_files(tmp_path: Path) -> None:
     assert target == tmp_path / "out" / "kobkob-kaidf"
     assert (target / "README.md").exists()
     assert (target / "docs/00-overview/kaidf.md").exists()
+    assert (target / "docs/00-overview/manifesto.md").exists()
+    assert (target / "docs/00-overview/best-practices.md").exists()
+    assert (target / "docs/00-overview/governance.md").exists()
+    assert (target / "docs/00-overview/maturity.md").exists()
+    assert (target / "docs/00-overview/implementation.md").exists()
     assert (target / "docs/01-intent-constraints/exit-criteria.md").read_text(encoding="utf-8").startswith(
         "# Exit Criteria"
     )
