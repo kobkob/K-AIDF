@@ -49,6 +49,20 @@ document_classes:
       - CODEOWNERS
       - SECURITY.md
 
+doctrine_package:
+  canonical_root: docs/00-overview
+  canonical_files:
+    manifesto: docs/00-overview/manifesto.md
+    principles: docs/00-overview/principles.md
+    best-practices: docs/00-overview/best-practices.md
+    governance: docs/00-overview/governance.md
+    maturity: docs/00-overview/maturity.md
+    implementation: docs/00-overview/implementation.md
+  rules:
+    one_canonical_file_per_area: true
+    best_practices_starts_generic: true
+    sector_variants_added_later: true
+
 stable_id:
   type: repo_relative_path
 

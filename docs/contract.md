@@ -123,6 +123,38 @@ This layer is useful for:
 
 The doctrine interpretation layer should be treated as derived metadata unless a future contract version makes it explicit in front matter.
 
+## Canonical Doctrine Package Layout
+
+The simplest stable doctrine model is path-based.
+
+For the first doctrine package, canonical doctrine documents should live only under:
+
+- `docs/00-overview/`
+
+Recommended canonical files:
+
+- `docs/00-overview/manifesto.md`
+- `docs/00-overview/principles.md`
+- `docs/00-overview/best-practices.md`
+- `docs/00-overview/governance.md`
+- `docs/00-overview/maturity.md`
+- `docs/00-overview/implementation.md`
+
+Rules:
+
+- each doctrine area should have exactly one canonical file at first
+- the path is the canonical anchor for doctrine classification
+- additional doctrine material may exist later, but these files remain the primary references
+- `best-practices.md` should begin as a generic KAIDF best-practices document
+- sector-specific or contract-specific best-practice variants should be added later as separate files, not by replacing the generic canonical file
+
+Why this layout:
+
+- it is deterministic for the generator
+- it is easy for `mcp-aidf` to rank and classify
+- it gives `agent-aidf` stable doctrinal anchors
+- it avoids forcing rich metadata for basic doctrine retrieval
+
 ## Stable ID Rules
 
 Until explicit front matter IDs are introduced, the stable ID for a document is its repository-relative path.
@@ -299,6 +331,7 @@ Recommended version 2 MCP behavior:
 - accept repository-relative path as a backward-compatible alias when practical
 - expose `title`, `document_class`, `phase`, `visibility`, and `status` in search result metadata
 - expose doctrine category metadata when it can be derived reliably
+- prioritize canonical doctrine package files above non-canonical supporting documents when doctrine queries are ambiguous
 
 If a deployment needs stricter visibility rules, that policy should be layered on top of this contract rather than inferred from missing metadata.
 

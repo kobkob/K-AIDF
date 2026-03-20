@@ -25,6 +25,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - a concrete version 2 front matter schema and metadata-driven MCP behavior plan
 - generator support for deterministic front matter emission via repo defaults, section defaults, and per-file metadata
 - README-backed operational scripts for fast checks and version 2 example generation
+- canonical doctrine package layout defined under `docs/00-overview/` with one stable file per doctrine area
 
 ## [0.1.1] - 2026-03-17
 
