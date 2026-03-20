@@ -60,6 +60,7 @@ doctrine_package:
     implementation: docs/00-overview/implementation.md
   rules:
     one_canonical_file_per_area: true
+    canonical_files_emit_v2_front_matter: true
     best_practices_starts_generic: true
     sector_variants_added_later: true
 

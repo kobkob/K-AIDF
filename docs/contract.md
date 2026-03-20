@@ -144,6 +144,8 @@ Rules:
 
 - each doctrine area should have exactly one canonical file at first
 - the path is the canonical anchor for doctrine classification
+- canonical doctrine files should emit version 2 front matter in generated repositories
+- canonical doctrine files should receive rigid ranking priority in `mcp-aidf`
 - additional doctrine material may exist later, but these files remain the primary references
 - `best-practices.md` should begin as a generic KAIDF best-practices document
 - sector-specific or contract-specific best-practice variants should be added later as separate files, not by replacing the generic canonical file
@@ -154,6 +156,15 @@ Why this layout:
 - it is easy for `mcp-aidf` to rank and classify
 - it gives `agent-aidf` stable doctrinal anchors
 - it avoids forcing rich metadata for basic doctrine retrieval
+
+Canonical doctrine front matter should at minimum provide:
+
+- stable `id`
+- stable `title`
+- `document_class: core-doc`
+- `phase: 00-overview`
+- explicit `visibility`
+- explicit `status`
 
 ## Stable ID Rules
 
@@ -332,6 +343,7 @@ Recommended version 2 MCP behavior:
 - expose `title`, `document_class`, `phase`, `visibility`, and `status` in search result metadata
 - expose doctrine category metadata when it can be derived reliably
 - prioritize canonical doctrine package files above non-canonical supporting documents when doctrine queries are ambiguous
+- expose whether a doctrine result is canonical and how its ranking score was composed
 
 If a deployment needs stricter visibility rules, that policy should be layered on top of this contract rather than inferred from missing metadata.
 

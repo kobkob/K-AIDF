@@ -21,6 +21,16 @@ def test_generate_default_spec_writes_expected_files(tmp_path: Path) -> None:
     assert (target / "docs/00-overview/governance.md").exists()
     assert (target / "docs/00-overview/maturity.md").exists()
     assert (target / "docs/00-overview/implementation.md").exists()
+    assert (target / "docs/00-overview/manifesto.md").read_text(encoding="utf-8").startswith(
+        "---\n"
+        "id: docs/00-overview/manifesto.md\n"
+        "title: KAIDF Manifesto\n"
+        "document_class: core-doc\n"
+        "phase: 00-overview\n"
+        "visibility: internal\n"
+        "status: active\n"
+        "---\n\n"
+    )
     assert (target / "docs/01-intent-constraints/exit-criteria.md").read_text(encoding="utf-8").startswith(
         "# Exit Criteria"
     )
