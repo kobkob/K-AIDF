@@ -12,6 +12,7 @@ The current implementation uses the simplest useful content model:
 - contract-based file selection
 - path IDs by default
 - optional front matter metadata when present
+- doctrine-aware classification layered on top of generic document classes
 
 ## Architecture
 
@@ -35,6 +36,16 @@ The current implementation uses the simplest useful content model:
 - Prompt documents are exposed by default when they live under `docs/**/prompts/`
 
 The server uses repository-relative paths as fetch IDs by default and prefers metadata IDs when front matter exists.
+
+Doctrine-aware categories currently inferred by the server:
+- `manifesto`
+- `principles`
+- `best-practices`
+- `governance`
+- `maturity`
+- `implementation`
+- `training`
+- `general`
 
 ### OAuth 2.1 Authentication
 - `GET /.well-known/oauth-authorization-server` - OAuth server metadata
@@ -111,12 +122,12 @@ Docker Compose also expects:
 `search`:
 - performs a simple local index scan over the configured repository root
 - searches path, title, ID, phase, class, and document body
-- returns metadata plus a short snippet
+- returns metadata, doctrine category, doctrine priority, and a short snippet
 
 `fetch`:
 - resolves a document by metadata `id` when front matter exists
 - falls back to repository-relative path lookup
-- returns metadata and full document content
+- returns metadata, doctrine classification, and full document content
 
 ## Security
 

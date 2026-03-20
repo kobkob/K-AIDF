@@ -13,8 +13,18 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-in-prod")
 
 SERVER_VERSION = "0.1.1"
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
-INDEXABLE_ROOT_FILES = {"README.md"}
+INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
+DOCTRINE_PRIORITY = {
+    "manifesto": 100,
+    "principles": 90,
+    "governance": 80,
+    "best-practices": 75,
+    "maturity": 70,
+    "implementation": 65,
+    "training": 60,
+    "general": 10,
+}
 
 
 def _repo_root() -> Path:
@@ -81,6 +91,29 @@ def _infer_document_class(rel_path: str) -> str:
     return "core-doc"
 
 
+def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
+    text = "\n".join([rel_path, title, body]).casefold()
+    if "manifesto" in text:
+        return "manifesto"
+    if "principles" in text or "princípios" in text or "principios" in text:
+        return "principles"
+    if "boas práticas" in text or "best practice" in text or "best practices" in text:
+        return "best-practices"
+    if "governança" in text or "governance" in text or "decision-rights" in text:
+        return "governance"
+    if "maturidade" in text or "maturity" in text:
+        return "maturity"
+    if "implementação" in text or "implementation" in text:
+        return "implementation"
+    if "treinamento" in text or "training" in text or "certificação" in text or "certification" in text:
+        return "training"
+    return "general"
+
+
+def _doctrine_priority(category: str) -> int:
+    return DOCTRINE_PRIORITY.get(category, 0)
+
+
 def _infer_phase(rel_path: str) -> str:
     if rel_path == "README.md":
         return "root"
@@ -95,6 +128,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     raw_text = file_path.read_text(encoding="utf-8")
     front_matter, body = _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
     title = front_matter.get("title") or _first_heading(body) or file_path.stem
+    doctrine_category = _infer_doctrine_category(rel_path, title, body)
     return {
         "id": front_matter.get("id", rel_path),
         "path": rel_path,
@@ -103,6 +137,8 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "phase": front_matter.get("phase", _infer_phase(rel_path)),
         "visibility": front_matter.get("visibility", "internal"),
         "status": front_matter.get("status", "active"),
+        "doctrine_category": doctrine_category,
+        "doctrine_priority": _doctrine_priority(doctrine_category),
         "content": raw_text,
         "body": body,
     }
@@ -125,6 +161,7 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 doc["path"],
                 doc["title"],
                 doc["document_class"],
+                doc["doctrine_category"],
                 doc["phase"],
                 doc["body"],
             ]
@@ -140,6 +177,9 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
             score += 3
         if query_norm in doc["body"].casefold():
             score += 1
+        if query_norm in doc["doctrine_category"].casefold():
+            score += 6
+        score += min(doc["doctrine_priority"] // 20, 4)
         results.append((score, doc))
     results.sort(key=lambda item: (-item[0], item[1]["path"]))
     trimmed: list[dict[str, Any]] = []
@@ -150,6 +190,8 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 "path": doc["path"],
                 "title": doc["title"],
                 "document_class": doc["document_class"],
+                "doctrine_category": doc["doctrine_category"],
+                "doctrine_priority": doc["doctrine_priority"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],
@@ -167,6 +209,8 @@ def _fetch_document(doc_id: str) -> dict[str, Any] | None:
                 "path": doc["path"],
                 "title": doc["title"],
                 "document_class": doc["document_class"],
+                "doctrine_category": doc["doctrine_category"],
+                "doctrine_priority": doc["doctrine_priority"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],
