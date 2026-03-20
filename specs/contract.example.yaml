@@ -62,7 +62,12 @@ doctrine_package:
     one_canonical_file_per_area: true
     canonical_files_emit_v2_front_matter: true
     best_practices_starts_generic: true
-    sector_variants_added_later: true
+    sector_variants_supported: true
+    emit_initial_variant_package: true
+  variant_examples:
+    - docs/00-overview/best-practices/seo.md
+    - docs/00-overview/best-practices/content.md
+    - docs/00-overview/best-practices/research.md
 
 stable_id:
   type: repo_relative_path
