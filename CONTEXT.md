@@ -28,6 +28,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the contract now treats prompt documents as exposed by default for MCP indexing and plans explicit front matter for contract version 2
 - the contract now includes a concrete version 2 YAML front matter shape and metadata-driven MCP behavior plan
 - the generator spec now supports deterministic front matter emission through repo defaults, section defaults, and per-file metadata
+- the generator now has a documented script surface in the README: `dev.sh`, `check.sh`, and `generate-v2-example.sh`
 
 ### `agent-aidf`
 
@@ -59,7 +60,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, `dev.sh` operational debugging, and initial version 2 metadata implementation
+- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, and initial version 2 metadata implementation
 
 ## Known Rough Edges
 
