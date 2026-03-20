@@ -193,6 +193,61 @@ Initial version 2 scope:
 
 Version 1 consumers must not assume front matter exists. Version 2 consumers should prefer explicit metadata over path inference where available.
 
+## Generator Spec Extension For Version 2 Metadata
+
+The generator spec should express front matter in three layers:
+
+- `repo.metadata_defaults`
+  Description: default metadata values applied to all generated files
+
+- `section.metadata_defaults`
+  Description: metadata values applied to files within a section
+
+- `file.front_matter`
+  Description: per-file metadata overrides and required explicit identifiers/titles
+
+Merge order:
+
+1. `repo.metadata_defaults`
+2. `section.metadata_defaults`
+3. `file.front_matter`
+
+Required-field validation happens after merge.
+
+Example:
+
+```yaml
+repo:
+  metadata_defaults:
+    visibility: internal
+    status: active
+
+sections:
+  - path: docs/01-intent-constraints
+    metadata_defaults:
+      phase: 01-intent-constraints
+    files:
+      - path: prompts/framing.prompt.md
+        content: library:docs/01-intent-constraints/prompts/framing.prompt.md
+        front_matter:
+          id: docs/01-intent-constraints/prompts/framing.prompt.md
+          title: Framing Prompt
+          document_class: prompt-doc
+```
+
+Generator rules:
+
+- front matter is emitted only for markdown files
+- non-markdown files must not declare front matter
+- all required version 2 metadata fields must exist after defaults and overrides are merged
+- the generator should preserve the contract field order in emitted front matter:
+  - `id`
+  - `title`
+  - `document_class`
+  - `phase`
+  - `visibility`
+  - `status`
+
 ## Indexing Rules For MCP
 
 `mcp-aidf` should treat these as indexable by default:

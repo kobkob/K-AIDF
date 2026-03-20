@@ -77,6 +77,100 @@ def test_generate_stringifies_inline_content(tmp_path: Path) -> None:
     assert (target / "data.txt").read_text(encoding="utf-8") == "{'a': 1}"
 
 
+def test_generate_emits_front_matter_with_defaults_and_overrides(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "metadata_defaults": {"visibility": "internal", "status": "active"},
+            "files": [],
+        },
+        "sections": [
+            {
+                "path": "docs/01-intent-constraints",
+                "metadata_defaults": {"phase": "01-intent-constraints"},
+                "files": [
+                    {
+                        "path": "prompt.md",
+                        "inline": "# Prompt\n",
+                        "front_matter": {
+                            "id": "docs/01-intent-constraints/prompt.md",
+                            "title": "Prompt",
+                            "document_class": "prompt-doc",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+    content = (target / "docs/01-intent-constraints/prompt.md").read_text(encoding="utf-8")
+
+    assert content.startswith(
+        "---\n"
+        "id: docs/01-intent-constraints/prompt.md\n"
+        "title: Prompt\n"
+        "document_class: prompt-doc\n"
+        "phase: 01-intent-constraints\n"
+        "visibility: internal\n"
+        "status: active\n"
+        "---\n\n"
+    )
+
+
+def test_generate_requires_complete_front_matter_after_merging_defaults(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {"name": "demo", "files": []},
+        "sections": [
+            {
+                "path": "docs/00-overview",
+                "files": [
+                    {
+                        "path": "kaidf.md",
+                        "inline": "# K-AIDF\n",
+                        "front_matter": {
+                            "id": "docs/00-overview/kaidf.md",
+                            "title": "K-AIDF",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    with pytest.raises(GenerationError, match="Missing front matter fields"):
+        generate(spec, tmp_path, GenerateOptions(force=False))
+
+
+def test_generate_rejects_front_matter_for_non_markdown_files(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "files": [
+                {
+                    "path": "data.csv",
+                    "inline": "a,b\n1,2\n",
+                    "front_matter": {
+                        "id": "data.csv",
+                        "title": "Data",
+                        "document_class": "template-doc",
+                        "phase": "root",
+                        "visibility": "internal",
+                        "status": "active",
+                    },
+                }
+            ],
+        },
+        "sections": [],
+    }
+
+    with pytest.raises(GenerationError, match="Front matter is only supported for markdown files"):
+        generate(spec, tmp_path, GenerateOptions(force=False))
+
+
 def test_template_library_exposes_expected_key() -> None:
     keys = list_library_keys()
 

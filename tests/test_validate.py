@@ -33,3 +33,11 @@ def test_validate_spec_reports_schema_path() -> None:
 
     with pytest.raises(SpecValidationError, match=r"repo: 'name' is a required property"):
         validate_spec(spec)
+
+
+def test_validate_spec_rejects_unknown_front_matter_fields() -> None:
+    spec = load_yaml("specs/kaidf.default.yaml")
+    spec["repo"]["files"][0]["front_matter"] = {"unknown": "value"}
+
+    with pytest.raises(SpecValidationError, match=r"repo.files.0.front_matter: Additional properties are not allowed"):
+        validate_spec(spec)

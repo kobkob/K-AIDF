@@ -28,6 +28,9 @@
           "items": {
             "$ref": "#/definitions/fileSpec"
           }
+        },
+        "metadata_defaults": {
+          "$ref": "#/definitions/frontMatterSpec"
         }
       },
       "additionalProperties": true
@@ -49,6 +52,9 @@
             "items": {
               "$ref": "#/definitions/fileSpec"
             }
+          },
+          "metadata_defaults": {
+            "$ref": "#/definitions/frontMatterSpec"
           }
         },
         "additionalProperties": true
@@ -79,9 +85,53 @@
             "null"
           ],
           "description": "Inline file content (will be stringified)."
+        },
+        "front_matter": {
+          "$ref": "#/definitions/frontMatterSpec"
         }
       },
       "additionalProperties": true
+    },
+    "frontMatterSpec": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "document_class": {
+          "type": "string",
+          "enum": [
+            "core-doc",
+            "template-doc",
+            "prompt-doc",
+            "governance-doc"
+          ]
+        },
+        "phase": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "private"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "active",
+            "deprecated",
+            "archived"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

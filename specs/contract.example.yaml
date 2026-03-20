@@ -12,6 +12,19 @@ repository:
     - docs/00-overview
     - docs/01-intent-constraints
 
+generator_spec_extension:
+  metadata_defaults:
+    supported_at:
+      - repo
+      - section
+  front_matter:
+    supported_at:
+      - file
+    merge_order:
+      - repo.metadata_defaults
+      - section.metadata_defaults
+      - file.front_matter
+
 document_classes:
   core-doc:
     description: Human-readable methodology or project document.
