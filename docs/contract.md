@@ -99,6 +99,30 @@ The contract distinguishes these classes:
   Description: repository governance artifacts
   Examples: `LICENSE`, `CODEOWNERS`, `SECURITY.md`
 
+## Doctrine Interpretation Layer
+
+The base contract document classes are intentionally small. Consumers may apply a secondary doctrine-aware interpretation layer without changing the base document class values.
+
+Recommended doctrine categories:
+
+- `manifesto`
+- `principles`
+- `best-practices`
+- `governance`
+- `maturity`
+- `implementation`
+- `training`
+- `general`
+
+This layer is useful for:
+
+- search ranking
+- result grouping
+- governance-oriented retrieval
+- future doctrine and best-practice packages
+
+The doctrine interpretation layer should be treated as derived metadata unless a future contract version makes it explicit in front matter.
+
 ## Stable ID Rules
 
 Until explicit front matter IDs are introduced, the stable ID for a document is its repository-relative path.
@@ -274,6 +298,7 @@ Recommended version 2 MCP behavior:
 - return metadata-derived `id` as the primary fetch identifier
 - accept repository-relative path as a backward-compatible alias when practical
 - expose `title`, `document_class`, `phase`, `visibility`, and `status` in search result metadata
+- expose doctrine category metadata when it can be derived reliably
 
 If a deployment needs stricter visibility rules, that policy should be layered on top of this contract rather than inferred from missing metadata.
 
