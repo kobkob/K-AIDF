@@ -4,11 +4,19 @@ A Model Context Protocol (MCP) server with OAuth 2.1 authentication for ChatGPT 
 
 ## Overview
 
-This server implements the MCP specification with OAuth authentication, providing search and fetch capabilities for AIDF content. It's designed to work with ChatGPT connectors and follows OpenAI's MCP requirements.
+This server implements the MCP specification with OAuth authentication, providing search and fetch capabilities for AIDF content. It is designed to work with ChatGPT connectors and follows OpenAI's MCP requirements.
+
+The current implementation uses the simplest useful content model:
+
+- one configured local K-AIDF repository root
+- contract-based file selection
+- path IDs by default
+- optional front matter metadata when present
 
 ## Architecture
 
 - **Flask** web server running on port 7777
+- **Single local repository root** configured by `AIDF_REPO_ROOT`
 - **Docker** containerized deployment
 - **Nginx** reverse proxy (port 80 → 7777)
 - **Cloudflare** SSL termination (443 → 80)
@@ -19,6 +27,14 @@ This server implements the MCP specification with OAuth authentication, providin
 - `POST /mcp` - Main MCP JSON-RPC endpoint
   - Methods: `initialize`, `tools/list`, `tools/call`
   - Tools: `search`, `fetch`
+
+### Indexed Content Model
+- Root file: `README.md`
+- Documents under `docs/**/*.md`
+- CSV templates under `docs/**/*.csv`
+- Prompt documents are exposed by default when they live under `docs/**/prompts/`
+
+The server uses repository-relative paths as fetch IDs by default and prefers metadata IDs when front matter exists.
 
 ### OAuth 2.1 Authentication
 - `GET /.well-known/oauth-authorization-server` - OAuth server metadata
@@ -53,6 +69,9 @@ curl -X POST -H "Authorization: Bearer <token>" \
 ## Deployment
 
 ```bash
+# Provide a generated K-AIDF repository on the host first
+export AIDF_REPO_HOST_PATH=/absolute/path/to/kobkob-kaidf
+
 # Build and run
 docker compose up --build -d
 
@@ -67,6 +86,10 @@ docker compose logs -f
 
 Environment variables in `docker-compose.yml`:
 - `SECRET_KEY` - Flask session secret
+- `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
+
+Docker Compose also expects:
+- `AIDF_REPO_HOST_PATH` - host path mounted read-only into the container at `/data/kaidf-repo`
 
 ## Compliance
 
@@ -82,6 +105,18 @@ Environment variables in `docker-compose.yml`:
 - `docker-compose.yml` - Service orchestration
 - `requirements.txt` - Python dependencies
 - `README.md` - This documentation
+
+## Behavior
+
+`search`:
+- performs a simple local index scan over the configured repository root
+- searches path, title, ID, phase, class, and document body
+- returns metadata plus a short snippet
+
+`fetch`:
+- resolves a document by metadata `id` when front matter exists
+- falls back to repository-relative path lookup
+- returns metadata and full document content
 
 ## Security
 

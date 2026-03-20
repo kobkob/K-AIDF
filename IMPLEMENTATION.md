@@ -30,11 +30,11 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 ## Current Status
 - ✅ Successfully creates ChatGPT connectors
 - ✅ OAuth linking flow works
-- ✅ Basic search/fetch tool stubs implemented
-- 🔄 Tools return placeholder data (ready for real implementation)
+- ✅ Basic local repository-backed search/fetch implementation
+- 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement
-1. Connect search tool to actual AIDF content source
-2. Implement real document fetching
-3. Add proper error handling for tool failures
-4. Add logging and monitoring
+1. Expand indexing rules with richer metadata and doctrine-aware behaviors
+2. Add tests for repository indexing, search ranking, and fetch lookup
+3. Add proper logging and monitoring
+4. Support more than one repository root if needed

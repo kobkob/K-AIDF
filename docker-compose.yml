@@ -5,3 +5,6 @@ services:
       - "7777:7777"
     environment:
       - SECRET_KEY=your-secret-key-here
+      - AIDF_REPO_ROOT=/data/kaidf-repo
+    volumes:
+      - ${AIDF_REPO_HOST_PATH:-./sample-kaidf}:/data/kaidf-repo:ro

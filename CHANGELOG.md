@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- single-repository local indexing model driven by `AIDF_REPO_ROOT`
+- real `search` and `fetch` behavior over contract-defined K-AIDF files
+- optional front matter awareness for metadata IDs, titles, visibility, and document classes
+
 ## [0.1.0] - 2026-03-17
 
 ### Added
