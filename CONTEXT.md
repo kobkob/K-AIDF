@@ -44,6 +44,7 @@ The root directory documents how they fit together. Each child project owns its 
 - quality gates are defined with markdown linting and `ruff`
 - now implements the simplest useful content model: one configured local K-AIDF repository root
 - real `search` and `fetch` behavior now work over contract-defined files with optional front matter awareness
+- now applies a doctrine-aware interpretation layer for manifesto, principles, best practices, governance, maturity, implementation, and training content
 - local runtime validation passes with:
 
 ```bash
@@ -62,7 +63,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, and first real MCP content model
+- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, and doctrine-aware MCP interpretation
 
 ## Known Rough Edges
 
@@ -83,10 +84,10 @@ Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
 2. decide whether the default spec should start emitting version 2 front matter now or remain a contract-only example
-3. extend `mcp-aidf` from the generic single-repository model into doctrine-aware indexing and best-practice document handling
+3. refine doctrine-aware MCP behavior with explicit doctrine documents and best-practice packages as they are formalized
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine-aware MCP refinement
+local lint verification, then explicit doctrine package design
