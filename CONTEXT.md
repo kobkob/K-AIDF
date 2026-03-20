@@ -48,6 +48,8 @@ The root directory documents how they fit together. Each child project owns its 
 - now implements the simplest useful content model: one configured local K-AIDF repository root
 - real `search` and `fetch` behavior now work over contract-defined files with optional front matter awareness
 - now applies a doctrine-aware interpretation layer for manifesto, principles, best practices, governance, maturity, implementation, and training content
+- explicit tests now cover doctrine ranking, canonical doctrine fetch behavior, and MCP search result metadata
+- the canonical generic doctrine package now has a first variant path model for sector-specific best-practice documents under `docs/00-overview/best-practices/`
 - local runtime validation passes with:
 
 ```bash
@@ -86,11 +88,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. add explicit tests on the `mcp-aidf` side for doctrine ranking and canonical doctrine fetch behavior
-3. design the first sector-specific best-practice variants without breaking the canonical generic package
+2. decide whether the generator should emit an initial best-practice variant package or keep variants as documented manual extensions
+3. formalize how `mcp-aidf` should rank domain-specific best-practice variants for specific queries without weakening canonical doctrine precedence
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then MCP doctrine test coverage and package expansion
+local lint verification, then doctrine variant design and MCP ranking refinement
