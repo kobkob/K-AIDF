@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - aligned the bundled JSON Schema with draft-07 compatibility to avoid validator metaschema warnings in current environments
 - made `scripts/dev.sh` recreate stale virtual environments and use `python -m pip` instead of a brittle `pip` shim
 - removed avoidable install and network dependence from `scripts/dev.sh` by running tests and CLI commands directly from `src/`
+- prevented duplicate markdown front matter emission by rejecting stacked metadata blocks and normalizing the bundled prompt template
 
 ### Added
 
@@ -21,6 +22,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - contract refinement to expose prompt documents by default and define explicit front matter as a version 2 plan
 - a concrete version 2 front matter schema and metadata-driven MCP behavior plan
 - generator support for deterministic front matter emission via repo defaults, section defaults, and per-file metadata
+- README-backed operational scripts for fast checks and version 2 example generation
 
 ## [0.1.1] - 2026-03-17
 

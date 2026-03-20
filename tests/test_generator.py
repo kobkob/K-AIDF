@@ -171,6 +171,33 @@ def test_generate_rejects_front_matter_for_non_markdown_files(tmp_path: Path) ->
         generate(spec, tmp_path, GenerateOptions(force=False))
 
 
+def test_generate_rejects_duplicate_front_matter_blocks(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "files": [
+                {
+                    "path": "prompt.md",
+                    "inline": "---\nlegacy: true\n---\n# Prompt\n",
+                    "front_matter": {
+                        "id": "prompt.md",
+                        "title": "Prompt",
+                        "document_class": "prompt-doc",
+                        "phase": "root",
+                        "visibility": "internal",
+                        "status": "active",
+                    },
+                }
+            ],
+        },
+        "sections": [],
+    }
+
+    with pytest.raises(GenerationError, match="Content already contains front matter"):
+        generate(spec, tmp_path, GenerateOptions(force=False))
+
+
 def test_template_library_exposes_expected_key() -> None:
     keys = list_library_keys()
 

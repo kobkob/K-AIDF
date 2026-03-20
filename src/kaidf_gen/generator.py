@@ -83,7 +83,10 @@ def _write_file(
     rel_path = file_spec["path"]
     out_path = safe_join(out_dir, rel_path)
     front_matter = _resolve_front_matter(rel_path, repo_metadata_defaults, section_metadata_defaults, file_spec)
-    content = _render_front_matter(front_matter) + _resolve_content(file_spec)
+    content = _resolve_content(file_spec)
+    if front_matter and content.startswith("---\n"):
+        raise GenerationError(f"Content already contains front matter: {rel_path}")
+    content = _render_front_matter(front_matter) + content
 
     write_text(out_path, content)
 
