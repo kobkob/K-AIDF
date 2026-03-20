@@ -29,6 +29,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the contract now includes a concrete version 2 YAML front matter shape and metadata-driven MCP behavior plan
 - the generator spec now supports deterministic front matter emission through repo defaults, section defaults, and per-file metadata
 - the generator now has a documented script surface in the README: `dev.sh`, `check.sh`, and `generate-v2-example.sh`
+- the contract now defines a canonical doctrine package layout under `docs/00-overview/`
 
 ### `agent-aidf`
 
@@ -63,7 +64,7 @@ python -c "import app"
 - development baseline with `.editorconfig`, CI, and PR templates
 - release baseline with changelogs, releasing guides, and tag-driven release workflows
 - CI quality gates with markdown linting and repo-appropriate validation
-- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, and doctrine-aware MCP interpretation
+- generator warning cleanup, baseline test expansion, CLI coverage, documented operational scripts, initial version 2 metadata implementation, doctrine-aware MCP interpretation, and canonical doctrine package design
 
 ## Known Rough Edges
 
@@ -84,10 +85,10 @@ Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
 2. decide whether the default spec should start emitting version 2 front matter now or remain a contract-only example
-3. refine doctrine-aware MCP behavior with explicit doctrine documents and best-practice packages as they are formalized
+3. decide whether the default generator spec should emit the canonical doctrine package immediately or add it in a later doctrine-focused spec
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then explicit doctrine package design
+local lint verification, then doctrine package emission strategy
