@@ -15,6 +15,12 @@ pip install -r requirements.txt
 AIDF_REPO_ROOT=/absolute/path/to/kobkob-kaidf python app.py
 ```
 
+For local tests:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
 ## Scope
 
 - keep MCP protocol behavior and OAuth handling explicit

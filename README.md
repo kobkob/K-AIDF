@@ -131,6 +131,28 @@ Docker Compose also expects:
 - falls back to repository-relative path lookup
 - returns metadata, doctrine classification, and full document content
 
+## Canonical Doctrine And Variants
+
+The canonical doctrine package is expected under `docs/00-overview/`.
+
+Canonical files:
+- `manifesto.md`
+- `principles.md`
+- `best-practices.md`
+- `governance.md`
+- `maturity.md`
+- `implementation.md`
+
+Recommended first variant model:
+- keep `docs/00-overview/best-practices.md` as the generic canonical file
+- add sector-specific variants under `docs/00-overview/best-practices/`
+- use one file per domain, for example:
+  - `docs/00-overview/best-practices/seo.md`
+  - `docs/00-overview/best-practices/content.md`
+  - `docs/00-overview/best-practices/research.md`
+
+This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later.
+
 ## Security
 
 - OAuth 2.1 with PKCE for secure authentication
