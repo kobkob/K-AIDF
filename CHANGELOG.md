@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-03-20
+
 ### Added
 
 - ethical-model doctrine pack plan in the contract and machine-readable contract example
