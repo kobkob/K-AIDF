@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Added
+
+- root workspace automation via `Makefile`, shared env scripts, and `.env.example`
+
 ## [0.1.3] - 2026-03-20
 
 ### Added

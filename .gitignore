@@ -5,6 +5,11 @@
 *.swo
 *~
 .venv/
+/scripts/*.env
+/.env
+/kobkob-kaidf-generator/out/
+/kobkob-kaidf-generator/out-ethical/
+/kobkob-kaidf-generator/out-maturity/
 /agent-aidf/
 /kobkob-kaidf-generator/
 /mcp-aidf/

@@ -68,11 +68,41 @@ If shared contracts become necessary, keep them small and explicit:
 - this root directory serves as workspace documentation, not as the primary source tree for any one component
 - cross-project changes should be coordinated by updating the relevant child repositories, not by collapsing the projects into one codebase
 
+## Workspace Automation
+
+The root workspace now includes:
+
+- `Makefile`
+  Purpose: common entrypoints for tests, canonical generator scripts, agent shell launch, and MCP Docker control
+
+- `scripts/env-common.sh`
+  Purpose: shared workspace environment defaults
+
+- `scripts/load-agent-env.sh`
+  Purpose: load the environment needed to run `agent-aidf`
+
+- `scripts/load-mcp-env.sh`
+  Purpose: load the environment needed to run `mcp-aidf`
+
+- `.env.example`
+  Purpose: example values for workspace-level environment configuration
+
+Typical commands:
+
+```bash
+make test-all
+make generate-default
+make agent-shell
+make mcp-up
+```
+
+If needed, copy `.env.example` to `.env` and fill in local values such as `OPENAI_API_KEY`, `KAIDF_GENERATED_REPO`, and `SECRET_KEY`.
+
 ## Current State
 
 - `kobkob-kaidf-generator` is the most complete component today
-- `mcp-aidf` is a functional prototype with placeholder search and fetch behavior
-- `agent-aidf` is currently a project stub with direction documented in its README
+- `mcp-aidf` is a functional MCP server over generated K-AIDF repositories
+- `agent-aidf` now has a terminal-first shell with a real AI controller path and metadata-aware commands
 
 ## Suggested Next Steps
 
@@ -80,4 +110,3 @@ If shared contracts become necessary, keep them small and explicit:
 - define a small shared contract for generated document IDs and metadata
 - decide whether `mcp-aidf` reads directly from generated repositories or from a separate indexed store
 - implement `agent-aidf` against the generated K-AIDF structure rather than duplicating repository semantics
-

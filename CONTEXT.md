@@ -12,6 +12,12 @@ The root directory documents how they fit together. Each child project owns its 
 
 ## Current State
 
+### Workspace Root
+
+- now includes a root `Makefile` for tests, canonical generator scripts, agent launch, and MCP Docker control
+- now includes shared env-loading scripts for `agent-aidf` and `mcp-aidf`
+- `.env.example` documents the workspace-level variables needed to run the shell and the MCP server consistently
+
 ### `kobkob-kaidf-generator`
 
 - branch: `main`
@@ -74,6 +80,7 @@ python -c "import app"
 
 - root workspace documentation and MIT license
 - root repository standards and release guidance
+- root automation layer with `Makefile`, shared env scripts, and `.env.example`
 - nested repository initialization for `agent-aidf` and `mcp-aidf`
 - branch normalization to `main`
 - `.gitignore` baselines
