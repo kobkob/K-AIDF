@@ -53,6 +53,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the canonical generic doctrine package now has a starter variant path model for sector-specific best-practice documents under `docs/00-overview/best-practices/`
 - starter variant ranking is now explicit: generic best-practice queries keep the canonical file first, while domain-specific queries can prefer a matching starter variant
 - starter variant identity is now an explicit path-derived rule, not a separate metadata layer
+- starter variants remain part of the default generated baseline; future doctrine packs should extend that baseline rather than replace it
 - local runtime validation passes with:
 
 ```bash
@@ -91,11 +92,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether starter variants should stay generator defaults or move into optional doctrine packs later
-3. decide whether additional starter variants are useful before introducing optional doctrine packs
+2. decide whether additional starter variants are useful before introducing optional doctrine packs
+3. define the structure and scope of the first additive doctrine pack
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine variant packaging refinement
+local lint verification, then additive doctrine-pack design
