@@ -32,7 +32,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the contract now defines a canonical doctrine package layout under `docs/00-overview/`
 - the default generator spec now emits the canonical doctrine package under `docs/00-overview/`
 - the canonical doctrine package is now explicitly version 2 and treated as a rigid-ranking anchor set in `mcp-aidf`
-- the default generator spec now also emits an initial best-practice variant package under `docs/00-overview/best-practices/`
+- the default generator spec now also emits a starter best-practice variant package under `docs/00-overview/best-practices/` as initial example material
 
 ### `agent-aidf`
 
@@ -50,7 +50,7 @@ The root directory documents how they fit together. Each child project owns its 
 - real `search` and `fetch` behavior now work over contract-defined files with optional front matter awareness
 - now applies a doctrine-aware interpretation layer for manifesto, principles, best practices, governance, maturity, implementation, and training content
 - explicit tests now cover doctrine ranking, canonical doctrine fetch behavior, and MCP search result metadata
-- the canonical generic doctrine package now has a first variant path model for sector-specific best-practice documents under `docs/00-overview/best-practices/`
+- the canonical generic doctrine package now has a starter variant path model for sector-specific best-practice documents under `docs/00-overview/best-practices/`
 - local runtime validation passes with:
 
 ```bash
