@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-20
+
+### Added
+
+- workspace context tracking for ethical-model pack planning, packaging, and MCP integration
+
 ## [0.1.2] - 2026-03-20
 
 ### Added
