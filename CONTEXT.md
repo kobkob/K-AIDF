@@ -52,6 +52,7 @@ The root directory documents how they fit together. Each child project owns its 
 - explicit tests now cover doctrine ranking, canonical doctrine fetch behavior, and MCP search result metadata
 - the canonical generic doctrine package now has a starter variant path model for sector-specific best-practice documents under `docs/00-overview/best-practices/`
 - starter variant ranking is now explicit: generic best-practice queries keep the canonical file first, while domain-specific queries can prefer a matching starter variant
+- starter variant identity is now an explicit path-derived rule, not a separate metadata layer
 - local runtime validation passes with:
 
 ```bash
@@ -90,11 +91,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether doctrine variant categories should remain path-derived only or gain explicit metadata later
-3. decide whether starter variants should stay generator defaults or move into optional doctrine packs later
+2. decide whether starter variants should stay generator defaults or move into optional doctrine packs later
+3. decide whether additional starter variants are useful before introducing optional doctrine packs
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine variant metadata and packaging refinement
+local lint verification, then doctrine variant packaging refinement
