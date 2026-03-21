@@ -156,7 +156,7 @@ Recommended starter variant path model:
 - `docs/00-overview/best-practices/content.md`
 - `docs/00-overview/best-practices/research.md`
 
-The default generated repository may emit this starter variant package so downstream tools have stable examples to index and rank. These starter variants are examples, not fixed doctrine requirements.
+The default generated repository should emit this starter variant package so downstream tools have stable examples to index and rank. These starter variants are examples, not fixed doctrine requirements, and future doctrine packs should extend this baseline rather than replace it.
 
 Variant rules:
 
