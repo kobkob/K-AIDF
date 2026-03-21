@@ -4,7 +4,7 @@ import shlex
 from argparse import Namespace
 from pathlib import Path
 
-from .controller import NullChatController
+from .controller import build_controller
 from .repo import filter_documents, find_documents, get_document, list_packs, load_documents
 
 
@@ -73,7 +73,7 @@ def _print_open(repo_root: Path, ref: str) -> int:
 
 
 def run_shell(repo_root: Path) -> int:
-    controller = NullChatController()
+    controller = build_controller()
     print("agent-aidf shell")
     print("type 'help' for commands, 'quit' to exit")
     while True:
@@ -101,7 +101,7 @@ def run_shell(repo_root: Path) -> int:
             _print_open(repo_root, parts[1])
             continue
         if command == "chat" and len(parts) >= 2:
-            print(controller.chat(" ".join(parts[1:])))
+            print(controller.chat(" ".join(parts[1:]), repo_root))
             continue
         if command == "docs":
             namespace = Namespace(

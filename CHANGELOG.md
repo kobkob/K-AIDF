@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - interactive shell with `packs`, `docs`, `find`, and `open`
 - operational scripts for shell and metadata consumption
 - CLI tests for basic repository navigation flows
+- OpenAI Responses API controller integration with stub fallback and conversation continuity support
 
 ## [0.1.0] - 2026-03-17
 

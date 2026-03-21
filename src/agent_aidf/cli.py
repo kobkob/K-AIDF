@@ -4,7 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
-from .controller import NullChatController
+from .controller import build_controller
 from .repo import filter_documents, find_documents, get_document, list_packs, load_documents, resolve_repo_root
 from .shell import run_shell
 
@@ -77,8 +77,8 @@ def _cmd_open(repo_root: Path, ref: str) -> int:
     return 0
 
 
-def _cmd_chat(prompt: str) -> int:
-    print(NullChatController().chat(prompt))
+def _cmd_chat(repo_root: Path, prompt: str) -> int:
+    print(build_controller().chat(prompt, repo_root))
     return 0
 
 
@@ -96,7 +96,7 @@ def main() -> int:
     if args.command == "open":
         return _cmd_open(repo_root, args.ref)
     if args.command == "chat":
-        return _cmd_chat(args.prompt)
+        return _cmd_chat(repo_root, args.prompt)
     if args.command == "shell":
         return run_shell(repo_root)
     parser.error(f"Unknown command: {args.command}")

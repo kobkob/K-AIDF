@@ -201,6 +201,7 @@ def find_documents(documents: list[Document], query: str) -> list[Document]:
     query_norm = query.strip().casefold()
     if not query_norm:
         return []
+    query_terms = [term for term in query_norm.replace("-", " ").split() if len(term) >= 3]
     matches: list[Document] = []
     for doc in documents:
         haystack = "\n".join(
@@ -217,7 +218,7 @@ def find_documents(documents: list[Document], query: str) -> list[Document]:
                 doc.body,
             ]
         ).casefold()
-        if query_norm in haystack:
+        if query_norm in haystack or any(term in haystack for term in query_terms):
             matches.append(doc)
     return matches
 

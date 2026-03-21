@@ -9,7 +9,7 @@ This first version is a CLI and interactive shell connected to repository metada
 It does three things:
 - loads a local generated K-AIDF repository
 - exposes doctrine-pack metadata through commands and scripts
-- provides a simple interactive shell that can evolve into an AI chat controller later
+- provides a terminal shell backed by a real AI controller when configured
 
 ## Commands
 
@@ -21,6 +21,16 @@ It does three things:
 - `agent-aidf shell`
 
 The CLI reads the repository from `--repo`, `AIDF_REPO_ROOT`, or the current directory.
+
+## AI Controller
+
+The shell and `chat` command use:
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (default: `gpt-5`)
+- `OPENAI_BASE_URL` (default: `https://api.openai.com/v1`)
+- `AIDF_CHAT_INSTRUCTIONS` for custom developer instructions
+
+If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller instead of failing.
 
 ## Scripts
 
@@ -49,6 +59,7 @@ The CLI reads the repository from `--repo`, `AIDF_REPO_ROOT`, or the current dir
   - `risk_type`
 - interactive shell with `packs`, `docs`, `find`, `open`, and `quit`
 - explicit AI chat-controller boundary with a safe stub implementation for now
+- OpenAI Responses API controller integration with repository-aware prompt context
 
 ## Next Layer
 
