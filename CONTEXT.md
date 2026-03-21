@@ -42,8 +42,11 @@ The root directory documents how they fit together. Each child project owns its 
 
 - initialized as a nested Git repository on `main`
 - repository metadata, CI, PR template, changelog, and releasing guide are in place
-- current CI checks baseline documentation and markdown quality
-- still a project stub with README-level definition
+- now has a Python CLI package with a terminal-first shell
+- repository metadata can be loaded and filtered by pack, phase, ethical domain, maturity level, assessment type, and risk type
+- includes a safe AI chat-controller stub so the shell/controller boundary is explicit before real API integration
+- operational scripts now expose the shell and metadata commands directly
+- local tests pass with `PYTHONPATH=src python -m pytest -q`
 
 ### `mcp-aidf`
 
@@ -98,11 +101,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether `agent-aidf` should start consuming doctrine-pack metadata directly
+2. replace the `agent-aidf` controller stub with the first real AI chat-controller integration
 3. define the next additive doctrine pack after ethical-model
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then doctrine-pack use in agent-aidf
+local lint verification, then real AI controller wiring in agent-aidf
