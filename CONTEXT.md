@@ -44,7 +44,7 @@ The root directory documents how they fit together. Each child project owns its 
 - repository metadata, CI, PR template, changelog, and releasing guide are in place
 - now has a Python CLI package with a terminal-first shell
 - repository metadata can be loaded and filtered by pack, phase, ethical domain, maturity level, assessment type, and risk type
-- includes a safe AI chat-controller stub so the shell/controller boundary is explicit before real API integration
+- now includes a real OpenAI Responses API controller path with a safe stub fallback when no API key is configured
 - operational scripts now expose the shell and metadata commands directly
 - local tests pass with `PYTHONPATH=src python -m pytest -q`
 
@@ -101,11 +101,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. replace the `agent-aidf` controller stub with the first real AI chat-controller integration
+2. decide how the real `agent-aidf` controller should select and inject document context more intentionally
 3. define the next additive doctrine pack after ethical-model
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then real AI controller wiring in agent-aidf
+local lint verification, then controller-context refinement in agent-aidf
