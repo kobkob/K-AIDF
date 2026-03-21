@@ -52,6 +52,19 @@ class McpAidfIndexingTests(unittest.TestCase):
             "Governance rules and governance structure.\n",
         )
         _write(
+            self.repo_root / "docs/00-overview/maturity.md",
+            "---\n"
+            "id: docs/00-overview/maturity.md\n"
+            "title: Maturity\n"
+            "document_class: core-doc\n"
+            "phase: 00-overview\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "---\n\n"
+            "# Maturity\n\n"
+            "Overview maturity guidance and maturity model introduction.\n",
+        )
+        _write(
             self.repo_root / "docs/00-overview/best-practices.md",
             "---\n"
             "id: docs/00-overview/best-practices.md\n"
@@ -108,6 +121,51 @@ class McpAidfIndexingTests(unittest.TestCase):
             "# Prompt\n\n"
             "Analyze intent and constraints.\n",
         )
+        _write(
+            self.repo_root / "docs/10-maturity-model/levels/01-experimental.md",
+            "---\n"
+            "id: docs/10-maturity-model/levels/01-experimental.md\n"
+            "title: Experimental\n"
+            "document_class: core-doc\n"
+            "phase: 10-maturity-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: maturity-model\n"
+            "maturity_level: experimental\n"
+            "---\n\n"
+            "# Experimental\n\n"
+            "Early maturity level with strong supervision needs.\n",
+        )
+        _write(
+            self.repo_root / "docs/10-maturity-model/levels/04-managed.md",
+            "---\n"
+            "id: docs/10-maturity-model/levels/04-managed.md\n"
+            "title: Managed\n"
+            "document_class: core-doc\n"
+            "phase: 10-maturity-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: maturity-model\n"
+            "maturity_level: managed\n"
+            "---\n\n"
+            "# Managed\n\n"
+            "Managed maturity level with cross-team governance.\n",
+        )
+        _write(
+            self.repo_root / "docs/10-maturity-model/assessment/checklist.md",
+            "---\n"
+            "id: docs/10-maturity-model/assessment/checklist.md\n"
+            "title: Maturity Assessment Checklist\n"
+            "document_class: core-doc\n"
+            "phase: 10-maturity-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: maturity-model\n"
+            "assessment_type: checklist\n"
+            "---\n\n"
+            "# Maturity Assessment Checklist\n\n"
+            "Checklist for evidence and review controls.\n",
+        )
 
     def tearDown(self) -> None:
         if self.previous_repo_root is None:
@@ -151,6 +209,32 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["doctrine_exact"], 500)
         self.assertGreater(results[0]["score"], results[1]["score"])
 
+    def test_search_keeps_canonical_maturity_file_first_for_generic_maturity_query(self) -> None:
+        results = app._search_documents("maturity", 10)
+
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0]["path"], "docs/00-overview/maturity.md")
+        self.assertTrue(results[0]["canonical_doctrine"])
+        self.assertIsNone(results[0]["pack"])
+        self.assertEqual(results[1]["pack"], "maturity-model")
+
+    def test_search_ranks_maturity_level_doc_first_for_level_query(self) -> None:
+        results = app._search_documents("managed", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/10-maturity-model/levels/04-managed.md")
+        self.assertEqual(results[0]["pack"], "maturity-model")
+        self.assertEqual(results[0]["maturity_level"], "managed")
+        self.assertEqual(results[0]["ranking"]["maturity_level_exact"], 420)
+
+    def test_search_ranks_assessment_doc_first_for_assessment_query(self) -> None:
+        results = app._search_documents("checklist", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/10-maturity-model/assessment/checklist.md")
+        self.assertEqual(results[0]["assessment_type"], "checklist")
+        self.assertEqual(results[0]["ranking"]["assessment_exact"], 180)
+
     def test_fetch_supports_canonical_path_lookup(self) -> None:
         doc = app._fetch_document("docs/00-overview/governance.md")
 
@@ -160,6 +244,16 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertTrue(doc["canonical_doctrine"])
         self.assertEqual(doc["doctrine_category"], "governance")
         self.assertIsNone(doc["variant_domain"])
+        self.assertIsNone(doc["pack"])
+
+    def test_fetch_returns_maturity_pack_metadata(self) -> None:
+        doc = app._fetch_document("docs/10-maturity-model/levels/01-experimental.md")
+
+        self.assertIsNotNone(doc)
+        assert doc is not None
+        self.assertEqual(doc["pack"], "maturity-model")
+        self.assertEqual(doc["maturity_level"], "experimental")
+        self.assertIsNone(doc["assessment_type"])
 
     def test_mcp_tools_call_returns_ranking_metadata(self) -> None:
         client = app.app.test_client()

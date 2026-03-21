@@ -39,6 +39,13 @@ STARTER_VARIANT_DOMAINS = {
     "docs/00-overview/best-practices/content.md": "content",
     "docs/00-overview/best-practices/research.md": "research",
 }
+MATURITY_LEVEL_PRIORITY = {
+    "experimental": 100,
+    "assisted": 200,
+    "operational": 300,
+    "managed": 400,
+    "transformative": 500,
+}
 
 
 def _repo_root() -> Path:
@@ -140,6 +147,27 @@ def _variant_domain(rel_path: str) -> str | None:
     return STARTER_VARIANT_DOMAINS.get(rel_path)
 
 
+def _pack_name(front_matter: dict[str, Any]) -> str | None:
+    pack = front_matter.get("pack")
+    if isinstance(pack, str) and pack.strip():
+        return pack.strip()
+    return None
+
+
+def _maturity_level(front_matter: dict[str, Any]) -> str | None:
+    level = front_matter.get("maturity_level")
+    if isinstance(level, str) and level.strip():
+        return level.strip()
+    return None
+
+
+def _assessment_type(front_matter: dict[str, Any]) -> str | None:
+    assessment_type = front_matter.get("assessment_type")
+    if isinstance(assessment_type, str) and assessment_type.strip():
+        return assessment_type.strip()
+    return None
+
+
 def _infer_phase(rel_path: str) -> str:
     if rel_path == "README.md":
         return "root"
@@ -156,6 +184,9 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     title = front_matter.get("title") or _first_heading(body) or file_path.stem
     doctrine_category = _infer_doctrine_category(rel_path, title, body)
     variant_domain = _variant_domain(rel_path)
+    pack = _pack_name(front_matter)
+    maturity_level = _maturity_level(front_matter)
+    assessment_type = _assessment_type(front_matter)
     return {
         "id": front_matter.get("id", rel_path),
         "path": rel_path,
@@ -168,6 +199,9 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "canonical_doctrine": _is_canonical_doctrine(rel_path),
         "doctrine_priority": _doctrine_priority(doctrine_category),
         "variant_domain": variant_domain,
+        "pack": pack,
+        "maturity_level": maturity_level,
+        "assessment_type": assessment_type,
         "content": raw_text,
         "body": body,
     }
@@ -193,6 +227,9 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 doc["document_class"],
                 doc["doctrine_category"],
                 doc["variant_domain"] or "",
+                doc["pack"] or "",
+                doc["maturity_level"] or "",
+                doc["assessment_type"] or "",
                 doc["phase"],
                 doc["body"],
             ]
@@ -210,6 +247,12 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
             "doctrine_priority": 0,
             "variant_exact": 0,
             "variant_partial": 0,
+            "pack_exact": 0,
+            "pack_partial": 0,
+            "maturity_level_exact": 0,
+            "maturity_level_partial": 0,
+            "assessment_exact": 0,
+            "assessment_partial": 0,
         }
         if query_norm in doc["title"].casefold():
             score_details["title"] = 50
@@ -234,6 +277,27 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 score_details["variant_exact"] = 450
             elif query_norm in variant_domain.casefold():
                 score_details["variant_partial"] = 120
+        pack = doc["pack"]
+        if pack:
+            pack_label = _normalize_label(pack)
+            if query_label == pack_label:
+                score_details["pack_exact"] = 250
+            elif query_norm in pack.casefold():
+                score_details["pack_partial"] = 90
+        maturity_level = doc["maturity_level"]
+        if maturity_level:
+            level_label = _normalize_label(maturity_level)
+            if query_label == level_label:
+                score_details["maturity_level_exact"] = 420
+            elif query_norm in maturity_level.casefold():
+                score_details["maturity_level_partial"] = 140
+        assessment_type = doc["assessment_type"]
+        if assessment_type:
+            assessment_label = _normalize_label(assessment_type)
+            if query_label == assessment_label:
+                score_details["assessment_exact"] = 180
+            elif query_norm in assessment_type.casefold():
+                score_details["assessment_partial"] = 80
         score = sum(score_details.values())
         doc = dict(doc)
         doc["ranking"] = score_details
@@ -252,6 +316,9 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
                 "variant_domain": doc["variant_domain"],
+                "pack": doc["pack"],
+                "maturity_level": doc["maturity_level"],
+                "assessment_type": doc["assessment_type"],
                 "score": doc["score"],
                 "ranking": doc["ranking"],
                 "phase": doc["phase"],
@@ -275,6 +342,9 @@ def _fetch_document(doc_id: str) -> dict[str, Any] | None:
                 "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
                 "variant_domain": doc["variant_domain"],
+                "pack": doc["pack"],
+                "maturity_level": doc["maturity_level"],
+                "assessment_type": doc["assessment_type"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],
