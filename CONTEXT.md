@@ -35,6 +35,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the default generator spec now also emits a starter best-practice variant package under `docs/00-overview/best-practices/` as initial example material
 - an additive maturity-model doctrine pack design now exists, with a concrete example spec and pack-specific metadata fields
 - the maturity-model doctrine pack is now a first-class optional pack with packaged templates and a dedicated generation script
+- an ethical-model doctrine pack plan now exists, with a concrete example spec and pack-specific ethics, control, and risk metadata fields
 
 ### `agent-aidf`
 
@@ -95,11 +96,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. define the next additive doctrine pack after maturity-model
+2. decide whether the ethical-model pack should be packaged as a first-class optional pack next
 3. decide whether `agent-aidf` should start consuming doctrine-pack metadata directly
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then next doctrine-pack design
+local lint verification, then ethical-model pack packaging
