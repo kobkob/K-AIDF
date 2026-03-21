@@ -26,6 +26,9 @@ The repository includes a small operational script set for the common local work
 - `scripts/generate-maturity-pack-example.sh [out-dir]`
   Purpose: validate and generate the first-class optional maturity-model doctrine pack example into the given output directory
 
+- `scripts/generate-ethical-pack-example.sh [out-dir]`
+  Purpose: validate and generate the first-class optional ethical-model doctrine pack example into the given output directory
+
 These scripts are meant to be the stable local entrypoints described by this README.
 
 ## Quickstart
@@ -65,6 +68,12 @@ For the maturity-model doctrine pack example:
 bash scripts/generate-maturity-pack-example.sh
 ```
 
+For the ethical-model doctrine pack example:
+
+```bash
+bash scripts/generate-ethical-pack-example.sh
+```
+
 ## Commands
 
 - `kaidf-gen validate <spec.yaml>`
@@ -91,7 +100,7 @@ The main specs currently in the repository are:
   Purpose: first-class optional maturity-model doctrine pack using richer metadata on top of the default baseline
 
 - `specs/kaidf.ethical-model-pack.example.yaml`
-  Purpose: planned ethical-model doctrine pack translating manifesto ethics into principles, risks, controls, and governance artifacts
+  Purpose: first-class optional ethical-model doctrine pack translating manifesto ethics into principles, risks, controls, and governance artifacts
 
 - `specs/contract.example.yaml`
   Purpose: machine-readable description of the repository contract

@@ -233,7 +233,7 @@ Recommended additive pack fields:
 
 These fields are optional extensions for additive packs. They should not be required for the default doctrine baseline.
 
-The next recommended additive pack is an ethical-model pack under:
+The next first-class optional additive pack is an ethical-model pack under:
 
 - `docs/20-ethical-model/`
 
@@ -260,6 +260,7 @@ Ethical-model pack goals:
 - turn manifesto ethics commitments into explicit operational doctrine
 - separate principles, risks, controls, and governance artifacts
 - support future MCP ranking for ethics, privacy, transparency, validation, and bias queries
+- ship as packaged templates with a stable generation entrypoint
 
 Recommended ethical-model fields:
 

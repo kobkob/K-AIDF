@@ -107,6 +107,7 @@ doctrine_package:
         - docs/20-ethical-model/controls/privacy-checklist.md
         - docs/20-ethical-model/governance/accountability-model.md
         - docs/20-ethical-model/governance/escalation-and-review.md
+      generation_entrypoint: scripts/generate-ethical-pack-example.sh
 
 stable_id:
   type: repo_relative_path
