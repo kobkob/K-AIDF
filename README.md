@@ -143,7 +143,7 @@ Canonical files:
 - `maturity.md`
 - `implementation.md`
 
-Recommended first variant model:
+Recommended starter variant model:
 - keep `docs/00-overview/best-practices.md` as the generic canonical file
 - add sector-specific variants under `docs/00-overview/best-practices/`
 - use one file per domain, for example:
@@ -151,7 +151,7 @@ Recommended first variant model:
   - `docs/00-overview/best-practices/content.md`
   - `docs/00-overview/best-practices/research.md`
 
-This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later.
+This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later. These starter variants are examples, not fixed doctrine requirements.
 
 ## Security
 
