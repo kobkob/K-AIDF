@@ -38,6 +38,5 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement
-1. Decide whether starter variants should remain path-derived only or gain explicit metadata later
-2. Add proper logging and monitoring
-3. Support more than one repository root if needed
+1. Add proper logging and monitoring
+2. Support more than one repository root if needed

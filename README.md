@@ -156,6 +156,7 @@ This keeps the canonical doctrine stable while allowing domain-specific operatio
 Ranking rule:
 - canonical `best-practices.md` stays first for generic best-practice queries
 - matching starter variants should rank first for clearly domain-specific queries such as `seo` or `research`
+- starter variant identity is path-derived from known repository locations, not a separate authored metadata field
 
 ## Security
 
