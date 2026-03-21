@@ -41,3 +41,19 @@ def test_validate_spec_rejects_unknown_front_matter_fields() -> None:
 
     with pytest.raises(SpecValidationError, match=r"repo.files.0.front_matter: Additional properties are not allowed"):
         validate_spec(spec)
+
+
+def test_validate_spec_allows_pack_specific_front_matter_fields() -> None:
+    spec = load_yaml("specs/kaidf.default.yaml")
+    spec["repo"]["files"][0]["front_matter"] = {
+        "id": "README.md",
+        "title": "kobkob-kaidf",
+        "document_class": "core-doc",
+        "phase": "root",
+        "visibility": "internal",
+        "status": "active",
+        "pack": "maturity-model",
+        "assessment_type": "guidance",
+    }
+
+    validate_spec(spec)

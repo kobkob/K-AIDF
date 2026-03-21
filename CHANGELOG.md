@@ -11,6 +11,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - starter generated best-practice variant package under `docs/00-overview/best-practices/` as initial example material
 - doctrine contract guidance that starter variant identity remains path-derived only
 - doctrine contract guidance that starter variants remain part of the default generated baseline
+- additive maturity-model doctrine pack design with pack-specific metadata fields and an example spec
 
 ## [0.1.2] - 2026-03-19
 

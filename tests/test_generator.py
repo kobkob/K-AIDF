@@ -149,6 +149,50 @@ def test_generate_emits_front_matter_with_defaults_and_overrides(tmp_path: Path)
     )
 
 
+def test_generate_preserves_pack_specific_front_matter_fields(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "metadata_defaults": {"visibility": "internal", "status": "active", "pack": "maturity-model"},
+            "files": [],
+        },
+        "sections": [
+            {
+                "path": "docs/10-maturity-model",
+                "metadata_defaults": {"phase": "10-maturity-model", "document_class": "core-doc"},
+                "files": [
+                    {
+                        "path": "levels/01-experimental.md",
+                        "inline": "# Experimental\n",
+                        "front_matter": {
+                            "id": "docs/10-maturity-model/levels/01-experimental.md",
+                            "title": "Experimental",
+                            "maturity_level": "experimental",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+    content = (target / "docs/10-maturity-model/levels/01-experimental.md").read_text(encoding="utf-8")
+
+    assert content.startswith(
+        "---\n"
+        "id: docs/10-maturity-model/levels/01-experimental.md\n"
+        "title: Experimental\n"
+        "document_class: core-doc\n"
+        "phase: 10-maturity-model\n"
+        "visibility: internal\n"
+        "status: active\n"
+        "pack: maturity-model\n"
+        "maturity_level: experimental\n"
+        "---\n\n"
+    )
+
+
 def test_generate_requires_complete_front_matter_after_merging_defaults(tmp_path: Path) -> None:
     spec = {
         "version": "1.0",

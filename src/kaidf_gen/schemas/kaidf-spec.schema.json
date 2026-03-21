@@ -129,6 +129,27 @@
             "deprecated",
             "archived"
           ]
+        },
+        "pack": {
+          "type": "string"
+        },
+        "maturity_level": {
+          "type": "string",
+          "enum": [
+            "experimental",
+            "assisted",
+            "operational",
+            "managed",
+            "transformative"
+          ]
+        },
+        "assessment_type": {
+          "type": "string",
+          "enum": [
+            "checklist",
+            "scorecard",
+            "guidance"
+          ]
         }
       },
       "additionalProperties": false

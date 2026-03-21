@@ -183,6 +183,55 @@ Canonical doctrine front matter should at minimum provide:
 - explicit `visibility`
 - explicit `status`
 
+## Additive Doctrine Packs
+
+The next layer after the default doctrine baseline should be additive doctrine packs.
+
+The first recommended additive pack is a structured maturity-model pack under:
+
+- `docs/10-maturity-model/`
+
+Recommended layout:
+
+- `docs/10-maturity-model/README.md`
+- `docs/10-maturity-model/levels/01-experimental.md`
+- `docs/10-maturity-model/levels/02-assisted.md`
+- `docs/10-maturity-model/levels/03-operational.md`
+- `docs/10-maturity-model/levels/04-managed.md`
+- `docs/10-maturity-model/levels/05-transformative.md`
+- `docs/10-maturity-model/assessment/checklist.md`
+- `docs/10-maturity-model/assessment/scorecard.md`
+- `docs/10-maturity-model/assessment/scorecard.csv`
+- `docs/10-maturity-model/governance/adoption-guidance.md`
+
+Pack rules:
+
+- additive doctrine packs extend the default doctrine baseline rather than replace it
+- maturity-model content should use version 2 front matter from the start
+- additive pack metadata may be richer than the default baseline where needed
+- starter best-practice variants remain path-derived; additive packs may use explicit metadata within the allowed pack field set
+
+Recommended additive pack fields:
+
+- `pack`
+  Example: `maturity-model`
+
+- `maturity_level`
+  Allowed values:
+  - `experimental`
+  - `assisted`
+  - `operational`
+  - `managed`
+  - `transformative`
+
+- `assessment_type`
+  Allowed values:
+  - `checklist`
+  - `scorecard`
+  - `guidance`
+
+These fields are optional extensions for additive packs. They should not be required for the default doctrine baseline.
+
 ## Stable ID Rules
 
 Until explicit front matter IDs are introduced, the stable ID for a document is its repository-relative path.

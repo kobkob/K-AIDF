@@ -17,7 +17,7 @@ class GenerateOptions:
     force: bool = False
 
 
-FRONT_MATTER_FIELDS = ("id", "title", "document_class", "phase", "visibility", "status")
+REQUIRED_FRONT_MATTER_FIELDS = ("id", "title", "document_class", "phase", "visibility", "status")
 
 
 def _ensure_empty_or_force(out_dir: Path, force: bool) -> None:
@@ -60,11 +60,15 @@ def _resolve_front_matter(
     if not rel_path.endswith(".md"):
         raise GenerationError(f"Front matter is only supported for markdown files: {rel_path}")
 
-    missing = [field for field in FRONT_MATTER_FIELDS if field not in front_matter]
+    missing = [field for field in REQUIRED_FRONT_MATTER_FIELDS if field not in front_matter]
     if missing:
         raise GenerationError(f"Missing front matter fields for {rel_path}: {', '.join(missing)}")
 
-    return {field: front_matter[field] for field in FRONT_MATTER_FIELDS}
+    ordered_front_matter = {field: front_matter[field] for field in REQUIRED_FRONT_MATTER_FIELDS}
+    for key, value in front_matter.items():
+        if key not in ordered_front_matter:
+            ordered_front_matter[key] = value
+    return ordered_front_matter
 
 
 def _render_front_matter(front_matter: dict[str, Any]) -> str:

@@ -70,6 +70,21 @@ doctrine_package:
     - docs/00-overview/best-practices/seo.md
     - docs/00-overview/best-practices/content.md
     - docs/00-overview/best-practices/research.md
+  additive_packs:
+    maturity-model:
+      root: docs/10-maturity-model
+      required_front_matter: true
+      recommended_files:
+        - docs/10-maturity-model/README.md
+        - docs/10-maturity-model/levels/01-experimental.md
+        - docs/10-maturity-model/levels/02-assisted.md
+        - docs/10-maturity-model/levels/03-operational.md
+        - docs/10-maturity-model/levels/04-managed.md
+        - docs/10-maturity-model/levels/05-transformative.md
+        - docs/10-maturity-model/assessment/checklist.md
+        - docs/10-maturity-model/assessment/scorecard.md
+        - docs/10-maturity-model/assessment/scorecard.csv
+        - docs/10-maturity-model/governance/adoption-guidance.md
 
 stable_id:
   type: repo_relative_path
@@ -121,6 +136,24 @@ metadata:
           - active
           - deprecated
           - archived
+      pack:
+        type: string
+        examples:
+          - maturity-model
+      maturity_level:
+        type: enum
+        values:
+          - experimental
+          - assisted
+          - operational
+          - managed
+          - transformative
+      assessment_type:
+        type: enum
+        values:
+          - checklist
+          - scorecard
+          - guidance
 
 indexing:
   default_include:

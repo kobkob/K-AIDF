@@ -78,6 +78,9 @@ The main specs currently in the repository are:
 - `specs/kaidf.metadata-v2.example.yaml`
   Purpose: example generated repository using version 2-style metadata/front matter emission
 
+- `specs/kaidf.maturity-model-pack.example.yaml`
+  Purpose: example additive doctrine pack using richer maturity-model metadata on top of the default baseline
+
 - `specs/contract.example.yaml`
   Purpose: machine-readable description of the repository contract
 
