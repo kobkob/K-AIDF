@@ -124,7 +124,7 @@ Docker Compose also expects:
 `search`:
 - performs a simple local index scan over the configured repository root
 - searches path, title, ID, phase, class, and document body
-- returns metadata, doctrine category, canonical doctrine status, doctrine priority, detailed ranking components, and a short snippet
+- returns metadata, doctrine category, canonical doctrine status, doctrine priority, optional starter `variant_domain`, detailed ranking components, and a short snippet
 
 `fetch`:
 - resolves a document by metadata `id` when front matter exists
@@ -152,6 +152,10 @@ Recommended starter variant model:
   - `docs/00-overview/best-practices/research.md`
 
 This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later. These starter variants are examples, not fixed doctrine requirements.
+
+Ranking rule:
+- canonical `best-practices.md` stays first for generic best-practice queries
+- matching starter variants should rank first for clearly domain-specific queries such as `seo` or `research`
 
 ## Security
 

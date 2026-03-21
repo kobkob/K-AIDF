@@ -34,6 +34,11 @@ DOCTRINE_PRIORITY = {
     "training": 400,
     "general": 100,
 }
+STARTER_VARIANT_DOMAINS = {
+    "docs/00-overview/best-practices/seo.md": "seo",
+    "docs/00-overview/best-practices/content.md": "content",
+    "docs/00-overview/best-practices/research.md": "research",
+}
 
 
 def _repo_root() -> Path:
@@ -131,6 +136,10 @@ def _normalize_label(value: str) -> str:
     return value.strip().casefold().replace(" ", "-")
 
 
+def _variant_domain(rel_path: str) -> str | None:
+    return STARTER_VARIANT_DOMAINS.get(rel_path)
+
+
 def _infer_phase(rel_path: str) -> str:
     if rel_path == "README.md":
         return "root"
@@ -146,6 +155,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     front_matter, body = _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
     title = front_matter.get("title") or _first_heading(body) or file_path.stem
     doctrine_category = _infer_doctrine_category(rel_path, title, body)
+    variant_domain = _variant_domain(rel_path)
     return {
         "id": front_matter.get("id", rel_path),
         "path": rel_path,
@@ -157,6 +167,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "doctrine_category": doctrine_category,
         "canonical_doctrine": _is_canonical_doctrine(rel_path),
         "doctrine_priority": _doctrine_priority(doctrine_category),
+        "variant_domain": variant_domain,
         "content": raw_text,
         "body": body,
     }
@@ -181,6 +192,7 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 doc["title"],
                 doc["document_class"],
                 doc["doctrine_category"],
+                doc["variant_domain"] or "",
                 doc["phase"],
                 doc["body"],
             ]
@@ -196,6 +208,8 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
             "doctrine_exact": 0,
             "canonical_doctrine": 0,
             "doctrine_priority": 0,
+            "variant_exact": 0,
+            "variant_partial": 0,
         }
         if query_norm in doc["title"].casefold():
             score_details["title"] = 50
@@ -213,6 +227,13 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
         if doc["canonical_doctrine"]:
             score_details["canonical_doctrine"] = 200
         score_details["doctrine_priority"] = doc["doctrine_priority"]
+        variant_domain = doc["variant_domain"]
+        if variant_domain:
+            variant_label = _normalize_label(variant_domain)
+            if query_label == variant_label:
+                score_details["variant_exact"] = 450
+            elif query_norm in variant_domain.casefold():
+                score_details["variant_partial"] = 120
         score = sum(score_details.values())
         doc = dict(doc)
         doc["ranking"] = score_details
@@ -230,6 +251,7 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 "doctrine_category": doc["doctrine_category"],
                 "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
+                "variant_domain": doc["variant_domain"],
                 "score": doc["score"],
                 "ranking": doc["ranking"],
                 "phase": doc["phase"],
@@ -252,6 +274,7 @@ def _fetch_document(doc_id: str) -> dict[str, Any] | None:
                 "doctrine_category": doc["doctrine_category"],
                 "canonical_doctrine": doc["canonical_doctrine"],
                 "doctrine_priority": doc["doctrine_priority"],
+                "variant_domain": doc["variant_domain"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],

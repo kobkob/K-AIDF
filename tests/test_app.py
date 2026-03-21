@@ -52,6 +52,45 @@ class McpAidfIndexingTests(unittest.TestCase):
             "Governance rules and governance structure.\n",
         )
         _write(
+            self.repo_root / "docs/00-overview/best-practices.md",
+            "---\n"
+            "id: docs/00-overview/best-practices.md\n"
+            "title: Best Practices\n"
+            "document_class: core-doc\n"
+            "phase: 00-overview\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "---\n\n"
+            "# Best Practices\n\n"
+            "General guidance for safe and effective AI-assisted work.\n",
+        )
+        _write(
+            self.repo_root / "docs/00-overview/best-practices/seo.md",
+            "---\n"
+            "id: docs/00-overview/best-practices/seo.md\n"
+            "title: SEO Best Practices\n"
+            "document_class: core-doc\n"
+            "phase: 00-overview\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "---\n\n"
+            "# SEO Best Practices\n\n"
+            "SEO-focused optimization and search workflow guidance.\n",
+        )
+        _write(
+            self.repo_root / "docs/00-overview/best-practices/research.md",
+            "---\n"
+            "id: docs/00-overview/best-practices/research.md\n"
+            "title: Research Best Practices\n"
+            "document_class: core-doc\n"
+            "phase: 00-overview\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "---\n\n"
+            "# Research Best Practices\n\n"
+            "Research workflow guidance and evidence handling.\n",
+        )
+        _write(
             self.repo_root / "docs/00-overview/decision-rights.md",
             "# Decision Rights\n\n"
             "Who decides what.\n",
@@ -85,6 +124,23 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertTrue(manifesto["canonical_doctrine"])
         self.assertEqual(manifesto["doctrine_priority"], 1000)
 
+    def test_search_ranks_starter_variant_first_for_domain_query(self) -> None:
+        results = app._search_documents("seo", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/00-overview/best-practices/seo.md")
+        self.assertEqual(results[0]["variant_domain"], "seo")
+        self.assertEqual(results[0]["ranking"]["variant_exact"], 450)
+
+    def test_search_keeps_canonical_best_practices_first_for_generic_query(self) -> None:
+        results = app._search_documents("best practices", 10)
+
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0]["path"], "docs/00-overview/best-practices.md")
+        self.assertTrue(results[0]["canonical_doctrine"])
+        self.assertIsNone(results[0]["variant_domain"])
+        self.assertEqual(results[1]["path"], "docs/00-overview/best-practices/research.md")
+
     def test_search_ranks_canonical_doctrine_file_first_for_exact_category_query(self) -> None:
         results = app._search_documents("governance", 10)
 
@@ -103,6 +159,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(doc["title"], "Governance")
         self.assertTrue(doc["canonical_doctrine"])
         self.assertEqual(doc["doctrine_category"], "governance")
+        self.assertIsNone(doc["variant_domain"])
 
     def test_mcp_tools_call_returns_ranking_metadata(self) -> None:
         client = app.app.test_client()

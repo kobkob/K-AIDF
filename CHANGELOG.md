@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - doctrine-aware categories and ranking metadata derived from manifesto/governance/best-practice content
 - rigid ranking and detailed score metadata for canonical doctrine package files
 - explicit tests for doctrine ranking and canonical doctrine fetch behavior
+- explicit starter-variant ranking and `variant_domain` metadata for domain-specific best-practice queries
 
 ## [0.1.0] - 2026-03-17
 

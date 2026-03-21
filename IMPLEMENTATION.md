@@ -34,10 +34,10 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - ✅ Doctrine-aware classification over generic indexed documents
 - ✅ Rigid ranking for canonical doctrine files under `docs/00-overview/`
 - ✅ Automated tests for repository indexing, doctrine ranking, canonical fetch, and MCP search responses
+- ✅ Explicit starter-variant ranking for domain-specific best-practice queries
 - 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement
-1. Support sector-specific best-practice variants under a stable canonical doctrine package
-2. Make variant ranking explicit for domain-specific queries while preserving canonical doctrine precedence
-3. Add proper logging and monitoring
-4. Support more than one repository root if needed
+1. Decide whether starter variants should remain path-derived only or gain explicit metadata later
+2. Add proper logging and monitoring
+3. Support more than one repository root if needed
