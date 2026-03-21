@@ -13,17 +13,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
       - name: Lint Markdown
         uses: DavidAnson/markdownlint-cli2-action@v18
         with:
           globs: |
             **/*.md
 
-      - name: Verify baseline files
+      - name: Run tests
         run: |
-          test -f README.md
-          test -f LICENSE
-          test -f CONTRIBUTING.md
-          test -f CODEOWNERS
-          test -f CHANGELOG.md
-          test -f RELEASING.md
+          PYTHONPATH=src python -m pytest -q

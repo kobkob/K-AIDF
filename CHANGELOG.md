@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-20
+
+### Added
+
+- Python CLI package for terminal-first repository interaction
+- repository metadata loader for doctrine packs, maturity fields, and ethical-model fields
+- interactive shell with `packs`, `docs`, `find`, and `open`
+- operational scripts for shell and metadata consumption
+- CLI tests for basic repository navigation flows
+
 ## [0.1.0] - 2026-03-17
 
 ### Added

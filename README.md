@@ -1,15 +1,55 @@
 # KAIDF Agent
 
-## Features
+Terminal-first agent shell for generated K-AIDF repositories.
 
-Follow the kaidf structure in the current folder and orchestrate the project.
+## Scope
 
-## Cli
+This first version is a CLI and interactive shell connected to repository metadata, not a web UI.
 
-It's an interative command line like a shell.
-The Agent has the duty to follow the kaidf folder structure and serve the user under these scripts, 
-orchestrating the communication with the user and prompting the ai API.
+It does three things:
+- loads a local generated K-AIDF repository
+- exposes doctrine-pack metadata through commands and scripts
+- provides a simple interactive shell that can evolve into an AI chat controller later
 
-## Web
+## Commands
 
-The web interface, original as a Gutemberg block, implements a small app with a UIX to use the K-AIDF framework and operates following the kaidf folder structure.
+- `agent-aidf packs`
+- `agent-aidf docs [--pack ...] [--phase ...] [--ethical-domain ...] [--maturity-level ...]`
+- `agent-aidf find <query>`
+- `agent-aidf open <id-or-path>`
+- `agent-aidf chat <prompt>`
+- `agent-aidf shell`
+
+The CLI reads the repository from `--repo`, `AIDF_REPO_ROOT`, or the current directory.
+
+## Scripts
+
+- `scripts/dev.sh`
+  Purpose: run tests and, when `AIDF_REPO_ROOT` is set, validate metadata loading through the `packs` command
+
+- `scripts/check.sh`
+  Purpose: run the test suite quickly
+
+- `scripts/list-docs.sh`
+  Purpose: invoke `agent-aidf docs` directly from a script surface
+
+- `scripts/shell.sh`
+  Purpose: start the interactive shell
+
+## Current Features
+
+- path and front-matter aware repository indexing
+- doctrine pack discovery
+- metadata filters for:
+  - `pack`
+  - `phase`
+  - `ethical_domain`
+  - `maturity_level`
+  - `assessment_type`
+  - `risk_type`
+- interactive shell with `packs`, `docs`, `find`, `open`, and `quit`
+- explicit AI chat-controller boundary with a safe stub implementation for now
+
+## Next Layer
+
+The next version should add the AI chat controller boundary on top of this metadata shell rather than replacing it.
