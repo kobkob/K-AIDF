@@ -90,6 +90,9 @@ The main specs currently in the repository are:
 - `specs/kaidf.maturity-model-pack.example.yaml`
   Purpose: first-class optional maturity-model doctrine pack using richer metadata on top of the default baseline
 
+- `specs/kaidf.ethical-model-pack.example.yaml`
+  Purpose: planned ethical-model doctrine pack translating manifesto ethics into principles, risks, controls, and governance artifacts
+
 - `specs/contract.example.yaml`
   Purpose: machine-readable description of the repository contract
 

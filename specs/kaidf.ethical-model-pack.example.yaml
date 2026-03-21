@@ -1,0 +1,173 @@
+version: "1.0"
+repo:
+  name: "kobkob-kaidf"
+  files:
+    - path: "README.md"
+      content: "library:root/README.md"
+      front_matter:
+        id: "README.md"
+        title: "kobkob-kaidf"
+        document_class: "core-doc"
+        phase: "root"
+        visibility: "internal"
+        status: "active"
+    - path: "LICENSE"
+      content: "library:root/LICENSE"
+    - path: "CODEOWNERS"
+      content: "library:root/CODEOWNERS"
+
+sections:
+  - path: "docs/20-ethical-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "20-ethical-model"
+      visibility: "internal"
+      status: "active"
+      pack: "ethical-model"
+    files:
+      - path: "README.md"
+        inline: |
+          # Ethical Model Pack
+
+          This additive doctrine pack turns the manifesto ethics commitments into explicit principles, risks, controls, and governance guidance.
+        front_matter:
+          id: "docs/20-ethical-model/README.md"
+          title: "Ethical Model Pack"
+      - path: "principles/human-centrality.md"
+        inline: |
+          # Human Centrality
+
+          AI should expand human capability without replacing ethical judgment, institutional accountability, or human conscience.
+        front_matter:
+          id: "docs/20-ethical-model/principles/human-centrality.md"
+          title: "Human Centrality"
+          ethical_domain: "human-centrality"
+      - path: "principles/responsibility.md"
+        inline: |
+          # Responsibility
+
+          Responsibility for AI-assisted outcomes remains human and institutional at all times.
+        front_matter:
+          id: "docs/20-ethical-model/principles/responsibility.md"
+          title: "Responsibility"
+          ethical_domain: "responsibility"
+      - path: "principles/transparency.md"
+        inline: |
+          # Transparency
+
+          AI use should be clear, explainable, and communicable whenever relevant to trust and accountability.
+        front_matter:
+          id: "docs/20-ethical-model/principles/transparency.md"
+          title: "Transparency"
+          ethical_domain: "transparency"
+      - path: "principles/limits-of-automation.md"
+        inline: |
+          # Limits Of Automation
+
+          Automation must operate within approved boundaries and must not exceed declared institutional limits.
+        front_matter:
+          id: "docs/20-ethical-model/principles/limits-of-automation.md"
+          title: "Limits Of Automation"
+          ethical_domain: "limits-of-automation"
+      - path: "principles/human-validation.md"
+        inline: |
+          # Human Validation
+
+          Relevant AI outputs require review and approval by accountable people before institutional use.
+        front_matter:
+          id: "docs/20-ethical-model/principles/human-validation.md"
+          title: "Human Validation"
+          ethical_domain: "human-validation"
+      - path: "principles/data-protection.md"
+        inline: |
+          # Data Protection
+
+          Data use must respect privacy, security, minimization, and applicable legal obligations.
+        front_matter:
+          id: "docs/20-ethical-model/principles/data-protection.md"
+          title: "Data Protection"
+          ethical_domain: "data-protection"
+      - path: "principles/quality-before-efficiency.md"
+        inline: |
+          # Quality Before Efficiency
+
+          Speed does not replace rigor, reliability, or consistency in AI-assisted work.
+        front_matter:
+          id: "docs/20-ethical-model/principles/quality-before-efficiency.md"
+          title: "Quality Before Efficiency"
+          ethical_domain: "quality"
+      - path: "risk/bias-and-harm.md"
+        inline: |
+          # Bias And Harm
+
+          Identify how AI outputs may reproduce bias, create harm, or amplify institutional inequities.
+        front_matter:
+          id: "docs/20-ethical-model/risk/bias-and-harm.md"
+          title: "Bias And Harm"
+          risk_type: "bias-and-harm"
+      - path: "risk/risk-classification.md"
+        inline: |
+          # Risk Classification
+
+          Classify AI-assisted uses by impact, reversibility, sensitivity, and review obligations.
+        front_matter:
+          id: "docs/20-ethical-model/risk/risk-classification.md"
+          title: "Risk Classification"
+          risk_type: "risk-classification"
+      - path: "controls/validation-checklist.md"
+        inline: |
+          # Validation Checklist
+
+          - output reviewed by a responsible person
+          - assumptions checked
+          - evidence quality confirmed
+          - publication approval recorded
+        front_matter:
+          id: "docs/20-ethical-model/controls/validation-checklist.md"
+          title: "Validation Checklist"
+          control_type: "checklist"
+          ethical_domain: "human-validation"
+      - path: "controls/transparency-checklist.md"
+        inline: |
+          # Transparency Checklist
+
+          - AI use disclosed where relevant
+          - decision rationale documented
+          - explanation path available for review
+        front_matter:
+          id: "docs/20-ethical-model/controls/transparency-checklist.md"
+          title: "Transparency Checklist"
+          control_type: "checklist"
+          ethical_domain: "transparency"
+      - path: "controls/privacy-checklist.md"
+        inline: |
+          # Privacy Checklist
+
+          - sensitive data identified
+          - minimization applied
+          - retention and deletion rules defined
+        front_matter:
+          id: "docs/20-ethical-model/controls/privacy-checklist.md"
+          title: "Privacy Checklist"
+          control_type: "checklist"
+          ethical_domain: "data-protection"
+      - path: "governance/accountability-model.md"
+        inline: |
+          # Accountability Model
+
+          Define who approves uses, who validates outcomes, and who responds to incidents or misuse.
+        front_matter:
+          id: "docs/20-ethical-model/governance/accountability-model.md"
+          title: "Accountability Model"
+          control_type: "policy"
+          ethical_domain: "responsibility"
+      - path: "governance/escalation-and-review.md"
+        inline: |
+          # Escalation And Review
+
+          Define escalation triggers, review forums, and response expectations for ethical issues and incidents.
+        front_matter:
+          id: "docs/20-ethical-model/governance/escalation-and-review.md"
+          title: "Escalation And Review"
+          control_type: "review"
+          risk_type: "social-impact"

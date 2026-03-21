@@ -150,6 +150,38 @@
             "scorecard",
             "guidance"
           ]
+        },
+        "ethical_domain": {
+          "type": "string",
+          "enum": [
+            "human-centrality",
+            "responsibility",
+            "transparency",
+            "limits-of-automation",
+            "human-validation",
+            "quality",
+            "data-protection",
+            "continuous-learning",
+            "continuous-improvement"
+          ]
+        },
+        "control_type": {
+          "type": "string",
+          "enum": [
+            "checklist",
+            "policy",
+            "guidance",
+            "review"
+          ]
+        },
+        "risk_type": {
+          "type": "string",
+          "enum": [
+            "bias-and-harm",
+            "risk-classification",
+            "privacy-and-security",
+            "social-impact"
+          ]
         }
       },
       "additionalProperties": false

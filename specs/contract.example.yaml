@@ -87,6 +87,26 @@ doctrine_package:
         - docs/10-maturity-model/assessment/scorecard.csv
         - docs/10-maturity-model/governance/adoption-guidance.md
       generation_entrypoint: scripts/generate-maturity-pack-example.sh
+    ethical-model:
+      root: docs/20-ethical-model
+      first_class_optional_pack: true
+      required_front_matter: true
+      recommended_files:
+        - docs/20-ethical-model/README.md
+        - docs/20-ethical-model/principles/human-centrality.md
+        - docs/20-ethical-model/principles/responsibility.md
+        - docs/20-ethical-model/principles/transparency.md
+        - docs/20-ethical-model/principles/limits-of-automation.md
+        - docs/20-ethical-model/principles/human-validation.md
+        - docs/20-ethical-model/principles/data-protection.md
+        - docs/20-ethical-model/principles/quality-before-efficiency.md
+        - docs/20-ethical-model/risk/bias-and-harm.md
+        - docs/20-ethical-model/risk/risk-classification.md
+        - docs/20-ethical-model/controls/validation-checklist.md
+        - docs/20-ethical-model/controls/transparency-checklist.md
+        - docs/20-ethical-model/controls/privacy-checklist.md
+        - docs/20-ethical-model/governance/accountability-model.md
+        - docs/20-ethical-model/governance/escalation-and-review.md
 
 stable_id:
   type: repo_relative_path
@@ -156,6 +176,32 @@ metadata:
           - checklist
           - scorecard
           - guidance
+      ethical_domain:
+        type: enum
+        values:
+          - human-centrality
+          - responsibility
+          - transparency
+          - limits-of-automation
+          - human-validation
+          - quality
+          - data-protection
+          - continuous-learning
+          - continuous-improvement
+      control_type:
+        type: enum
+        values:
+          - checklist
+          - policy
+          - guidance
+          - review
+      risk_type:
+        type: enum
+        values:
+          - bias-and-harm
+          - risk-classification
+          - privacy-and-security
+          - social-impact
 
 indexing:
   default_include:

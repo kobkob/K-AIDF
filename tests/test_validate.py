@@ -57,3 +57,21 @@ def test_validate_spec_allows_pack_specific_front_matter_fields() -> None:
     }
 
     validate_spec(spec)
+
+
+def test_validate_spec_allows_ethical_model_front_matter_fields() -> None:
+    spec = load_yaml("specs/kaidf.default.yaml")
+    spec["repo"]["files"][0]["front_matter"] = {
+        "id": "README.md",
+        "title": "kobkob-kaidf",
+        "document_class": "core-doc",
+        "phase": "root",
+        "visibility": "internal",
+        "status": "active",
+        "pack": "ethical-model",
+        "ethical_domain": "transparency",
+        "control_type": "guidance",
+        "risk_type": "bias-and-harm",
+    }
+
+    validate_spec(spec)

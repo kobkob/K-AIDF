@@ -233,6 +233,65 @@ Recommended additive pack fields:
 
 These fields are optional extensions for additive packs. They should not be required for the default doctrine baseline.
 
+The next recommended additive pack is an ethical-model pack under:
+
+- `docs/20-ethical-model/`
+
+Recommended layout:
+
+- `docs/20-ethical-model/README.md`
+- `docs/20-ethical-model/principles/human-centrality.md`
+- `docs/20-ethical-model/principles/responsibility.md`
+- `docs/20-ethical-model/principles/transparency.md`
+- `docs/20-ethical-model/principles/limits-of-automation.md`
+- `docs/20-ethical-model/principles/human-validation.md`
+- `docs/20-ethical-model/principles/data-protection.md`
+- `docs/20-ethical-model/principles/quality-before-efficiency.md`
+- `docs/20-ethical-model/risk/bias-and-harm.md`
+- `docs/20-ethical-model/risk/risk-classification.md`
+- `docs/20-ethical-model/controls/validation-checklist.md`
+- `docs/20-ethical-model/controls/transparency-checklist.md`
+- `docs/20-ethical-model/controls/privacy-checklist.md`
+- `docs/20-ethical-model/governance/accountability-model.md`
+- `docs/20-ethical-model/governance/escalation-and-review.md`
+
+Ethical-model pack goals:
+
+- turn manifesto ethics commitments into explicit operational doctrine
+- separate principles, risks, controls, and governance artifacts
+- support future MCP ranking for ethics, privacy, transparency, validation, and bias queries
+
+Recommended ethical-model fields:
+
+- `pack`
+  Example: `ethical-model`
+
+- `ethical_domain`
+  Allowed values:
+  - `human-centrality`
+  - `responsibility`
+  - `transparency`
+  - `limits-of-automation`
+  - `human-validation`
+  - `quality`
+  - `data-protection`
+  - `continuous-learning`
+  - `continuous-improvement`
+
+- `control_type`
+  Allowed values:
+  - `checklist`
+  - `policy`
+  - `guidance`
+  - `review`
+
+- `risk_type`
+  Allowed values:
+  - `bias-and-harm`
+  - `risk-classification`
+  - `privacy-and-security`
+  - `social-impact`
+
 ## Stable ID Rules
 
 Until explicit front matter IDs are introduced, the stable ID for a document is its repository-relative path.

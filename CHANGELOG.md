@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- ethical-model doctrine pack plan in the contract and machine-readable contract example
+- ethical-model example spec with pack-specific ethics, control, and risk metadata fields
+
 ## [0.1.3] - 2026-03-20
 
 ### Added
