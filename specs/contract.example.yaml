@@ -64,7 +64,7 @@ doctrine_package:
     best_practices_starts_generic: true
     sector_variants_supported: true
     emit_initial_variant_package: true
-  variant_examples:
+  starter_variant_examples:
     - docs/00-overview/best-practices/seo.md
     - docs/00-overview/best-practices/content.md
     - docs/00-overview/best-practices/research.md

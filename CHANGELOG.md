@@ -8,7 +8,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
-- initial generated best-practice variant package under `docs/00-overview/best-practices/`
+- starter generated best-practice variant package under `docs/00-overview/best-practices/` as initial example material
 
 ## [0.1.2] - 2026-03-19
 

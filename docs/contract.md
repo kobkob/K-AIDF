@@ -148,15 +148,15 @@ Rules:
 - canonical doctrine files should receive rigid ranking priority in `mcp-aidf`
 - additional doctrine material may exist later, but these files remain the primary references
 - `best-practices.md` should begin as a generic KAIDF best-practices document
-- sector-specific or contract-specific best-practice variants should be added later as separate files, not by replacing the generic canonical file
+- sector-specific or contract-specific best-practice variants may be added as separate files, not by replacing the generic canonical file
 
-Recommended first variant path model:
+Recommended starter variant path model:
 
 - `docs/00-overview/best-practices/seo.md`
 - `docs/00-overview/best-practices/content.md`
 - `docs/00-overview/best-practices/research.md`
 
-The default generated repository should emit this initial variant package so downstream tools have stable examples to index and rank.
+The default generated repository may emit this starter variant package so downstream tools have stable examples to index and rank. These starter variants are examples, not fixed doctrine requirements.
 
 Variant rules:
 
