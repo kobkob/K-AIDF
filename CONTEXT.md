@@ -34,6 +34,7 @@ The root directory documents how they fit together. Each child project owns its 
 - the canonical doctrine package is now explicitly version 2 and treated as a rigid-ranking anchor set in `mcp-aidf`
 - the default generator spec now also emits a starter best-practice variant package under `docs/00-overview/best-practices/` as initial example material
 - an additive maturity-model doctrine pack design now exists, with a concrete example spec and pack-specific metadata fields
+- the maturity-model doctrine pack is now a first-class optional pack with packaged templates and a dedicated generation script
 
 ### `agent-aidf`
 
@@ -93,11 +94,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether the maturity-model pack should stay as an example spec or become a generated optional pack artifact
+2. decide how `mcp-aidf` should classify and rank maturity-model pack documents
 3. define the next additive doctrine pack after maturity-model
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then additive doctrine-pack implementation strategy
+local lint verification, then maturity-pack MCP integration
