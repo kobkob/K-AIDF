@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-20
+
 ## [0.1.1] - 2026-03-20
 
 ### Added

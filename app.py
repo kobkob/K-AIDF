@@ -11,7 +11,7 @@ from flask import Flask, jsonify, make_response, redirect, request
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-in-prod")
 
-SERVER_VERSION = "0.1.1"
+SERVER_VERSION = "0.1.2"
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
