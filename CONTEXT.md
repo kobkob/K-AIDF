@@ -59,6 +59,7 @@ The root directory documents how they fit together. Each child project owns its 
 - starter variant identity is now an explicit path-derived rule, not a separate metadata layer
 - starter variants remain part of the default generated baseline; future doctrine packs should extend that baseline rather than replace it
 - maturity-model pack documents are now explicitly classified and ranked in `mcp-aidf`, with canonical `docs/00-overview/maturity.md` preserved as the top generic maturity anchor
+- ethical-model pack documents are now explicitly classified and ranked in `mcp-aidf`, with pack, ethical-domain, control, and risk metadata exposed to search and fetch
 - local runtime validation passes with:
 
 ```bash
@@ -97,11 +98,11 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide how `mcp-aidf` should classify and rank ethical-model pack documents
-3. decide whether `agent-aidf` should start consuming doctrine-pack metadata directly
+2. decide whether `agent-aidf` should start consuming doctrine-pack metadata directly
+3. define the next additive doctrine pack after ethical-model
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then ethical-model MCP integration
+local lint verification, then doctrine-pack use in agent-aidf
