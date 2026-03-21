@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - explicit tests for doctrine ranking and canonical doctrine fetch behavior
 - explicit starter-variant ranking and `variant_domain` metadata for domain-specific best-practice queries
 - explicit starter-variant identity remains path-derived from canonical repository paths
+- documentation that starter variants remain part of the default generated baseline
 
 ## [0.1.0] - 2026-03-17
 

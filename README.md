@@ -151,7 +151,7 @@ Recommended starter variant model:
   - `docs/00-overview/best-practices/content.md`
   - `docs/00-overview/best-practices/research.md`
 
-This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later. These starter variants are examples, not fixed doctrine requirements.
+This keeps the canonical doctrine stable while allowing domain-specific operational guidance to expand later. These starter variants are examples, not fixed doctrine requirements, and they remain part of the default generated baseline while future doctrine packs are added separately.
 
 Ranking rule:
 - canonical `best-practices.md` stays first for generic best-practice queries
