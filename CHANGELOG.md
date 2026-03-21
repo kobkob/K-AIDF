@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-20
+
+### Added
+
+- workspace context tracking for starter doctrine variants, additive doctrine packs, and maturity-model pack integration
+
 ## [0.1.1] - 2026-03-19
 
 ### Added
