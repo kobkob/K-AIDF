@@ -60,6 +60,7 @@ If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller i
 - interactive shell with `packs`, `docs`, `find`, `open`, and `quit`
 - explicit AI chat-controller boundary with a safe stub implementation for now
 - OpenAI Responses API controller integration with repository-aware prompt context
+- scored context selection that prefers pack/domain/level/risk matches over generic text matches
 
 ## Next Layer
 
