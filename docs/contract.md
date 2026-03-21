@@ -164,6 +164,8 @@ Variant rules:
 - variants should inherit doctrine meaning from the canonical `best-practices.md`
 - `mcp-aidf` may rank the canonical generic file above variants for ambiguous doctrine queries
 - variants should rank above the canonical generic file only for clearly domain-specific queries
+- starter variant identity should remain path-derived only for now
+- consumers should not require or invent separate front matter fields for starter variant categories
 
 Why this layout:
 
