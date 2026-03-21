@@ -18,139 +18,75 @@ repo:
 
 sections:
   - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
     files:
       - path: "README.md"
-        inline: |
-          # Maturity Model Pack
-
-          This additive doctrine pack expands the baseline maturity guidance into a structured model with levels, assessment assets, and adoption guidance.
+        content: "library:docs/10-maturity-model/README.md"
         front_matter:
           id: "docs/10-maturity-model/README.md"
           title: "Maturity Model Pack"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
       - path: "levels/01-experimental.md"
-        inline: |
-          # Experimental
-
-          Early exploration of AI-assisted work with limited repeatability and high supervision needs.
+        content: "library:docs/10-maturity-model/levels/01-experimental.md"
         front_matter:
           id: "docs/10-maturity-model/levels/01-experimental.md"
           title: "Experimental"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           maturity_level: "experimental"
       - path: "levels/02-assisted.md"
-        inline: |
-          # Assisted
-
-          Teams use AI assistance in bounded workflows with explicit human review and basic governance.
+        content: "library:docs/10-maturity-model/levels/02-assisted.md"
         front_matter:
           id: "docs/10-maturity-model/levels/02-assisted.md"
           title: "Assisted"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           maturity_level: "assisted"
       - path: "levels/03-operational.md"
-        inline: |
-          # Operational
-
-          AI-assisted processes are documented, repeatable, and measured against clear operating rules.
+        content: "library:docs/10-maturity-model/levels/03-operational.md"
         front_matter:
           id: "docs/10-maturity-model/levels/03-operational.md"
           title: "Operational"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           maturity_level: "operational"
       - path: "levels/04-managed.md"
-        inline: |
-          # Managed
-
-          Governance, monitoring, and review loops are established across multiple teams and workflows.
+        content: "library:docs/10-maturity-model/levels/04-managed.md"
         front_matter:
           id: "docs/10-maturity-model/levels/04-managed.md"
           title: "Managed"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           maturity_level: "managed"
       - path: "levels/05-transformative.md"
-        inline: |
-          # Transformative
-
-          AI capabilities are integrated into strategy, operations, and continuous improvement with strong accountability.
+        content: "library:docs/10-maturity-model/levels/05-transformative.md"
         front_matter:
           id: "docs/10-maturity-model/levels/05-transformative.md"
           title: "Transformative"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           maturity_level: "transformative"
       - path: "assessment/checklist.md"
-        inline: |
-          # Maturity Assessment Checklist
-
-          - governance roles assigned
-          - human validation rules defined
-          - evidence collection process documented
-          - review cadence agreed
+        content: "library:docs/10-maturity-model/assessment/checklist.md"
         front_matter:
           id: "docs/10-maturity-model/assessment/checklist.md"
           title: "Maturity Assessment Checklist"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           assessment_type: "checklist"
       - path: "assessment/scorecard.md"
-        inline: |
-          # Maturity Scorecard Guidance
-
-          Use this document to interpret score ranges, evidence quality, and escalation thresholds.
+        content: "library:docs/10-maturity-model/assessment/scorecard.md"
         front_matter:
           id: "docs/10-maturity-model/assessment/scorecard.md"
           title: "Maturity Scorecard Guidance"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           assessment_type: "guidance"
+  - path: "docs/10-maturity-model"
+    files:
       - path: "assessment/scorecard.csv"
-        inline: |
-          dimension,level_1,level_2,level_3,level_4,level_5
-          governance,1,2,3,4,5
-          validation,1,2,3,4,5
-          documentation,1,2,3,4,5
-          learning,1,2,3,4,5
+        content: "library:docs/10-maturity-model/assessment/scorecard.csv"
+  - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
+    files:
       - path: "governance/adoption-guidance.md"
-        inline: |
-          # Adoption Guidance
-
-          Use the maturity model to plan adoption increments, assign owners, and define review checkpoints.
+        content: "library:docs/10-maturity-model/governance/adoption-guidance.md"
         front_matter:
           id: "docs/10-maturity-model/governance/adoption-guidance.md"
           title: "Adoption Guidance"
-          document_class: "core-doc"
-          phase: "10-maturity-model"
-          visibility: "internal"
-          status: "active"
-          pack: "maturity-model"
           assessment_type: "guidance"

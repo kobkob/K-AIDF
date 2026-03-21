@@ -73,6 +73,7 @@ doctrine_package:
   additive_packs:
     maturity-model:
       root: docs/10-maturity-model
+      first_class_optional_pack: true
       required_front_matter: true
       recommended_files:
         - docs/10-maturity-model/README.md
@@ -85,6 +86,7 @@ doctrine_package:
         - docs/10-maturity-model/assessment/scorecard.md
         - docs/10-maturity-model/assessment/scorecard.csv
         - docs/10-maturity-model/governance/adoption-guidance.md
+      generation_entrypoint: scripts/generate-maturity-pack-example.sh
 
 stable_id:
   type: repo_relative_path

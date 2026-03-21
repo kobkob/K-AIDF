@@ -187,7 +187,7 @@ Canonical doctrine front matter should at minimum provide:
 
 The next layer after the default doctrine baseline should be additive doctrine packs.
 
-The first recommended additive pack is a structured maturity-model pack under:
+The first first-class optional additive pack is a structured maturity-model pack under:
 
 - `docs/10-maturity-model/`
 
@@ -207,6 +207,7 @@ Recommended layout:
 Pack rules:
 
 - additive doctrine packs extend the default doctrine baseline rather than replace it
+- first-class optional packs should ship with packaged templates and a stable generation entrypoint
 - maturity-model content should use version 2 front matter from the start
 - additive pack metadata may be richer than the default baseline where needed
 - starter best-practice variants remain path-derived; additive packs may use explicit metadata within the allowed pack field set

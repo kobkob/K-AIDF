@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - doctrine contract guidance that starter variant identity remains path-derived only
 - doctrine contract guidance that starter variants remain part of the default generated baseline
 - additive maturity-model doctrine pack design with pack-specific metadata fields and an example spec
+- first-class optional maturity-model pack templates and generation script
 
 ## [0.1.2] - 2026-03-19
 
