@@ -36,6 +36,7 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - ✅ Automated tests for repository indexing, doctrine ranking, canonical fetch, and MCP search responses
 - ✅ Explicit starter-variant ranking for domain-specific best-practice queries
 - ✅ Explicit maturity-pack classification and ranking for level and assessment queries
+- ✅ Explicit ethical-pack classification and ranking for ethical domain, control, and risk queries
 - 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement

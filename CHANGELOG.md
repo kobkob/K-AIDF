@@ -20,6 +20,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - explicit starter-variant identity remains path-derived from canonical repository paths
 - documentation that starter variants remain part of the default generated baseline
 - explicit maturity-model pack metadata and ranking for level- and assessment-specific queries
+- explicit ethical-model pack metadata and ranking for ethical-domain, control, and risk queries
 
 ## [0.1.0] - 2026-03-17
 

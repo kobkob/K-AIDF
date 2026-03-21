@@ -124,7 +124,7 @@ Docker Compose also expects:
 `search`:
 - performs a simple local index scan over the configured repository root
 - searches path, title, ID, phase, class, and document body
-- returns metadata, doctrine category, canonical doctrine status, doctrine priority, optional starter `variant_domain`, optional pack fields (`pack`, `maturity_level`, `assessment_type`), detailed ranking components, and a short snippet
+- returns metadata, doctrine category, canonical doctrine status, doctrine priority, optional starter `variant_domain`, optional pack fields (`pack`, `maturity_level`, `assessment_type`, `ethical_domain`, `control_type`, `risk_type`), detailed ranking components, and a short snippet
 
 `fetch`:
 - resolves a document by metadata `id` when front matter exists
@@ -171,6 +171,22 @@ Ranking rule:
 - canonical `docs/00-overview/maturity.md` stays first for generic `maturity` queries
 - level queries such as `managed` or `experimental` should rank the matching level document first
 - assessment queries such as `checklist` should rank the matching assessment document first
+
+## Ethical-Model Pack
+
+The first-class optional ethical-model pack lives under `docs/20-ethical-model/`.
+
+When front matter is present, the server exposes:
+- `pack`
+- `ethical_domain`
+- `control_type`
+- `risk_type`
+
+Ranking rule:
+- generic `ethical-model` queries should rank the pack `README.md` first
+- domain queries such as `transparency` should rank the matching principle or control document first
+- control-oriented queries such as `privacy` should rank the matching control document first
+- risk queries such as `bias-and-harm` should rank the matching risk document first
 
 ## Security
 

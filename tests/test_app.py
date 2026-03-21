@@ -166,6 +166,66 @@ class McpAidfIndexingTests(unittest.TestCase):
             "# Maturity Assessment Checklist\n\n"
             "Checklist for evidence and review controls.\n",
         )
+        _write(
+            self.repo_root / "docs/20-ethical-model/README.md",
+            "---\n"
+            "id: docs/20-ethical-model/README.md\n"
+            "title: Ethical Model Pack\n"
+            "document_class: core-doc\n"
+            "phase: 20-ethical-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: ethical-model\n"
+            "---\n\n"
+            "# Ethical Model Pack\n\n"
+            "Ethics, responsibility, transparency, and control guidance.\n",
+        )
+        _write(
+            self.repo_root / "docs/20-ethical-model/principles/transparency.md",
+            "---\n"
+            "id: docs/20-ethical-model/principles/transparency.md\n"
+            "title: Transparency\n"
+            "document_class: core-doc\n"
+            "phase: 20-ethical-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: ethical-model\n"
+            "ethical_domain: transparency\n"
+            "---\n\n"
+            "# Transparency\n\n"
+            "Explainable and communicable AI use.\n",
+        )
+        _write(
+            self.repo_root / "docs/20-ethical-model/controls/privacy-checklist.md",
+            "---\n"
+            "id: docs/20-ethical-model/controls/privacy-checklist.md\n"
+            "title: Privacy Checklist\n"
+            "document_class: core-doc\n"
+            "phase: 20-ethical-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: ethical-model\n"
+            "ethical_domain: data-protection\n"
+            "control_type: checklist\n"
+            "---\n\n"
+            "# Privacy Checklist\n\n"
+            "Checklist for privacy and minimization controls.\n",
+        )
+        _write(
+            self.repo_root / "docs/20-ethical-model/risk/bias-and-harm.md",
+            "---\n"
+            "id: docs/20-ethical-model/risk/bias-and-harm.md\n"
+            "title: Bias And Harm\n"
+            "document_class: core-doc\n"
+            "phase: 20-ethical-model\n"
+            "visibility: internal\n"
+            "status: active\n"
+            "pack: ethical-model\n"
+            "risk_type: bias-and-harm\n"
+            "---\n\n"
+            "# Bias And Harm\n\n"
+            "Bias and harm risk identification.\n",
+        )
 
     def tearDown(self) -> None:
         if self.previous_repo_root is None:
@@ -235,6 +295,37 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["assessment_type"], "checklist")
         self.assertEqual(results[0]["ranking"]["assessment_exact"], 180)
 
+    def test_search_ranks_ethical_pack_readme_first_for_ethics_query(self) -> None:
+        results = app._search_documents("ethical-model", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/20-ethical-model/README.md")
+        self.assertEqual(results[0]["pack"], "ethical-model")
+        self.assertEqual(results[0]["ranking"]["pack_exact"], 250)
+
+    def test_search_ranks_ethical_domain_doc_first_for_domain_query(self) -> None:
+        results = app._search_documents("transparency", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/20-ethical-model/principles/transparency.md")
+        self.assertEqual(results[0]["ethical_domain"], "transparency")
+        self.assertEqual(results[0]["ranking"]["ethical_domain_exact"], 420)
+
+    def test_search_ranks_ethical_control_doc_first_for_control_query(self) -> None:
+        results = app._search_documents("privacy", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/20-ethical-model/controls/privacy-checklist.md")
+        self.assertEqual(results[0]["ethical_domain"], "data-protection")
+
+    def test_search_ranks_ethical_risk_doc_first_for_risk_query(self) -> None:
+        results = app._search_documents("bias-and-harm", 10)
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["path"], "docs/20-ethical-model/risk/bias-and-harm.md")
+        self.assertEqual(results[0]["risk_type"], "bias-and-harm")
+        self.assertEqual(results[0]["ranking"]["risk_exact"], 260)
+
     def test_fetch_supports_canonical_path_lookup(self) -> None:
         doc = app._fetch_document("docs/00-overview/governance.md")
 
@@ -254,6 +345,16 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(doc["pack"], "maturity-model")
         self.assertEqual(doc["maturity_level"], "experimental")
         self.assertIsNone(doc["assessment_type"])
+
+    def test_fetch_returns_ethical_pack_metadata(self) -> None:
+        doc = app._fetch_document("docs/20-ethical-model/principles/transparency.md")
+
+        self.assertIsNotNone(doc)
+        assert doc is not None
+        self.assertEqual(doc["pack"], "ethical-model")
+        self.assertEqual(doc["ethical_domain"], "transparency")
+        self.assertIsNone(doc["control_type"])
+        self.assertIsNone(doc["risk_type"])
 
     def test_mcp_tools_call_returns_ranking_metadata(self) -> None:
         client = app.app.test_client()

@@ -147,6 +147,13 @@ def _variant_domain(rel_path: str) -> str | None:
     return STARTER_VARIANT_DOMAINS.get(rel_path)
 
 
+def _is_pack_readme(rel_path: str, pack: str | None) -> bool:
+    if not pack:
+        return False
+    path = PurePosixPath(rel_path)
+    return path.name == "README.md" and pack in rel_path
+
+
 def _pack_name(front_matter: dict[str, Any]) -> str | None:
     pack = front_matter.get("pack")
     if isinstance(pack, str) and pack.strip():
@@ -165,6 +172,27 @@ def _assessment_type(front_matter: dict[str, Any]) -> str | None:
     assessment_type = front_matter.get("assessment_type")
     if isinstance(assessment_type, str) and assessment_type.strip():
         return assessment_type.strip()
+    return None
+
+
+def _ethical_domain(front_matter: dict[str, Any]) -> str | None:
+    ethical_domain = front_matter.get("ethical_domain")
+    if isinstance(ethical_domain, str) and ethical_domain.strip():
+        return ethical_domain.strip()
+    return None
+
+
+def _control_type(front_matter: dict[str, Any]) -> str | None:
+    control_type = front_matter.get("control_type")
+    if isinstance(control_type, str) and control_type.strip():
+        return control_type.strip()
+    return None
+
+
+def _risk_type(front_matter: dict[str, Any]) -> str | None:
+    risk_type = front_matter.get("risk_type")
+    if isinstance(risk_type, str) and risk_type.strip():
+        return risk_type.strip()
     return None
 
 
@@ -187,6 +215,9 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     pack = _pack_name(front_matter)
     maturity_level = _maturity_level(front_matter)
     assessment_type = _assessment_type(front_matter)
+    ethical_domain = _ethical_domain(front_matter)
+    control_type = _control_type(front_matter)
+    risk_type = _risk_type(front_matter)
     return {
         "id": front_matter.get("id", rel_path),
         "path": rel_path,
@@ -202,6 +233,9 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "pack": pack,
         "maturity_level": maturity_level,
         "assessment_type": assessment_type,
+        "ethical_domain": ethical_domain,
+        "control_type": control_type,
+        "risk_type": risk_type,
         "content": raw_text,
         "body": body,
     }
@@ -230,6 +264,9 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 doc["pack"] or "",
                 doc["maturity_level"] or "",
                 doc["assessment_type"] or "",
+                doc["ethical_domain"] or "",
+                doc["control_type"] or "",
+                doc["risk_type"] or "",
                 doc["phase"],
                 doc["body"],
             ]
@@ -249,10 +286,17 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
             "variant_partial": 0,
             "pack_exact": 0,
             "pack_partial": 0,
+            "pack_readme": 0,
             "maturity_level_exact": 0,
             "maturity_level_partial": 0,
             "assessment_exact": 0,
             "assessment_partial": 0,
+            "ethical_domain_exact": 0,
+            "ethical_domain_partial": 0,
+            "control_exact": 0,
+            "control_partial": 0,
+            "risk_exact": 0,
+            "risk_partial": 0,
         }
         if query_norm in doc["title"].casefold():
             score_details["title"] = 50
@@ -282,6 +326,8 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
             pack_label = _normalize_label(pack)
             if query_label == pack_label:
                 score_details["pack_exact"] = 250
+                if _is_pack_readme(doc["path"], pack):
+                    score_details["pack_readme"] = 1000
             elif query_norm in pack.casefold():
                 score_details["pack_partial"] = 90
         maturity_level = doc["maturity_level"]
@@ -298,6 +344,27 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 score_details["assessment_exact"] = 180
             elif query_norm in assessment_type.casefold():
                 score_details["assessment_partial"] = 80
+        ethical_domain = doc["ethical_domain"]
+        if ethical_domain:
+            ethical_label = _normalize_label(ethical_domain)
+            if query_label == ethical_label:
+                score_details["ethical_domain_exact"] = 420
+            elif query_norm in ethical_domain.casefold():
+                score_details["ethical_domain_partial"] = 140
+        control_type = doc["control_type"]
+        if control_type:
+            control_label = _normalize_label(control_type)
+            if query_label == control_label:
+                score_details["control_exact"] = 180
+            elif query_norm in control_type.casefold():
+                score_details["control_partial"] = 80
+        risk_type = doc["risk_type"]
+        if risk_type:
+            risk_label = _normalize_label(risk_type)
+            if query_label == risk_label:
+                score_details["risk_exact"] = 260
+            elif query_norm in risk_type.casefold():
+                score_details["risk_partial"] = 100
         score = sum(score_details.values())
         doc = dict(doc)
         doc["ranking"] = score_details
@@ -319,6 +386,9 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
                 "pack": doc["pack"],
                 "maturity_level": doc["maturity_level"],
                 "assessment_type": doc["assessment_type"],
+                "ethical_domain": doc["ethical_domain"],
+                "control_type": doc["control_type"],
+                "risk_type": doc["risk_type"],
                 "score": doc["score"],
                 "ranking": doc["ranking"],
                 "phase": doc["phase"],
@@ -345,6 +415,9 @@ def _fetch_document(doc_id: str) -> dict[str, Any] | None:
                 "pack": doc["pack"],
                 "maturity_level": doc["maturity_level"],
                 "assessment_type": doc["assessment_type"],
+                "ethical_domain": doc["ethical_domain"],
+                "control_type": doc["control_type"],
+                "risk_type": doc["risk_type"],
                 "phase": doc["phase"],
                 "visibility": doc["visibility"],
                 "status": doc["status"],
