@@ -53,6 +53,9 @@ The root directory documents how they fit together. Each child project owns its 
 - now includes a real OpenAI Responses API controller path with a safe stub fallback when no API key is configured
 - controller context selection is now scored and metadata-aware instead of relying on simple text matching only
 - operational scripts now expose the shell and metadata commands directly
+- now supports project-local `.kaidf/` lifecycle commands for K-AIDF-compatible creator projects
+- current runtime commands now include `init`, `status`, `context`, and `mentor`
+- repository resolution now prefers `.kaidf/` in the current project, with explicit repo overrides still available
 - local tests pass with `PYTHONPATH=src python -m pytest -q`
 
 ### `mcp-aidf`
@@ -109,11 +112,12 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. decide whether the controller should expose explicit context-inspection/debug commands in the shell
-3. define the next additive doctrine pack after ethical-model
+2. refine the mentor workflow on top of `.kaidf/` initialization, status, and context inspection
+3. decide how much of the creator project itself should be inspected alongside `.kaidf/`
+4. define the next additive doctrine pack after ethical-model
 
 ## Resume Point
 
 If work resumes later, continue with:
 
-local lint verification, then controller inspection and next doctrine-pack design
+mentor workflow refinement on top of `.kaidf/`, then project-inspection scope and next doctrine-pack design
