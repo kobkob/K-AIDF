@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- project-local `.kaidf/` runtime support for K-AIDF-compatible creator projects
+- `init`, `status`, `context`, and `mentor` commands
+- generator-backed `.kaidf/` initialization from the default `kobkob-kaidf-generator` spec
+- project-runtime tests covering local `.kaidf/` resolution and initialization
+
+### Changed
+
+- repository resolution now prefers `.kaidf/` in the current project over generic repo-only defaults
+- default AI controller instructions now frame the agent as a mentor and architect for creators
+
 ## [0.1.1] - 2026-03-20
 
 ### Added

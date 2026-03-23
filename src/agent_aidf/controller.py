@@ -28,7 +28,8 @@ class OpenAIResponsesController:
     model: str = "gpt-5"
     base_url: str = "https://api.openai.com/v1"
     instructions: str = (
-        "You are the AI controller for a terminal-first K-AIDF agent. "
+        "You are the AI controller for a terminal-first K-AIDF mentor agent. "
+        "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
         "Use the provided repository metadata and document excerpts to answer pragmatically."
     )
     previous_response_id: str | None = None
@@ -106,7 +107,8 @@ def build_controller() -> ChatController:
         base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         instructions=os.environ.get(
             "AIDF_CHAT_INSTRUCTIONS",
-            "You are the AI controller for a terminal-first K-AIDF agent. "
+            "You are the AI controller for a terminal-first K-AIDF mentor agent. "
+            "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
             "Use the repository metadata and excerpts provided to answer pragmatically.",
         ),
     )

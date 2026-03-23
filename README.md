@@ -1,18 +1,23 @@
 # KAIDF Agent
 
-Terminal-first agent shell for generated K-AIDF repositories.
+Terminal-first mentor and architect agent for K-AIDF-compatible projects.
 
 ## Scope
 
-This first version is a CLI and interactive shell connected to repository metadata, not a web UI.
+This first version is a CLI and interactive shell connected to a project-local `.kaidf/` repository, not a web UI.
 
 It does three things:
-- loads a local generated K-AIDF repository
+- initializes and maintains `.kaidf/` in the current project
+- loads doctrine and pack metadata from the local K-AIDF repository
 - exposes doctrine-pack metadata through commands and scripts
 - provides a terminal shell backed by a real AI controller when configured
 
 ## Commands
 
+- `agent-aidf init [--force]`
+- `agent-aidf status`
+- `agent-aidf context [prompt]`
+- `agent-aidf mentor`
 - `agent-aidf packs`
 - `agent-aidf docs [--pack ...] [--phase ...] [--ethical-domain ...] [--maturity-level ...]`
 - `agent-aidf find <query>`
@@ -20,7 +25,13 @@ It does three things:
 - `agent-aidf chat <prompt>`
 - `agent-aidf shell`
 
-The CLI reads the repository from `--repo`, `AIDF_REPO_ROOT`, or the current directory.
+The CLI resolves runtime context in this order:
+- `--repo` when you need an explicit override
+- `.kaidf/` inside `--project` or the current directory
+- `AIDF_REPO_ROOT` if no local `.kaidf/` exists
+- the project root as a fallback for repository-style inspection
+
+`agent-aidf init` creates `.kaidf/` by calling the local `kobkob-kaidf-generator` default spec.
 
 ## AI Controller
 
@@ -48,6 +59,7 @@ If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller i
 
 ## Current Features
 
+- `.kaidf/` project runtime support
 - path and front-matter aware repository indexing
 - doctrine pack discovery
 - metadata filters for:
@@ -61,7 +73,9 @@ If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller i
 - explicit AI chat-controller boundary with a safe stub implementation for now
 - OpenAI Responses API controller integration with repository-aware prompt context
 - scored context selection that prefers pack/domain/level/risk matches over generic text matches
+- project-aware `status` and `context` inspection commands
+- mentor-oriented default controller instructions for creator workflows
 
 ## Next Layer
 
-The next version should add the AI chat controller boundary on top of this metadata shell rather than replacing it.
+The next version should deepen the mentor workflow on top of `.kaidf/`, not replace the current project/runtime model.

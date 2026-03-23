@@ -48,11 +48,32 @@ def _build_repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _build_project(tmp_path: Path) -> Path:
+    project = tmp_path / "project"
+    project.mkdir()
+    _build_repo(project / ".kaidf-parent")
+    (project / ".kaidf-parent" / "demo").rename(project / ".kaidf")
+    return project
+
+
 def _run(*args: str, repo: Path) -> subprocess.CompletedProcess[str]:
     env = {"PYTHONPATH": "src"}
     env.update()
     return subprocess.run(
         [sys.executable, "-m", "agent_aidf.cli", "--repo", str(repo), *args],
+        cwd=Path(__file__).resolve().parents[1],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+
+
+def _run_project(*args: str, project: Path) -> subprocess.CompletedProcess[str]:
+    env = {"PYTHONPATH": "src"}
+    env.update()
+    return subprocess.run(
+        [sys.executable, "-m", "agent_aidf.cli", "--project", str(project), *args],
         cwd=Path(__file__).resolve().parents[1],
         text=True,
         capture_output=True,
@@ -106,3 +127,35 @@ def test_chat_command_uses_controller_stub(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert "AI chat controller is not configured yet." in result.stdout
+
+
+def test_status_command_uses_project_dot_kaidf_by_default(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+
+    result = _run_project("status", project=project)
+
+    assert result.returncode == 0
+    assert "has_kaidf: yes" in result.stdout
+    assert f"repo_root: {project / '.kaidf'}" in result.stdout
+    assert "pack_count: 2" in result.stdout
+
+
+def test_context_command_lists_selected_documents_for_prompt(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+
+    result = _run_project("context", "transparency", project=project)
+
+    assert result.returncode == 0
+    assert "selected_documents:" in result.stdout
+    assert "docs/20-ethical-model/principles/transparency.md" in result.stdout
+
+
+def test_init_command_creates_dot_kaidf_in_current_project(tmp_path: Path) -> None:
+    project = tmp_path / "fresh-project"
+    project.mkdir()
+
+    result = _run_project("init", project=project)
+
+    assert result.returncode == 0, result.stderr
+    assert (project / ".kaidf").is_dir()
+    assert (project / ".kaidf" / "README.md").is_file()

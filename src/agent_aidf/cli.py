@@ -4,20 +4,44 @@ import argparse
 import os
 from pathlib import Path
 
-from .controller import build_controller
-from .repo import filter_documents, find_documents, get_document, list_packs, load_documents, resolve_repo_root
+from .controller import build_controller, select_context_documents
+from .project import (
+    init_project_repo,
+    project_repo_root,
+    read_project_status,
+    resolve_project_root,
+    resolve_runtime_repo_root,
+)
+from .repo import filter_documents, find_documents, get_document, list_packs, load_documents
 from .shell import run_shell
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agent-aidf")
     parser.add_argument(
+        "--project",
+        default=os.environ.get("AIDF_PROJECT_ROOT"),
+        help="Path to the creator project. Defaults to the current directory.",
+    )
+    parser.add_argument(
         "--repo",
-        default=os.environ.get("AIDF_REPO_ROOT"),
-        help="Path to the generated K-AIDF repository. Defaults to AIDF_REPO_ROOT or cwd.",
+        default=None,
+        help="Path to a K-AIDF repository override. Defaults to .kaidf in the project, then AIDF_REPO_ROOT.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    init_parser = subparsers.add_parser("init", help="Create .kaidf in the current project.")
+    init_parser.add_argument("--force", action="store_true", help="Replace an existing .kaidf directory.")
+
+    subparsers.add_parser("status", help="Show current project and .kaidf runtime status.")
+
+    context_parser = subparsers.add_parser(
+        "context",
+        help="Inspect the current project runtime context, optionally for a prompt.",
+    )
+    context_parser.add_argument("prompt", nargs="?", help="Optional prompt to score relevant documents.")
+
+    subparsers.add_parser("mentor", help="Start the mentor shell against the project runtime.")
     subparsers.add_parser("packs", help="List doctrine packs discovered in the repository.")
 
     docs_parser = subparsers.add_parser("docs", help="List documents filtered by metadata.")
@@ -82,11 +106,72 @@ def _cmd_chat(repo_root: Path, prompt: str) -> int:
     return 0
 
 
+def _cmd_init(project_root: Path, force: bool) -> int:
+    repo_root = init_project_repo(project_root, force=force)
+    print(f"Initialized {project_repo_root(project_root).name} at {repo_root}")
+    return 0
+
+
+def _cmd_status(project_root: Path, repo_root: Path) -> int:
+    status = read_project_status(project_root, repo_root)
+    print(f"project_root: {status.project_root}")
+    print(f"repo_root: {status.repo_root}")
+    print(f"has_kaidf: {'yes' if status.has_kaidf else 'no'}")
+    print(f"document_count: {status.document_count}")
+    print(f"pack_count: {status.pack_count}")
+    print(f"packs: {', '.join(status.packs) if status.packs else 'none'}")
+    return 0
+
+
+def _cmd_context(project_root: Path, repo_root: Path, prompt: str | None) -> int:
+    status = read_project_status(project_root, repo_root)
+    documents = load_documents(repo_root)
+    print(f"project_root: {status.project_root}")
+    print(f"repo_root: {status.repo_root}")
+    print(f"controller: {build_controller().__class__.__name__}")
+    print(f"packs: {', '.join(status.packs) if status.packs else 'none'}")
+    print(f"document_count: {status.document_count}")
+    if not prompt:
+        return 0
+    print(f"prompt: {prompt}")
+    print("selected_documents:")
+    matches = select_context_documents(documents, prompt, limit=5)
+    if not matches:
+        print("- none")
+        return 0
+    for doc in matches:
+        metadata = []
+        if doc.pack:
+            metadata.append(f"pack={doc.pack}")
+        if doc.ethical_domain:
+            metadata.append(f"ethical_domain={doc.ethical_domain}")
+        if doc.maturity_level:
+            metadata.append(f"maturity_level={doc.maturity_level}")
+        if doc.assessment_type:
+            metadata.append(f"assessment_type={doc.assessment_type}")
+        if doc.risk_type:
+            metadata.append(f"risk_type={doc.risk_type}")
+        suffix = f" [{' '.join(metadata)}]" if metadata else ""
+        print(f"- {doc.path} :: {doc.title}{suffix}")
+    return 0
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    repo_root = resolve_repo_root(args.repo)
+    project_root = resolve_project_root(args.project)
 
+    if args.command == "init":
+        return _cmd_init(project_root, args.force)
+
+    repo_root = resolve_runtime_repo_root(project_root, args.repo)
+
+    if args.command == "status":
+        return _cmd_status(project_root, repo_root)
+    if args.command == "context":
+        return _cmd_context(project_root, repo_root, args.prompt)
+    if args.command == "mentor":
+        return run_shell(repo_root)
     if args.command == "packs":
         return _cmd_packs(repo_root)
     if args.command == "docs":
