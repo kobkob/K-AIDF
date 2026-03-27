@@ -100,13 +100,36 @@ If needed, copy `.env.example` to `.env` and fill in local values such as `OPENA
 
 ## Current State
 
-- `kobkob-kaidf-generator` is the most complete component today
-- `mcp-aidf` is a functional MCP server over generated K-AIDF repositories
-- `agent-aidf` now has a terminal-first shell with a real AI controller path and metadata-aware commands
+The three nested repositories now have clear baseline roles and working local flows:
+
+- `kobkob-kaidf-generator`
+  Status: generates the canonical K-AIDF repository structure from declarative specs, including canonical doctrine packages, optional maturity-model and ethical-model packs, and version-2-style metadata/front matter support
+
+- `agent-aidf`
+  Status: now operates directly on project-local `.kaidf/` repositories with a persisted mentor workflow, quiz-style continuation, instant app management under `.kaidf/apps/`, and web-app runtime lifecycle commands
+
+- `mcp-aidf`
+  Status: is a functional MCP server over generated K-AIDF repositories with doctrine-aware search/fetch behavior and metadata-aware ranking
+
+In practice, the generator defines the structure, the agent uses that structure for creator workflows, and the MCP server exposes selected repository content to external AI clients.
+
+## Current Highlights
+
+- `kobkob-kaidf-generator` now provides the strongest downstream contract surface, including canonical doctrine layout, metadata emission, and packaged doctrine-pack examples
+- `agent-aidf` is now beyond a simple shell: it persists mentor state, guides a framework-led workflow across CLI invocations, creates or reuses instant apps, rewrites app scaffolds from workflow intent, and can start/restart/stop active localhost web apps
+- `mcp-aidf` now consumes the generated contract model instead of relying on a loose content interpretation only
+
+## Typical Local Flow
+
+One practical end-to-end flow in this workspace is:
+
+1. Use `kobkob-kaidf-generator` to generate or refresh a K-AIDF-compatible repository scaffold.
+2. Use `agent-aidf` inside a creator project to initialize `.kaidf/`, run the persisted mentor workflow, and evolve instant apps under `.kaidf/apps/`.
+3. Use `mcp-aidf` to expose the generated repository content to MCP clients for doctrine-aware search and fetch.
 
 ## Suggested Next Steps
 
-- initialize `agent-aidf` and `mcp-aidf` as nested repositories if they are not already
-- define a small shared contract for generated document IDs and metadata
-- decide whether `mcp-aidf` reads directly from generated repositories or from a separate indexed store
-- implement `agent-aidf` against the generated K-AIDF structure rather than duplicating repository semantics
+- deepen `agent-aidf` from scaffold-refresh behavior into richer mentor-driven app generation
+- decide how much of the creator project outside `.kaidf/` should be inspected during mentor workflows
+- continue tightening the generator-to-agent-to-MCP contract around IDs, metadata, and runtime expectations
+- define the next additive doctrine pack after the current maturity-model and ethical-model packs
