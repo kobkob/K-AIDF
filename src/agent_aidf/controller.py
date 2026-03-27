@@ -8,6 +8,8 @@ import re
 from typing import Protocol
 from urllib import error, request
 
+from .instant_apps import list_instant_apps, load_instant_app_runtime
+from .mentor import load_mentor_state
 from .repo import Document, list_packs, load_documents, resolve_repo_root
 
 class ChatController(Protocol):
@@ -117,11 +119,23 @@ def build_controller() -> ChatController:
 def _build_context_prompt(repo_root: Path, prompt: str) -> str:
     documents = load_documents(repo_root)
     packs = ", ".join(list_packs(documents)) or "none"
+    instant_apps = list_instant_apps(repo_root)
+    mentor_state = load_mentor_state(repo_root)
+    current_runtime = load_instant_app_runtime(repo_root, mentor_state.current_app_id) if mentor_state.current_app_id else None
     matches = select_context_documents(documents, prompt, limit=5)
     lines = [
         f"Repository root: {repo_root}",
         f"Detected packs: {packs}",
         f"Document count: {len(documents)}",
+        f"Persistent instant apps: {', '.join(app.app_id for app in instant_apps) or 'none'}",
+        f"Mentor step count: {mentor_state.step_count}",
+        f"Mentor pending category: {mentor_state.pending_category or 'none'}",
+        f"Mentor current app: {mentor_state.current_app_id or 'none'}",
+        (
+            f"Mentor current app URL: http://127.0.0.1:{current_runtime.port}"
+            if current_runtime and current_runtime.status == "running" and current_runtime.port
+            else "Mentor current app URL: none"
+        ),
         "",
         "Relevant documents:",
     ]

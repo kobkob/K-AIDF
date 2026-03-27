@@ -8,6 +8,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .instant_apps import list_instant_apps, load_instant_app_runtime
+from .mentor import load_mentor_state
 from .repo import list_packs, load_documents, resolve_repo_root
 
 KAIDF_DIRNAME = ".kaidf"
@@ -21,6 +23,12 @@ class ProjectStatus:
     document_count: int
     pack_count: int
     packs: list[str]
+    instant_app_count: int
+    instant_apps: list[str]
+    mentor_step_count: int
+    mentor_pending_category: str | None
+    mentor_current_app_id: str | None
+    mentor_current_app_url: str | None
 
 
 def resolve_project_root(project_root: str | Path | None) -> Path:
@@ -61,6 +69,19 @@ def read_project_status(
     runtime_repo = resolve_runtime_repo_root(project, repo_root)
     documents = load_documents(runtime_repo)
     packs = list_packs(documents)
+    instant_app_repo = local_repo if local_repo.exists() else runtime_repo
+    instant_apps = list_instant_apps(instant_app_repo)
+    mentor_state = load_mentor_state(instant_app_repo)
+    current_runtime = (
+        load_instant_app_runtime(instant_app_repo, mentor_state.current_app_id)
+        if mentor_state.current_app_id
+        else None
+    )
+    current_app_url = (
+        f"http://127.0.0.1:{current_runtime.port}"
+        if current_runtime and current_runtime.status == "running" and current_runtime.port
+        else None
+    )
     return ProjectStatus(
         project_root=project,
         repo_root=runtime_repo,
@@ -68,6 +89,12 @@ def read_project_status(
         document_count=len(documents),
         pack_count=len(packs),
         packs=packs,
+        instant_app_count=len(instant_apps),
+        instant_apps=[app.app_id for app in instant_apps],
+        mentor_step_count=mentor_state.step_count,
+        mentor_pending_category=mentor_state.pending_category,
+        mentor_current_app_id=mentor_state.current_app_id,
+        mentor_current_app_url=current_app_url,
     )
 
 

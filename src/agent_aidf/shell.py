@@ -5,6 +5,15 @@ from argparse import Namespace
 from pathlib import Path
 
 from .controller import build_controller
+from .instant_apps import (
+    create_instant_app,
+    get_instant_app,
+    list_instant_apps,
+    load_instant_app_runtime,
+    run_instant_app,
+    stop_instant_app,
+)
+from .mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from .repo import filter_documents, find_documents, get_document, list_packs, load_documents
 
 
@@ -72,6 +81,52 @@ def _print_open(repo_root: Path, ref: str) -> int:
     return 0
 
 
+def _print_apps(repo_root: Path) -> int:
+    apps = list_instant_apps(repo_root)
+    if not apps:
+        print("No persistent instant apps found.")
+        return 0
+    for app in apps:
+        suffix = f" url={app.url}" if app.url else ""
+        print(f"{app.app_id} :: kind={app.kind} mode={app.mode} root={app.root}{suffix}")
+    return 0
+
+
+def _print_app_open(repo_root: Path, ref: str) -> int:
+    app = get_instant_app(repo_root, ref)
+    if app is None:
+        print(f"Instant app not found: {ref}")
+        return 1
+    print(f"app_id: {app.app_id}")
+    print(f"title: {app.title}")
+    print(f"mode: {app.mode}")
+    print(f"kind: {app.kind}")
+    print(f"root: {app.root}")
+    print(f"entrypoint: {app.entrypoint}")
+    print(f"description: {app.description}")
+    if app.url:
+        print(f"url: {app.url}")
+    runtime = load_instant_app_runtime(repo_root, app.app_id)
+    if runtime is not None:
+        print(f"runtime_status: {runtime.status}")
+        print(f"runtime_pid: {runtime.pid or 'none'}")
+        print(f"runtime_port: {runtime.port or 'none'}")
+    return 0
+
+
+def _print_app_runtime(repo_root: Path, ref: str) -> int:
+    runtime = load_instant_app_runtime(repo_root, ref)
+    if runtime is None:
+        print(f"No runtime state found for: {ref}")
+        return 1
+    print(f"app_id: {runtime.app_id}")
+    print(f"status: {runtime.status}")
+    print(f"pid: {runtime.pid or 'none'}")
+    print(f"port: {runtime.port or 'none'}")
+    print(f"log_path: {runtime.log_path}")
+    return 0
+
+
 def run_shell(repo_root: Path) -> int:
     controller = build_controller()
     print("agent-aidf shell")
@@ -87,12 +142,20 @@ def run_shell(repo_root: Path) -> int:
         if raw in {"quit", "exit"}:
             return 0
         if raw == "help":
-            print("commands: packs | docs [filters] | find <query> | open <id-or-path> | chat <prompt> | quit")
+            print(
+                "commands: packs | apps | app-create <id> [--mode ...] [--kind ...] | "
+                "app-open <id-or-path> | app-run <id> [--port ...] | app-runtime <id> | app-stop <id> | "
+                "mentor [answer] | mentor-status | mentor-reset | "
+                "docs [filters] | find <query> | open <id-or-path> | chat <prompt> | quit"
+            )
             continue
         parts = shlex.split(raw)
         command = parts[0]
         if command == "packs":
             _print_packs(repo_root)
+            continue
+        if command == "apps":
+            _print_apps(repo_root)
             continue
         if command == "find" and len(parts) >= 2:
             _print_find(repo_root, " ".join(parts[1:]))
@@ -100,9 +163,65 @@ def run_shell(repo_root: Path) -> int:
         if command == "open" and len(parts) == 2:
             _print_open(repo_root, parts[1])
             continue
+        if command == "app-open" and len(parts) == 2:
+            _print_app_open(repo_root, parts[1])
+            continue
+        if command == "app-runtime" and len(parts) == 2:
+            _print_app_runtime(repo_root, parts[1])
+            continue
+        if command == "app-stop" and len(parts) == 2:
+            runtime = stop_instant_app(repo_root, parts[1])
+            print(f"Stopped {runtime.app_id} with status {runtime.status}")
+            continue
         if command == "chat" and len(parts) >= 2:
             print(controller.chat(" ".join(parts[1:]), repo_root))
             continue
+        if command == "mentor":
+            answer = " ".join(parts[1:]) if len(parts) >= 2 else None
+            print(continue_mentor_workflow(repo_root, answer=answer).message)
+            continue
+        if command == "mentor-status":
+            print(mentor_status_text(repo_root))
+            continue
+        if command == "mentor-reset":
+            path = reset_mentor_state(repo_root)
+            print(f"Reset mentor workflow state at {path}")
+            continue
+        if command == "app-run" and len(parts) >= 2:
+            ref = parts[1]
+            port = None
+            index = 2
+            while index < len(parts):
+                if parts[index] == "--port" and index + 1 < len(parts):
+                    port = int(parts[index + 1])
+                    index += 2
+                    continue
+                print(f"Unknown app-run argument: {parts[index]}")
+                break
+            else:
+                runtime = run_instant_app(repo_root, ref, port=port)
+                print(f"Started {runtime.app_id} on port {runtime.port}")
+                continue
+        if command == "app-create" and len(parts) >= 2:
+            app_id = parts[1]
+            mode = "persistent"
+            kind = "shell"
+            index = 2
+            while index < len(parts):
+                if parts[index] == "--mode" and index + 1 < len(parts):
+                    mode = parts[index + 1]
+                    index += 2
+                    continue
+                if parts[index] == "--kind" and index + 1 < len(parts):
+                    kind = parts[index + 1]
+                    index += 2
+                    continue
+                print(f"Unknown app-create argument: {parts[index]}")
+                break
+            else:
+                app = create_instant_app(repo_root, app_id=app_id, mode=mode, kind=kind)
+                print(f"Created {app.mode} {app.kind} instant app at {app.root}")
+                continue
         if command == "docs":
             namespace = Namespace(
                 pack=None,

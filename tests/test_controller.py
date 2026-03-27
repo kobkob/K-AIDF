@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_aidf.controller import OpenAIResponsesController, build_controller, select_context_documents
+from agent_aidf.instant_apps import create_instant_app
 from agent_aidf.repo import load_documents
 
 
@@ -35,6 +36,7 @@ def test_openai_controller_builds_payload_with_repo_context(tmp_path: Path) -> N
         "Explainable use.\n",
         encoding="utf-8",
     )
+    create_instant_app(repo, app_id="mentor-web", mode="persistent", kind="web")
 
     controller = OpenAIResponsesController(api_key="test-key")
     payload = controller._build_payload("tell me about transparency", Path(repo))
@@ -43,6 +45,10 @@ def test_openai_controller_builds_payload_with_repo_context(tmp_path: Path) -> N
     assert isinstance(payload["input"], list)
     user_message = payload["input"][1]
     assert "Detected packs: ethical-model" in user_message["content"]
+    assert "Persistent instant apps: mentor-web" in user_message["content"]
+    assert "Mentor step count: 0" in user_message["content"]
+    assert "Mentor current app: none" in user_message["content"]
+    assert "Mentor current app URL: none" in user_message["content"]
     assert "docs/20-ethical-model/principles/transparency.md" in user_message["content"]
 
 

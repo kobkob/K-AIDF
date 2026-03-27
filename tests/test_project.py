@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agent_aidf.instant_apps import create_instant_app
 from agent_aidf.project import init_project_repo, read_project_status, resolve_runtime_repo_root
 
 
@@ -47,6 +48,7 @@ def test_read_project_status_reports_pack_counts(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
     repo = _build_project(project)
+    create_instant_app(repo, app_id="mentor-shell", mode="persistent", kind="shell")
 
     status = read_project_status(project, repo)
 
@@ -54,6 +56,12 @@ def test_read_project_status_reports_pack_counts(tmp_path: Path) -> None:
     assert status.document_count == 2
     assert status.pack_count == 1
     assert status.packs == ["ethical-model"]
+    assert status.instant_app_count == 1
+    assert status.instant_apps == ["mentor-shell"]
+    assert status.mentor_step_count == 0
+    assert status.mentor_pending_category is None
+    assert status.mentor_current_app_id is None
+    assert status.mentor_current_app_url is None
 
 
 def test_init_project_repo_uses_generator_output(tmp_path: Path, monkeypatch) -> None:
