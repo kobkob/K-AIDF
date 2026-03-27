@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PYTHONPATH=src python -m pytest -q
+./scripts/bootstrap.sh
+PYTHONPATH=src .venv/bin/python -m pytest -q
