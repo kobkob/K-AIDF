@@ -1,5 +1,8 @@
 SHELL := /usr/bin/env bash
 
+export ANSWER
+export PROMPT
+
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
 	install-agent ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset \
@@ -79,10 +82,26 @@ agent-status:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" status
 
 agent-context:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context $(if $(PROMPT),"$(PROMPT)",)
+	@$(MAKE) ensure-generated-repo >/dev/null && \
+	source ./scripts/load-agent-env.sh && \
+	cd agent-aidf && \
+	bash scripts/bootstrap.sh && \
+	if [[ -n "$$PROMPT" ]]; then \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context "$$PROMPT"; \
+	else \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context; \
+	fi
 
 agent-mentor:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor $(if $(ANSWER),"$(ANSWER)",)
+	@$(MAKE) ensure-generated-repo >/dev/null && \
+	source ./scripts/load-agent-env.sh && \
+	cd agent-aidf && \
+	bash scripts/bootstrap.sh && \
+	if [[ -n "$$ANSWER" ]]; then \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
+	else \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor; \
+	fi
 
 agent-mentor-status:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --status
