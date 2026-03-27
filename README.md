@@ -104,6 +104,8 @@ make mcp-up
 
 If needed, copy `.env.example` to `.env` and fill in local values such as `OPENAI_API_KEY`, `KAIDF_GENERATED_REPO`, and `SECRET_KEY`.
 
+The `agent-*` Make targets now assume the default generated K-AIDF repository should exist at the configured workspace path. If it is missing, the workspace will generate it automatically before running the agent command.
+
 ## Current State
 
 The three nested repositories now have clear baseline roles and working local flows:
