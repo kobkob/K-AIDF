@@ -57,6 +57,15 @@ The root directory documents how they fit together. Each child project owns its 
 - current runtime commands now include `init`, `status`, `context`, and `mentor`
 - repository resolution now prefers `.kaidf/` in the current project, with explicit repo overrides still available
 - local tests pass with `PYTHONPATH=src python -m pytest -q`
+- mentor workflow is now persisted under `.kaidf/mentor-workflow.json` and continues across separate CLI interactions
+- mentor workflow is now quiz-style and framework-led, grounding each step in the local `.kaidf/` repository
+- persistent instant apps now live under `.kaidf/apps/<app-id>/`, with ephemeral scaffolds still available for throwaway work
+- mentor can now create, reuse, or spawn instant apps based on workflow answers and modality shifts
+- mentor now writes per-app `mentor-notes.md` and `mentor-brief.json` artifacts alongside scaffold updates
+- mentor-driven implementation now rewrites the active app scaffold files instead of leaving them as static placeholders
+- web instant apps now support runtime lifecycle commands: `app-run`, `app-runtime`, and `app-stop`
+- mentor can now auto-start, restart, and stop superseded web instant apps and expose the active localhost URL in status and context output
+- agent-aidf version has been bumped to `0.2.0` for the mentor/instant-app/runtime extension
 
 ### `mcp-aidf`
 
@@ -112,7 +121,7 @@ python -c "import app"
 Move from baseline generator hardening into broader contract work:
 
 1. verify the new lint/format gates locally once `ruff` is available
-2. refine the mentor workflow on top of `.kaidf/` initialization, status, and context inspection
+2. deepen mentor-driven app generation beyond scaffold refreshes into richer task-specific logic
 3. decide how much of the creator project itself should be inspected alongside `.kaidf/`
 4. define the next additive doctrine pack after ethical-model
 
@@ -120,4 +129,4 @@ Move from baseline generator hardening into broader contract work:
 
 If work resumes later, continue with:
 
-mentor workflow refinement on top of `.kaidf/`, then project-inspection scope and next doctrine-pack design
+mentor workflow refinement is now baseline-complete; continue with richer app generation, project-inspection scope, and next doctrine-pack design
