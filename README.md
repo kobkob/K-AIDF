@@ -90,6 +90,7 @@ The root workspace now includes:
 Typical commands:
 
 ```bash
+make install-agent
 make test-all
 make generate-default
 make agent-status
