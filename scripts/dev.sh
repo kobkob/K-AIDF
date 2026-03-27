@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-./scripts/bootstrap.sh
+bash scripts/bootstrap.sh
 PYTHONPATH=src .venv/bin/python -m pytest -q
 
 if [[ -n "${AIDF_REPO_ROOT:-}" ]]; then
