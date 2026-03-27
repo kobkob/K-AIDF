@@ -73,7 +73,7 @@ If shared contracts become necessary, keep them small and explicit:
 The root workspace now includes:
 
 - `Makefile`
-  Purpose: common entrypoints for tests, canonical generator scripts, agent shell launch, and MCP Docker control
+  Purpose: common entrypoints for tests, canonical generator scripts, agent mentor/runtime commands, and MCP Docker control
 
 - `scripts/env-common.sh`
   Purpose: shared workspace environment defaults
@@ -92,6 +92,11 @@ Typical commands:
 ```bash
 make test-all
 make generate-default
+make agent-status
+make agent-mentor
+make agent-mentor ANSWER="We need a transparent localhost review app."
+make agent-apps
+make agent-app-run APP=mentor-web-app
 make agent-shell
 make mcp-up
 ```

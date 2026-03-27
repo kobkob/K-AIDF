@@ -2,6 +2,8 @@ SHELL := /usr/bin/env bash
 
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
 	generate-default generate-maturity generate-ethical agent-shell agent-packs \
+	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset \
+	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs
 
 help:
@@ -17,7 +19,16 @@ help:
 	@echo "make env-agent        Print/export agent environment summary"
 	@echo "make env-mcp          Print/export MCP environment summary"
 	@echo "make agent-shell      Launch the terminal agent shell"
+	@echo "make agent-status     Show current agent project/runtime status"
+	@echo "make agent-context    Show current agent context"
+	@echo "make agent-mentor     Continue the mentor workflow (pass ANSWER='...')"
+	@echo "make agent-mentor-status Show persisted mentor workflow state"
+	@echo "make agent-mentor-reset Reset persisted mentor workflow state"
 	@echo "make agent-packs      List doctrine packs through agent-aidf"
+	@echo "make agent-apps       List persistent instant apps"
+	@echo "make agent-app-run    Start a web instant app (pass APP=<app-id> [PORT=...])"
+	@echo "make agent-app-runtime Show persisted runtime state for an instant app (pass APP=<app-id>)"
+	@echo "make agent-app-stop   Stop a running instant app (pass APP=<app-id>)"
 	@echo "make mcp-up           Start the MCP stack with Docker Compose"
 	@echo "make mcp-down         Stop the MCP stack"
 	@echo "make mcp-logs         Tail MCP logs"
@@ -51,8 +62,38 @@ generate-ethical:
 agent-shell:
 	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" shell
 
+agent-status:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" status
+
+agent-context:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context $(PROMPT)
+
+agent-mentor:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor $(ANSWER)
+
+agent-mentor-status:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --status
+
+agent-mentor-reset:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --reset
+
 agent-packs:
 	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" packs
+
+agent-apps:
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" apps
+
+agent-app-run:
+	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-run APP=<app-id> [PORT=<port>]"; exit 1; fi
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-run "$(APP)" $(if $(PORT),--port $(PORT),)
+
+agent-app-runtime:
+	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-runtime APP=<app-id>"; exit 1; fi
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-runtime "$(APP)"
+
+agent-app-stop:
+	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-stop APP=<app-id>"; exit 1; fi
+	@source ./scripts/load-agent-env.sh && cd agent-aidf && PYTHONPATH=src python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-stop "$(APP)"
 
 mcp-up:
 	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose up --build -d
