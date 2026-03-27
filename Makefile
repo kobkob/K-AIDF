@@ -79,10 +79,10 @@ agent-status:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" status
 
 agent-context:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context $(PROMPT)
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context $(if $(PROMPT),"$(PROMPT)",)
 
 agent-mentor:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor $(ANSWER)
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor $(if $(ANSWER),"$(ANSWER)",)
 
 agent-mentor-status:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --status
