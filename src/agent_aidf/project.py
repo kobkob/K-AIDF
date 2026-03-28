@@ -109,6 +109,29 @@ def locate_generator_repo() -> Path:
     return generator_repo
 
 
+def resolve_generator_python(generator_repo: Path) -> Path:
+    bootstrap_script = generator_repo / "scripts/bootstrap.sh"
+    generator_python = generator_repo / ".venv/bin/python"
+    if bootstrap_script.is_file():
+        try:
+            subprocess.run(
+                ["bash", str(bootstrap_script)],
+                cwd=generator_repo,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.strip() or exc.stdout.strip()
+            raise RuntimeError(f"Failed to bootstrap generator environment: {stderr}") from exc
+        if not generator_python.is_file():
+            raise RuntimeError(f"Generator Python executable not found: {generator_python}")
+        return generator_python
+    if generator_python.is_file():
+        return generator_python
+    return Path(sys.executable)
+
+
 def init_project_repo(project_root: str | Path | None = None, *, force: bool = False) -> Path:
     project = resolve_project_root(project_root)
     target = project_repo_root(project)
@@ -118,6 +141,7 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
         shutil.rmtree(target)
 
     generator_repo = locate_generator_repo()
+    generator_python = resolve_generator_python(generator_repo)
     spec_path = generator_repo / "specs/kaidf.default.yaml"
     with tempfile.TemporaryDirectory(prefix="agent-aidf-init-", dir=str(project)) as temp_dir:
         temp_path = Path(temp_dir)
@@ -130,7 +154,7 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
             else generator_pythonpath
         )
         command = [
-            sys.executable,
+            str(generator_python),
             "-m",
             "kaidf_gen.cli",
             "generate",
