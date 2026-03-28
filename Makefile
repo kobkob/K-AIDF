@@ -4,7 +4,7 @@ export ANSWER
 export PROMPT
 
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
-	install-agent ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
+	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs
@@ -16,7 +16,9 @@ help:
 	@echo "make test-agent       Run agent tests"
 	@echo "make test-mcp         Run MCP tests"
 	@echo "make test-all         Run all test targets"
+	@echo "make install-generator Create/update the generator virtualenv and install dependencies"
 	@echo "make install-agent    Create/update the agent virtualenv and install dependencies"
+	@echo "make install-mcp      Create/update the MCP virtualenv and install dependencies"
 	@echo "make ensure-generated-repo Generate the default K-AIDF repo if the expected path is missing"
 	@echo "make generate-default Generate the default K-AIDF repository"
 	@echo "make generate-maturity Generate the maturity-model pack example"
@@ -45,18 +47,24 @@ env-mcp:
 	@source ./scripts/load-mcp-env.sh
 
 test-generator:
-	@cd kobkob-kaidf-generator && PYTHONPATH=src python -m pytest -q
+	@cd kobkob-kaidf-generator && bash scripts/check.sh
 
 test-agent:
 	@cd agent-aidf && bash scripts/check.sh
 
 test-mcp:
-	@cd mcp-aidf && python -m unittest discover -s tests -p 'test_*.py' && python -m py_compile app.py
+	@cd mcp-aidf && bash scripts/check.sh
 
 test-all: test-generator test-agent test-mcp
 
+install-generator:
+	@cd kobkob-kaidf-generator && bash scripts/bootstrap.sh
+
 install-agent:
 	@cd agent-aidf && bash scripts/bootstrap.sh
+
+install-mcp:
+	@cd mcp-aidf && bash scripts/bootstrap.sh
 
 ensure-generated-repo:
 	@source ./scripts/load-agent-env.sh >/dev/null && \
