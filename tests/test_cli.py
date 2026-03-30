@@ -175,6 +175,43 @@ def test_apps_command_lists_persistent_apps(tmp_path: Path) -> None:
     assert "persistent" in result.stdout
 
 
+def test_contract_create_command_generates_basic_contract_files(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+
+    result = _run_project(
+        "contract-create",
+        "basic-web-contract",
+        "--brief",
+        "Create a basic contract for a mentor-led web workflow.",
+        project=project,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "contract_id: basic-web-contract" in result.stdout
+    assert "phase_count: 5" in result.stdout
+    assert (project / ".kaidf" / "contracts" / "basic-web-contract" / "contract.json").is_file()
+
+
+def test_contracts_and_contract_open_commands_show_generated_contract(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+    _run_project(
+        "contract-create",
+        "basic-shell-contract",
+        "--brief",
+        "Create a basic contract for a mentor-led shell workflow.",
+        project=project,
+    )
+
+    listed = _run_project("contracts", project=project)
+    opened = _run_project("contract-open", "basic-shell-contract", project=project)
+
+    assert listed.returncode == 0
+    assert "basic-shell-contract" in listed.stdout
+    assert opened.returncode == 0
+    assert "phase_count: 5" in opened.stdout
+    assert "source_summary:" in opened.stdout
+
+
 def test_mentor_command_persists_workflow_between_invocations(tmp_path: Path) -> None:
     project = _build_project(tmp_path)
 

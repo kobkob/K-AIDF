@@ -12,6 +12,7 @@ It does three things:
 - exposes doctrine-pack metadata through commands and scripts
 - provides a terminal shell backed by a real AI controller when configured
 - manages project-local instant apps under `.kaidf/apps/<app-id>` for mentor-driven local workflows
+- generates mentor-aware basic contracts under `.kaidf/contracts/<contract-id>` for K-AIDF delivery setup
 
 ## Commands
 
@@ -20,6 +21,9 @@ It does three things:
 - `agent-aidf context [prompt]`
 - `agent-aidf mentor [answer] [--status] [--reset]`
 - `agent-aidf packs`
+- `agent-aidf contracts`
+- `agent-aidf contract-create [contract-id] [--brief ...] [--force]`
+- `agent-aidf contract-open <contract-id-or-path>`
 - `agent-aidf apps`
 - `agent-aidf app-create <app-id> [--mode persistent|ephemeral] [--kind shell|web]`
 - `agent-aidf app-open <app-id-or-path>`
@@ -68,6 +72,30 @@ The `mentor` command is now the main guided workflow entrypoint:
 
 Mentor state is stored in `.kaidf/mentor-workflow.json`.
 
+## Basic Contracts
+
+Persistent basic contracts live under `.kaidf/contracts/<contract-id>/`.
+
+- `agent-aidf contracts`
+  Purpose: list generated contracts
+
+- `agent-aidf contract-create [contract-id] [--brief ...] [--force]`
+  Purpose: create a mentor-aware contract scaffold that follows the five K-AIDF Basic phases
+
+- `agent-aidf contract-open <contract-id-or-path>`
+  Purpose: inspect a generated contract and its current mentor/app context
+
+Each contract currently writes:
+
+- `contract.json`
+  Purpose: machine-readable contract metadata and the five Basic phases
+
+- `contract.md`
+  Purpose: readable contract summary with phase-by-phase responsibilities and exits
+
+- `quiz.md`
+  Purpose: phase-aligned mentor quiz prompts for the basic workflow
+
 ## Instant App Runtime
 
 Persistent instant apps live under `.kaidf/apps/<app-id>/`.
@@ -112,6 +140,9 @@ The mentor currently uses these rules:
 
 - `.kaidf/` project runtime support
 - persisted mentor workflow state in `.kaidf/mentor-workflow.json`
+- persistent basic contracts under `.kaidf/contracts/`
+- contract generation grounded in the K-AIDF Basic framework phases
+- mentor-aware contract creation that can reuse current mentor state and active instant app context
 - quiz-style mentor continuation that resumes from the last pending question
 - project-local persistent instant apps under `.kaidf/apps/`
 - ephemeral instant app scaffolds for throwaway local workflows

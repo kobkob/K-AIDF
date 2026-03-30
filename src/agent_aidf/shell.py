@@ -4,6 +4,7 @@ import shlex
 from argparse import Namespace
 from pathlib import Path
 
+from .contracts import create_basic_contract, get_contract, list_contracts
 from .controller import build_controller
 from .instant_apps import (
     create_instant_app,
@@ -92,6 +93,34 @@ def _print_apps(repo_root: Path) -> int:
     return 0
 
 
+def _print_contracts(repo_root: Path) -> int:
+    contracts = list_contracts(repo_root)
+    if not contracts:
+        print("No generated contracts found.")
+        return 0
+    for contract in contracts:
+        print(f"{contract.contract_id} :: title={contract.title} root={contract.root}")
+    return 0
+
+
+def _print_contract_open(repo_root: Path, ref: str) -> int:
+    contract = get_contract(repo_root, ref)
+    if contract is None:
+        print(f"Contract not found: {ref}")
+        return 1
+    print(f"contract_id: {contract.contract_id}")
+    print(f"title: {contract.title}")
+    print(f"root: {contract.root}")
+    print(f"brief: {contract.brief}")
+    print(f"source_summary: {contract.source_summary}")
+    print(f"current_app_id: {contract.current_app_id or 'none'}")
+    print(f"current_app_url: {contract.current_app_url or 'none'}")
+    print(f"phase_count: {len(contract.phases)}")
+    if contract.ai_guidance:
+        print(f"ai_guidance: {contract.ai_guidance}")
+    return 0
+
+
 def _print_app_open(repo_root: Path, ref: str) -> int:
     app = get_instant_app(repo_root, ref)
     if app is None:
@@ -143,7 +172,8 @@ def run_shell(repo_root: Path) -> int:
             return 0
         if raw == "help":
             print(
-                "commands: packs | apps | app-create <id> [--mode ...] [--kind ...] | "
+                "commands: packs | contracts | contract-create [id] [--brief ...] [--force] | contract-open <id-or-path> | "
+                "apps | app-create <id> [--mode ...] [--kind ...] | "
                 "app-open <id-or-path> | app-run <id> [--port ...] | app-runtime <id> | app-stop <id> | "
                 "mentor [answer] | mentor-status | mentor-reset | "
                 "docs [filters] | find <query> | open <id-or-path> | chat <prompt> | quit"
@@ -154,6 +184,9 @@ def run_shell(repo_root: Path) -> int:
         if command == "packs":
             _print_packs(repo_root)
             continue
+        if command == "contracts":
+            _print_contracts(repo_root)
+            continue
         if command == "apps":
             _print_apps(repo_root)
             continue
@@ -162,6 +195,9 @@ def run_shell(repo_root: Path) -> int:
             continue
         if command == "open" and len(parts) == 2:
             _print_open(repo_root, parts[1])
+            continue
+        if command == "contract-open" and len(parts) == 2:
+            _print_contract_open(repo_root, parts[1])
             continue
         if command == "app-open" and len(parts) == 2:
             _print_app_open(repo_root, parts[1])
@@ -221,6 +257,29 @@ def run_shell(repo_root: Path) -> int:
             else:
                 app = create_instant_app(repo_root, app_id=app_id, mode=mode, kind=kind)
                 print(f"Created {app.mode} {app.kind} instant app at {app.root}")
+                continue
+        if command == "contract-create":
+            contract_id = None
+            brief = None
+            force = False
+            index = 1
+            if index < len(parts) and not parts[index].startswith("--"):
+                contract_id = parts[index]
+                index += 1
+            while index < len(parts):
+                if parts[index] == "--brief" and index + 1 < len(parts):
+                    brief = parts[index + 1]
+                    index += 2
+                    continue
+                if parts[index] == "--force":
+                    force = True
+                    index += 1
+                    continue
+                print(f"Unknown contract-create argument: {parts[index]}")
+                break
+            else:
+                contract = create_basic_contract(repo_root, contract_id=contract_id, brief=brief, force=force)
+                print(f"Created contract {contract.contract_id} at {contract.root}")
                 continue
         if command == "docs":
             namespace = Namespace(

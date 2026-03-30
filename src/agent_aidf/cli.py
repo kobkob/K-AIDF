@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
+from .contracts import create_basic_contract, get_contract, list_contracts
 from .controller import build_controller, select_context_documents
 from .instant_apps import (
     create_instant_app,
@@ -59,6 +60,18 @@ def build_parser() -> argparse.ArgumentParser:
     mentor_parser.add_argument("--reset", action="store_true", help="Reset the persisted mentor workflow state.")
     subparsers.add_parser("packs", help="List doctrine packs discovered in the repository.")
     subparsers.add_parser("apps", help="List persistent instant apps in .kaidf/apps.")
+    subparsers.add_parser("contracts", help="List generated basic contracts in .kaidf/contracts.")
+
+    contract_create_parser = subparsers.add_parser(
+        "contract-create",
+        help="Create a mentor-aware basic contract scaffold under .kaidf/contracts.",
+    )
+    contract_create_parser.add_argument("contract_id", nargs="?")
+    contract_create_parser.add_argument("--brief", help="Optional project brief to seed the contract.")
+    contract_create_parser.add_argument("--force", action="store_true", help="Replace an existing contract directory.")
+
+    contract_open_parser = subparsers.add_parser("contract-open", help="Print contract metadata by id or path.")
+    contract_open_parser.add_argument("ref")
 
     app_create_parser = subparsers.add_parser("app-create", help="Create an instant app scaffold.")
     app_create_parser.add_argument("app_id", help="App id used as the persistent folder name or ephemeral label.")
@@ -168,6 +181,46 @@ def _cmd_apps(repo_root: Path) -> int:
     for app in apps:
         suffix = f"\t{app.url}" if app.url else ""
         print(f"{app.app_id}\t{app.kind}\t{app.mode}\t{app.root}{suffix}")
+    return 0
+
+
+def _cmd_contracts(repo_root: Path) -> int:
+    contracts = list_contracts(repo_root)
+    if not contracts:
+        print("No generated contracts found.")
+        return 0
+    for contract in contracts:
+        print(f"{contract.contract_id}\t{contract.title}\t{contract.root}")
+    return 0
+
+
+def _cmd_contract_create(repo_root: Path, contract_id: str | None, brief: str | None, force: bool) -> int:
+    contract = create_basic_contract(repo_root, contract_id=contract_id, brief=brief, force=force)
+    print(f"contract_id: {contract.contract_id}")
+    print(f"title: {contract.title}")
+    print(f"root: {contract.root}")
+    print(f"brief: {contract.brief}")
+    print(f"current_app_id: {contract.current_app_id or 'none'}")
+    print(f"current_app_url: {contract.current_app_url or 'none'}")
+    print(f"phase_count: {len(contract.phases)}")
+    return 0
+
+
+def _cmd_contract_open(repo_root: Path, ref: str) -> int:
+    contract = get_contract(repo_root, ref)
+    if contract is None:
+        print(f"Contract not found: {ref}")
+        return 1
+    print(f"contract_id: {contract.contract_id}")
+    print(f"title: {contract.title}")
+    print(f"root: {contract.root}")
+    print(f"brief: {contract.brief}")
+    print(f"source_summary: {contract.source_summary}")
+    print(f"current_app_id: {contract.current_app_id or 'none'}")
+    print(f"current_app_url: {contract.current_app_url or 'none'}")
+    print(f"phase_count: {len(contract.phases)}")
+    if contract.ai_guidance:
+        print(f"ai_guidance: {contract.ai_guidance}")
     return 0
 
 
@@ -317,6 +370,12 @@ def main() -> int:
         return _cmd_mentor(repo_root, args)
     if args.command == "packs":
         return _cmd_packs(repo_root)
+    if args.command == "contracts":
+        return _cmd_contracts(repo_root)
+    if args.command == "contract-create":
+        return _cmd_contract_create(repo_root, args.contract_id, args.brief, args.force)
+    if args.command == "contract-open":
+        return _cmd_contract_open(repo_root, args.ref)
     if args.command == "apps":
         return _cmd_apps(repo_root)
     if args.command == "app-create":
