@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import socket
+import json
+from urllib import request
 from pathlib import Path
 
 from agent_aidf.instant_apps import (
@@ -82,6 +84,7 @@ def test_append_mentor_note_writes_to_app_directory(tmp_path: Path) -> None:
 def test_apply_mentor_update_refreshes_web_app_files(tmp_path: Path) -> None:
     repo = tmp_path / ".kaidf"
     repo.mkdir()
+    (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
     create_instant_app(repo, app_id="mentor-web-app", mode="persistent", kind="web")
 
     brief_path = apply_mentor_update(
@@ -97,16 +100,32 @@ def test_apply_mentor_update_refreshes_web_app_files(tmp_path: Path) -> None:
     assert brief_path.is_file()
     index_html = (repo / "apps" / "mentor-web-app" / "index.html").read_text(encoding="utf-8")
     main_py = (repo / "apps" / "mentor-web-app" / "main.py").read_text(encoding="utf-8")
+    brief_payload = json.loads((repo / "apps" / "mentor-web-app" / "mentor-brief.json").read_text(encoding="utf-8"))
     readme = (repo / "apps" / "mentor-web-app" / "README.md").read_text(encoding="utf-8")
     assert "localhost review page" in index_html
-    assert "IMPLEMENTATION_FOCUS" in main_py
+    assert "Current mentor question" in index_html
+    assert "/api/answers" in index_html
+    assert "MentorAppHandler" in main_py
+    assert brief_payload["question"] == "What should we build next?"
+    assert brief_payload["doc_links"]
+    assert brief_payload["doc_links"][0]["href"].startswith("file://")
     assert "Current Intent" in readme
 
 
 def test_run_and_stop_web_instant_app_runtime(tmp_path: Path) -> None:
     repo = tmp_path / ".kaidf"
     repo.mkdir()
+    (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
     create_instant_app(repo, app_id="mentor-web-app", mode="persistent", kind="web")
+    apply_mentor_update(
+        repo,
+        "mentor-web-app",
+        step=1,
+        category="manifesto",
+        question="What should we build next?",
+        answer="Build a localhost review page with clear human validation.",
+        mentor_reply="Keep the page interactive and preserve the review trail.",
+    )
     port = _free_port()
 
     runtime = run_instant_app(repo, "mentor-web-app", port=port)
@@ -117,6 +136,18 @@ def test_run_and_stop_web_instant_app_runtime(tmp_path: Path) -> None:
     assert runtime.pid is not None
     assert loaded is not None
     assert loaded.status == "running"
+    state = json.loads(request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8"))
+    assert state["question"] == "What should we build next?"
+    post = request.Request(
+        f"http://127.0.0.1:{port}/api/answers",
+        data=json.dumps({"text": "We need approval notes and doc links."}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    saved = json.loads(request.urlopen(post).read().decode("utf-8"))
+    assert saved["text"] == "We need approval notes and doc links."
+    refreshed = json.loads(request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8"))
+    assert refreshed["answers"][-1]["text"] == "We need approval notes and doc links."
 
     stopped = stop_instant_app(repo, "mentor-web-app")
 

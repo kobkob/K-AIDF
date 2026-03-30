@@ -12,11 +12,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .repo import resolve_repo_root
+
 APP_METADATA_FILENAME = "app.json"
 APPS_DIRNAME = "apps"
 DEFAULT_WEB_PORT = 8765
 MENTOR_NOTES_FILENAME = "mentor-notes.md"
 MENTOR_BRIEF_FILENAME = "mentor-brief.json"
+MENTOR_ANSWERS_FILENAME = "mentor-answers.json"
 RUNTIME_STATE_FILENAME = "app-runtime.json"
 RUNTIME_LOG_FILENAME = "app-runtime.log"
 
@@ -293,9 +296,11 @@ def apply_mentor_update(
         "step": step,
         "category": category,
         "question": question,
+        "answer": answer,
         "answer_summary": _summarize(answer),
         "implementation_focus": _implementation_focus(answer, app.kind),
         "mentor_reply_summary": _summarize(mentor_reply),
+        "doc_links": _doc_links(resolve_repo_root(repo_root)),
     }
     brief_path = app.root / MENTOR_BRIEF_FILENAME
     _write(brief_path, json.dumps(brief, indent=2, sort_keys=True) + "\n")
@@ -316,6 +321,7 @@ def apply_mentor_update(
         ),
     )
     if app.kind == "web":
+        _write(app.root / MENTOR_ANSWERS_FILENAME, json.dumps({"answers": []}, indent=2, sort_keys=True) + "\n")
         _write(app.root / "index.html", _render_web_index(app, brief))
         _write(app.root / "main.py", _render_web_main(app, brief))
     else:
@@ -482,10 +488,16 @@ def _implementation_focus(answer: str, kind: str) -> str:
 
 
 def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
+    question = str(brief["question"])
     answer_summary = str(brief["answer_summary"])
     focus = str(brief["implementation_focus"])
     category = str(brief["category"])
     step = int(brief["step"])
+    doc_links = list(brief.get("doc_links", []))
+    docs_markup = "\n".join(
+        f"        <li><a href=\"{_escape_html(str(item['href']))}\" target=\"_blank\" rel=\"noreferrer\">{_escape_html(str(item['label']))}</a></li>"
+        for item in doc_links
+    ) or "        <li>No linked documents available yet.</li>"
     return (
         "<!doctype html>\n"
         "<html lang=\"en\">\n"
@@ -502,6 +514,11 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
         "    h1 { font-size: 2.5rem; margin: 0.3rem 0 0.75rem; }\n"
         "    p { line-height: 1.6; }\n"
         "    code { background: #f2e7da; padding: 0.1rem 0.3rem; border-radius: 4px; }\n"
+        "    textarea { width: 100%; min-height: 9rem; border: 1px solid #c8b5a3; border-radius: 12px; padding: 0.9rem; font: inherit; resize: vertical; background: #fffdf9; }\n"
+        "    button { border: 0; border-radius: 999px; padding: 0.8rem 1.2rem; background: #8b5e34; color: white; font: inherit; cursor: pointer; }\n"
+        "    ul { margin: 0.6rem 0 0; padding-left: 1.2rem; }\n"
+        "    .status { color: #6b4f33; font-size: 0.95rem; }\n"
+        "    .answer-item { border-top: 1px solid #e8dacb; padding-top: 0.8rem; margin-top: 0.8rem; }\n"
         "  </style>\n"
         "</head>\n"
         "<body>\n"
@@ -513,12 +530,80 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
         f"      <strong>Framework focus</strong><p>{category}</p>\n"
         "    </div>\n"
         "    <div class=\"card\">\n"
+        "      <strong>Current mentor question</strong>\n"
+        f"      <p>{_escape_html(question)}</p>\n"
+        "    </div>\n"
+        "    <div class=\"card\">\n"
         "      <strong>Current intent</strong>\n"
-        f"      <p>{answer_summary}</p>\n"
+        f"      <p>{_escape_html(answer_summary)}</p>\n"
+        "    </div>\n"
+        "    <div class=\"card\">\n"
+        "      <strong>Answer capture</strong>\n"
+        "      <p>Use this local form to capture review answers while the mentor workflow is running.</p>\n"
+        "      <textarea id=\"answer-input\" placeholder=\"Write the next answer or review note here.\"></textarea>\n"
+        "      <p><button id=\"answer-save\" type=\"button\">Save Answer</button></p>\n"
+        "      <p class=\"status\" id=\"answer-status\">No local answer saved in this session.</p>\n"
+        "      <div id=\"answer-list\"></div>\n"
+        "    </div>\n"
+        "    <div class=\"card\">\n"
+        "      <strong>Framework and runtime links</strong>\n"
+        "      <ul>\n"
+        f"{docs_markup}\n"
+        "      </ul>\n"
         "    </div>\n"
         "    <div class=\"card\">\n"
         f"      <strong>Run</strong><p><code>python main.py</code> then open <code>{app.url or 'http://127.0.0.1:8765'}</code></p>\n"
         "    </div>\n"
+        "    <script>\n"
+        "      async function loadState() {\n"
+        "        const response = await fetch('/api/state');\n"
+        "        if (!response.ok) {\n"
+        "          throw new Error('Failed to load app state');\n"
+        "        }\n"
+        "        return response.json();\n"
+        "      }\n"
+        "      function renderAnswers(answers) {\n"
+        "        const container = document.getElementById('answer-list');\n"
+        "        if (!answers.length) {\n"
+        "          container.innerHTML = '<p class=\"status\">No saved answers yet.</p>';\n"
+        "          return;\n"
+        "        }\n"
+        "        container.innerHTML = answers.map((item) => {\n"
+        "          const created = item.created_at || 'unknown time';\n"
+        "          const text = String(item.text || '').replace(/[&<>]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[char]));\n"
+        "          return `<div class=\"answer-item\"><strong>${created}</strong><p>${text}</p></div>`;\n"
+        "        }).join('');\n"
+        "      }\n"
+        "      async function refresh() {\n"
+        "        const state = await loadState();\n"
+        "        renderAnswers(state.answers || []);\n"
+        "      }\n"
+        "      document.getElementById('answer-save').addEventListener('click', async () => {\n"
+        "        const input = document.getElementById('answer-input');\n"
+        "        const status = document.getElementById('answer-status');\n"
+        "        const text = input.value.trim();\n"
+        "        if (!text) {\n"
+        "          status.textContent = 'Write an answer before saving.';\n"
+        "          return;\n"
+        "        }\n"
+        "        const response = await fetch('/api/answers', {\n"
+        "          method: 'POST',\n"
+        "          headers: {'Content-Type': 'application/json'},\n"
+        "          body: JSON.stringify({text})\n"
+        "        });\n"
+        "        if (!response.ok) {\n"
+        "          status.textContent = 'Failed to save the answer locally.';\n"
+        "          return;\n"
+        "        }\n"
+        "        const saved = await response.json();\n"
+        "        input.value = '';\n"
+        "        status.textContent = `Saved local answer at ${saved.created_at}.`;\n"
+        "        await refresh();\n"
+        "      });\n"
+        "      refresh().catch(() => {\n"
+        "        document.getElementById('answer-status').textContent = 'Unable to load local answer state.';\n"
+        "      });\n"
+        "    </script>\n"
         "  </main>\n"
         "</body>\n"
         "</html>\n"
@@ -526,17 +611,83 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
 
 
 def _render_web_main(app: InstantApp, brief: dict[str, object]) -> str:
+    question = str(brief["question"])
+    answer = str(brief["answer"])
     return (
         "from __future__ import annotations\n\n"
+        "import json\n"
         "import os\n"
-        "from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler\n"
+        "from datetime import datetime, timezone\n"
+        "from http import HTTPStatus\n"
+        "from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer\n"
         "from pathlib import Path\n\n"
         "ROOT = Path(__file__).resolve().parent\n"
+        "REPO_ROOT = ROOT.parents[1]\n"
         f"APP_ID = {app.app_id!r}\n"
         f"IMPLEMENTATION_FOCUS = {str(brief['implementation_focus'])!r}\n"
+        f"QUESTION = {question!r}\n"
+        f"ANSWER = {answer!r}\n"
+        "ANSWERS_PATH = ROOT / 'mentor-answers.json'\n"
+        "BRIEF_PATH = ROOT / 'mentor-brief.json'\n"
         "PORT = int(os.environ.get(\"INSTANT_APP_PORT\", \"8765\"))\n\n"
+        "def load_answers() -> dict[str, object]:\n"
+        "    if not ANSWERS_PATH.is_file():\n"
+        "        return {'answers': []}\n"
+        "    data = json.loads(ANSWERS_PATH.read_text(encoding='utf-8'))\n"
+        "    return data if isinstance(data, dict) else {'answers': []}\n\n"
+        "def save_answer(text: str) -> dict[str, str]:\n"
+        "    payload = load_answers()\n"
+        "    answers = payload.get('answers')\n"
+        "    if not isinstance(answers, list):\n"
+        "        answers = []\n"
+        "    item = {\n"
+        "        'text': text,\n"
+        "        'created_at': datetime.now(timezone.utc).isoformat(),\n"
+        "    }\n"
+        "    answers.append(item)\n"
+        "    payload['answers'] = answers\n"
+        "    ANSWERS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\\n', encoding='utf-8')\n"
+        "    return item\n\n"
+        "def load_brief() -> dict[str, object]:\n"
+        "    if not BRIEF_PATH.is_file():\n"
+        "        return {}\n"
+        "    data = json.loads(BRIEF_PATH.read_text(encoding='utf-8'))\n"
+        "    return data if isinstance(data, dict) else {}\n\n"
+        "class MentorAppHandler(SimpleHTTPRequestHandler):\n"
+        "    def do_GET(self) -> None:\n"
+        "        if self.path == '/api/state':\n"
+        "            payload = load_brief()\n"
+        "            payload['question'] = QUESTION\n"
+        "            payload['answer'] = ANSWER\n"
+        "            payload['answers'] = load_answers().get('answers', [])\n"
+        "            body = json.dumps(payload, indent=2, sort_keys=True).encode('utf-8')\n"
+        "            self.send_response(HTTPStatus.OK)\n"
+        "            self.send_header('Content-Type', 'application/json; charset=utf-8')\n"
+        "            self.send_header('Content-Length', str(len(body)))\n"
+        "            self.end_headers()\n"
+        "            self.wfile.write(body)\n"
+        "            return\n"
+        "        return super().do_GET()\n\n"
+        "    def do_POST(self) -> None:\n"
+        "        if self.path != '/api/answers':\n"
+        "            self.send_error(HTTPStatus.NOT_FOUND, 'Unknown API endpoint')\n"
+        "            return\n"
+        "        length = int(self.headers.get('Content-Length', '0'))\n"
+        "        raw = self.rfile.read(length)\n"
+        "        data = json.loads(raw.decode('utf-8') or '{}')\n"
+        "        text = str(data.get('text', '')).strip()\n"
+        "        if not text:\n"
+        "            self.send_error(HTTPStatus.BAD_REQUEST, 'Missing answer text')\n"
+        "            return\n"
+        "        saved = save_answer(text)\n"
+        "        body = json.dumps(saved, indent=2, sort_keys=True).encode('utf-8')\n"
+        "        self.send_response(HTTPStatus.CREATED)\n"
+        "        self.send_header('Content-Type', 'application/json; charset=utf-8')\n"
+        "        self.send_header('Content-Length', str(len(body)))\n"
+        "        self.end_headers()\n"
+        "        self.wfile.write(body)\n\n"
         "if __name__ == \"__main__\":\n"
-        "    server = ThreadingHTTPServer((\"127.0.0.1\", PORT), SimpleHTTPRequestHandler)\n"
+        "    server = ThreadingHTTPServer((\"127.0.0.1\", PORT), MentorAppHandler)\n"
         "    os.chdir(ROOT)\n"
         "    print(f\"Serving {APP_ID} at http://127.0.0.1:{PORT}\")\n"
         "    print(f\"Focus: {IMPLEMENTATION_FOCUS}\")\n"
@@ -566,4 +717,28 @@ def _render_shell_main(app: InstantApp, brief: dict[str, object]) -> str:
         "        print(f\"{APP_ID} captured: {raw}\")\n\n"
         "if __name__ == \"__main__\":\n"
         "    main()\n"
+    )
+
+
+def _doc_links(repo_root: Path) -> list[dict[str, str]]:
+    candidates = [
+        ("Repository README", repo_root / "README.md"),
+        ("Mentor Workflow State", repo_root / "mentor-workflow.json"),
+        ("Overview Manifesto", repo_root / "docs/00-overview/manifesto.md"),
+        ("Overview Principles", repo_root / "docs/00-overview/principles.md"),
+        ("Overview Implementation", repo_root / "docs/00-overview/implementation.md"),
+    ]
+    links: list[dict[str, str]] = []
+    for label, path in candidates:
+        if path.is_file():
+            links.append({"label": label, "href": path.resolve().as_uri()})
+    return links
+
+
+def _escape_html(value: str) -> str:
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
