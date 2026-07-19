@@ -1,0 +1,232 @@
+contract_version: 1
+
+repository:
+  required_root_files:
+    - README.md
+    - LICENSE
+    - CODEOWNERS
+  optional_root_files:
+    - SECURITY.md
+
+  required_directories:
+    - docs/00-overview
+    - docs/01-intent-constraints
+
+generator_spec_extension:
+  metadata_defaults:
+    supported_at:
+      - repo
+      - section
+  front_matter:
+    supported_at:
+      - file
+    merge_order:
+      - repo.metadata_defaults
+      - section.metadata_defaults
+      - file.front_matter
+
+document_classes:
+  core-doc:
+    description: Human-readable methodology or project document.
+    match:
+      - README.md
+      - docs/**/*.md
+
+  template-doc:
+    description: Reusable fill-in artifact.
+    match:
+      - docs/**/templates/*
+
+  prompt-doc:
+    description: Prompt input for guided execution.
+    match:
+      - docs/**/prompts/*.prompt.md
+
+  governance-doc:
+    description: Repository governance artifact.
+    match:
+      - LICENSE
+      - CODEOWNERS
+      - SECURITY.md
+
+doctrine_package:
+  canonical_root: docs/00-overview
+  canonical_files:
+    manifesto: docs/00-overview/manifesto.md
+    principles: docs/00-overview/principles.md
+    best-practices: docs/00-overview/best-practices.md
+    governance: docs/00-overview/governance.md
+    maturity: docs/00-overview/maturity.md
+    implementation: docs/00-overview/implementation.md
+  rules:
+    one_canonical_file_per_area: true
+    canonical_files_emit_v2_front_matter: true
+    best_practices_starts_generic: true
+    sector_variants_supported: true
+    emit_initial_variant_package: true
+    starter_variants_path_derived_only: true
+    future_doctrine_packs_extend_default_baseline: true
+  starter_variant_examples:
+    - docs/00-overview/best-practices/seo.md
+    - docs/00-overview/best-practices/content.md
+    - docs/00-overview/best-practices/research.md
+  additive_packs:
+    maturity-model:
+      root: docs/10-maturity-model
+      first_class_optional_pack: true
+      required_front_matter: true
+      recommended_files:
+        - docs/10-maturity-model/README.md
+        - docs/10-maturity-model/levels/01-experimental.md
+        - docs/10-maturity-model/levels/02-assisted.md
+        - docs/10-maturity-model/levels/03-operational.md
+        - docs/10-maturity-model/levels/04-managed.md
+        - docs/10-maturity-model/levels/05-transformative.md
+        - docs/10-maturity-model/assessment/checklist.md
+        - docs/10-maturity-model/assessment/scorecard.md
+        - docs/10-maturity-model/assessment/scorecard.csv
+        - docs/10-maturity-model/governance/adoption-guidance.md
+      generation_entrypoint: scripts/generate-maturity-pack-example.sh
+    ethical-model:
+      root: docs/20-ethical-model
+      first_class_optional_pack: true
+      required_front_matter: true
+      recommended_files:
+        - docs/20-ethical-model/README.md
+        - docs/20-ethical-model/principles/human-centrality.md
+        - docs/20-ethical-model/principles/responsibility.md
+        - docs/20-ethical-model/principles/transparency.md
+        - docs/20-ethical-model/principles/limits-of-automation.md
+        - docs/20-ethical-model/principles/human-validation.md
+        - docs/20-ethical-model/principles/data-protection.md
+        - docs/20-ethical-model/principles/quality-before-efficiency.md
+        - docs/20-ethical-model/risk/bias-and-harm.md
+        - docs/20-ethical-model/risk/risk-classification.md
+        - docs/20-ethical-model/controls/validation-checklist.md
+        - docs/20-ethical-model/controls/transparency-checklist.md
+        - docs/20-ethical-model/controls/privacy-checklist.md
+        - docs/20-ethical-model/governance/accountability-model.md
+        - docs/20-ethical-model/governance/escalation-and-review.md
+      generation_entrypoint: scripts/generate-ethical-pack-example.sh
+
+stable_id:
+  type: repo_relative_path
+
+metadata:
+  required_front_matter: false
+  v2_plan:
+    required_front_matter: true
+    applies_first_to:
+      - README.md
+      - docs/**/*.md
+    format: yaml_front_matter
+    required_fields:
+      - id
+      - title
+      - document_class
+      - phase
+      - visibility
+      - status
+    field_definitions:
+      id:
+        type: string
+        uniqueness: repository
+        preferred_fetch_id: true
+      title:
+        type: string
+      document_class:
+        type: enum
+        values:
+          - core-doc
+          - template-doc
+          - prompt-doc
+          - governance-doc
+      phase:
+        type: string
+        examples:
+          - 00-overview
+          - 01-intent-constraints
+      visibility:
+        type: enum
+        values:
+          - public
+          - internal
+          - private
+      status:
+        type: enum
+        values:
+          - draft
+          - active
+          - deprecated
+          - archived
+      pack:
+        type: string
+        examples:
+          - maturity-model
+      maturity_level:
+        type: enum
+        values:
+          - experimental
+          - assisted
+          - operational
+          - managed
+          - transformative
+      assessment_type:
+        type: enum
+        values:
+          - checklist
+          - scorecard
+          - guidance
+      ethical_domain:
+        type: enum
+        values:
+          - human-centrality
+          - responsibility
+          - transparency
+          - limits-of-automation
+          - human-validation
+          - quality
+          - data-protection
+          - continuous-learning
+          - continuous-improvement
+      control_type:
+        type: enum
+        values:
+          - checklist
+          - policy
+          - guidance
+          - review
+      risk_type:
+        type: enum
+        values:
+          - bias-and-harm
+          - risk-classification
+          - privacy-and-security
+          - social-impact
+
+indexing:
+  default_include:
+    - README.md
+    - docs/**/*.md
+    - docs/**/*.csv
+  prompts_exposed_by_default: true
+  v2_behavior:
+    prefer_metadata_id: true
+    exclude_private_by_default: true
+    include_internal_by_default: true
+    return_metadata_fields:
+      - id
+      - title
+      - document_class
+      - phase
+      - visibility
+      - status
+
+editing:
+  agent_editable:
+    - README.md
+    - docs/**/*.md
+    - docs/**/*.csv
+  protected_from_implicit_renames:
+    - README.md
+    - docs/**

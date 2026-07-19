@@ -1,0 +1,48 @@
+version: "1.0"
+repo:
+  name: "kobkob-kaidf"
+  metadata_defaults:
+    visibility: internal
+    status: active
+  files:
+    - path: "README.md"
+      content: "library:root/README.md"
+      front_matter:
+        id: "README.md"
+        title: "kobkob-kaidf"
+        document_class: "core-doc"
+        phase: "root"
+
+sections:
+  - path: "docs/00-overview"
+    metadata_defaults:
+      phase: "00-overview"
+      document_class: "core-doc"
+    files:
+      - path: "kaidf.md"
+        content: "library:docs/00-overview/kaidf.md"
+        front_matter:
+          id: "docs/00-overview/kaidf.md"
+          title: "K-AIDF"
+      - path: "glossary.md"
+        content: "library:docs/00-overview/glossary.md"
+        front_matter:
+          id: "docs/00-overview/glossary.md"
+          title: "Glossary"
+
+  - path: "docs/01-intent-constraints"
+    metadata_defaults:
+      phase: "01-intent-constraints"
+    files:
+      - path: "README.md"
+        inline: "# Phase 1 — Intent & Constraints\n"
+        front_matter:
+          id: "docs/01-intent-constraints/README.md"
+          title: "Intent & Constraints"
+          document_class: "core-doc"
+      - path: "prompts/framing.prompt.md"
+        content: "library:docs/01-intent-constraints/prompts/framing.prompt.md"
+        front_matter:
+          id: "docs/01-intent-constraints/prompts/framing.prompt.md"
+          title: "Framing Prompt"
+          document_class: "prompt-doc"

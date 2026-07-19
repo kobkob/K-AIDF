@@ -1,0 +1,92 @@
+version: "1.0"
+repo:
+  name: "kobkob-kaidf"
+  files:
+    - path: "README.md"
+      content: "library:root/README.md"
+      front_matter:
+        id: "README.md"
+        title: "kobkob-kaidf"
+        document_class: "core-doc"
+        phase: "root"
+        visibility: "internal"
+        status: "active"
+    - path: "LICENSE"
+      content: "library:root/LICENSE"
+    - path: "CODEOWNERS"
+      content: "library:root/CODEOWNERS"
+
+sections:
+  - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
+    files:
+      - path: "README.md"
+        content: "library:docs/10-maturity-model/README.md"
+        front_matter:
+          id: "docs/10-maturity-model/README.md"
+          title: "Maturity Model Pack"
+      - path: "levels/01-experimental.md"
+        content: "library:docs/10-maturity-model/levels/01-experimental.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/01-experimental.md"
+          title: "Experimental"
+          maturity_level: "experimental"
+      - path: "levels/02-assisted.md"
+        content: "library:docs/10-maturity-model/levels/02-assisted.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/02-assisted.md"
+          title: "Assisted"
+          maturity_level: "assisted"
+      - path: "levels/03-operational.md"
+        content: "library:docs/10-maturity-model/levels/03-operational.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/03-operational.md"
+          title: "Operational"
+          maturity_level: "operational"
+      - path: "levels/04-managed.md"
+        content: "library:docs/10-maturity-model/levels/04-managed.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/04-managed.md"
+          title: "Managed"
+          maturity_level: "managed"
+      - path: "levels/05-transformative.md"
+        content: "library:docs/10-maturity-model/levels/05-transformative.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/05-transformative.md"
+          title: "Transformative"
+          maturity_level: "transformative"
+      - path: "assessment/checklist.md"
+        content: "library:docs/10-maturity-model/assessment/checklist.md"
+        front_matter:
+          id: "docs/10-maturity-model/assessment/checklist.md"
+          title: "Maturity Assessment Checklist"
+          assessment_type: "checklist"
+      - path: "assessment/scorecard.md"
+        content: "library:docs/10-maturity-model/assessment/scorecard.md"
+        front_matter:
+          id: "docs/10-maturity-model/assessment/scorecard.md"
+          title: "Maturity Scorecard Guidance"
+          assessment_type: "guidance"
+  - path: "docs/10-maturity-model"
+    files:
+      - path: "assessment/scorecard.csv"
+        content: "library:docs/10-maturity-model/assessment/scorecard.csv"
+  - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
+    files:
+      - path: "governance/adoption-guidance.md"
+        content: "library:docs/10-maturity-model/governance/adoption-guidance.md"
+        front_matter:
+          id: "docs/10-maturity-model/governance/adoption-guidance.md"
+          title: "Adoption Guidance"
+          assessment_type: "guidance"

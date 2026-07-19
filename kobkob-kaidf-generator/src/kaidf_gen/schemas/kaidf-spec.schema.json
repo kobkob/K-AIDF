@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "version",
+    "repo",
+    "sections"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "repo": {
+      "type": "object",
+      "required": [
+        "name",
+        "files"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fileSpec"
+          }
+        },
+        "metadata_defaults": {
+          "$ref": "#/definitions/frontMatterSpec"
+        }
+      },
+      "additionalProperties": true
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "files"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/fileSpec"
+            }
+          },
+          "metadata_defaults": {
+            "$ref": "#/definitions/frontMatterSpec"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "definitions": {
+    "fileSpec": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "description": "Use `library:<key>` to pull from bundled template library."
+        },
+        "inline": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array",
+            "null"
+          ],
+          "description": "Inline file content (will be stringified)."
+        },
+        "front_matter": {
+          "$ref": "#/definitions/frontMatterSpec"
+        }
+      },
+      "additionalProperties": true
+    },
+    "frontMatterSpec": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "document_class": {
+          "type": "string",
+          "enum": [
+            "core-doc",
+            "template-doc",
+            "prompt-doc",
+            "governance-doc"
+          ]
+        },
+        "phase": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "private"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "active",
+            "deprecated",
+            "archived"
+          ]
+        },
+        "pack": {
+          "type": "string"
+        },
+        "maturity_level": {
+          "type": "string",
+          "enum": [
+            "experimental",
+            "assisted",
+            "operational",
+            "managed",
+            "transformative"
+          ]
+        },
+        "assessment_type": {
+          "type": "string",
+          "enum": [
+            "checklist",
+            "scorecard",
+            "guidance"
+          ]
+        },
+        "ethical_domain": {
+          "type": "string",
+          "enum": [
+            "human-centrality",
+            "responsibility",
+            "transparency",
+            "limits-of-automation",
+            "human-validation",
+            "quality",
+            "data-protection",
+            "continuous-learning",
+            "continuous-improvement"
+          ]
+        },
+        "control_type": {
+          "type": "string",
+          "enum": [
+            "checklist",
+            "policy",
+            "guidance",
+            "review"
+          ]
+        },
+        "risk_type": {
+          "type": "string",
+          "enum": [
+            "bias-and-harm",
+            "risk-classification",
+            "privacy-and-security",
+            "social-impact"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
