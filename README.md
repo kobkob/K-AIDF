@@ -1,6 +1,7 @@
 # K-AIDF Workspace
 
-This directory is a workspace that groups three related K-AIDF projects as nested Git repositories.
+K-AIDF uses itself as the creation tool.
+This directory is a single repository that groups three related K-AIDF projects as tracked subdirectories, forming the basic minimum environment for a working framework. We name it "**kaidf core**".
 
 ## Purpose
 
@@ -10,7 +11,9 @@ The intent is to keep the K-AIDF ecosystem split by responsibility:
 - `mcp-aidf`: exposes K-AIDF content through an MCP server for ChatGPT and other MCP clients
 - `agent-aidf`: hosts the interactive agent surfaces that operate on top of a K-AIDF repository structure
 
-This root directory is the coordination layer. It documents how the projects fit together, but the implementation history and release lifecycle of each component should remain inside its own nested repository.
+This root directory is both the coordination layer and the single source tree. Each component was previously its own repository; their histories have been merged in as subdirectories via `git subtree`, and their standalone GitHub repositories are archived. All further changes to any component are made and versioned here.
+
+Beyond these three basic repositories extending the framework, we can include personal extensions or main projects in this same directory, creating a child project. You can have your fork of this repo to create your own application from this point. Following best-practices the improvements you make to this core could be updated to child projects.
 
 ## Repository Layout
 
@@ -62,11 +65,37 @@ If shared contracts become necessary, keep them small and explicit:
 - document identifiers for MCP `fetch`
 - indexing rules for MCP `search`
 
+## Integration Contract
+
+The authoritative integration contract lives in `kobkob-kaidf-generator/docs/contract.md` (draft v1, with v2 front matter guidance). Each component owns a distinct slice:
+
+| Concern | Owner | Downstream rule |
+|---------|-------|-----------------|
+| Repository layout, paths, templates | `kobkob-kaidf-generator` | Specs + template library are the only source of structure |
+| Document classes, stable IDs, front matter | Contract in generator docs | Generator emits; agent and MCP consume |
+| Doctrine categories, pack metadata | Contract (derived layer) | Agent and MCP infer/rank; generator emits pack fields in specs |
+| Mentor workflow, instant apps, contracts | `agent-aidf` | Runtime state under `.kaidf/` only — not part of the repo contract |
+| MCP search/fetch, OAuth, visibility policy | `mcp-aidf` | Indexes generated repos via `AIDF_REPO_ROOT`; no separate content model |
+
+**Verified alignment (agent-aidf + mcp-aidf):**
+
+- Same indexable surface: `README.md`, `MANIFESTO.md`, `docs/**/*.md`, `docs/**/*.csv`
+- Same canonical doctrine paths under `docs/00-overview/`
+- Same v2 front matter fields: `id`, `title`, `document_class`, `phase`, `visibility`, `status`
+- Same additive pack fields: `pack`, `maturity_level`, `assessment_type`, `ethical_domain`, `control_type`, `risk_type`
+- Fetch ID: front matter `id` preferred, repository-relative path as fallback
+
+**Known gaps to address in future contract work:**
+
+- Indexing logic is duplicated across `agent-aidf/src/agent_aidf/repo.py` and `mcp-aidf/app.py` (no shared library yet)
+- MCP does not yet enforce v2 visibility rules (exclude `private` documents by default)
+- Cross-document workflow state (mentor, apps, contracts) is intentionally outside the generated-repo contract
+
 ## Workspace Conventions
 
-- each subdirectory is intended to be its own Git repository
-- this root directory serves as workspace documentation, not as the primary source tree for any one component
-- cross-project changes should be coordinated by updating the relevant child repositories, not by collapsing the projects into one codebase
+- each subdirectory is a tracked path within this single repository, not a separate Git repository
+- this root directory is the primary source tree for all three components, as well as workspace automation and documentation
+- cross-project changes are coordinated directly in this repository, in the same commit or PR when they touch shared contracts
 
 ## Workspace Automation
 
@@ -108,7 +137,7 @@ The `agent-*` Make targets now assume the default generated K-AIDF repository sh
 
 ## Current State
 
-The three nested repositories now have clear baseline roles and working local flows:
+The three components now have clear baseline roles and working local flows:
 
 - `kobkob-kaidf-generator`
   Status: generates the canonical K-AIDF repository structure from declarative specs, including canonical doctrine packages, optional maturity-model and ethical-model packs, and version-2-style metadata/front matter support
@@ -137,7 +166,9 @@ One practical end-to-end flow in this workspace is:
 
 ## Suggested Next Steps
 
+- install the agent-aidf cli for global system use and as a web service with UIX
 - deepen `agent-aidf` from scaffold-refresh behavior into richer mentor-driven app generation
+- implement a rating system to define and evaluate the project adoption of the kaidf contracts
 - decide how much of the creator project outside `.kaidf/` should be inspected during mentor workflows
 - continue tightening the generator-to-agent-to-MCP contract around IDs, metadata, and runtime expectations
 - define the next additive doctrine pack after the current maturity-model and ethical-model packs

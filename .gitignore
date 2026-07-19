@@ -10,6 +10,8 @@
 /kobkob-kaidf-generator/out/
 /kobkob-kaidf-generator/out-ethical/
 /kobkob-kaidf-generator/out-maturity/
-/agent-aidf/
-/kobkob-kaidf-generator/
-/mcp-aidf/
+
+# Local-only, never commit or push
+/columns.json
+/issues.json
+/olmo-env/
