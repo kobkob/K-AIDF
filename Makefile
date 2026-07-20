@@ -7,7 +7,7 @@ export PROMPT
 
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
 	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
-	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset \
+	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs \
         workspace-up workspace-down
@@ -28,12 +28,13 @@ help:
 	@echo "make generate-ethical Generate the ethical-model pack example"
 	@echo "make env-agent        Print/export agent environment summary"
 	@echo "make env-mcp          Print/export MCP environment summary"
-	@echo "make agent-shell      Launch the terminal agent shell"
-	@echo "make agent-status     Show current agent project/runtime status"
+	@echo "make agent-shell      Launch the terminal agent shell (kob shell)"
+	@echo "make agent-status     Show current agent project/runtime status (kob status)"
 	@echo "make agent-context    Show current agent context"
-	@echo "make agent-mentor     Continue the mentor workflow (pass ANSWER='...')"
-	@echo "make agent-mentor-status Show persisted mentor workflow state"
-	@echo "make agent-mentor-reset Reset persisted mentor workflow state"
+	@echo "make agent-mentor     Continue the mentor workflow (kob mentor, pass ANSWER='...')"
+	@echo "make agent-mentor-status Show persisted mentor workflow state (kob mentor --status)"
+	@echo "make agent-mentor-reset Reset persisted mentor workflow state (kob mentor --reset)"
+	@echo "make agent-ui         Show the kob ui/serve placeholder (local mentor web daemon, not yet implemented)"
 	@echo "make agent-packs      List doctrine packs through agent-aidf"
 	@echo "make agent-apps       List persistent instant apps"
 	@echo "make agent-app-run    Start a web instant app (pass APP=<app-id> [PORT=...])"
@@ -78,19 +79,19 @@ ensure-generated-repo:
 	fi
 
 generate-default:
-	@cd kobkob-kaidf-generator && bash scripts/dev.sh
+	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen --out ../kobkob-kaidf-generator/out --force
 
 generate-maturity:
-	@cd kobkob-kaidf-generator && bash scripts/generate-maturity-pack-example.sh
+	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen ../kobkob-kaidf-generator/specs/kaidf.maturity-model-pack.example.yaml --out ../kobkob-kaidf-generator/out-maturity --force
 
 generate-ethical:
-	@cd kobkob-kaidf-generator && bash scripts/generate-ethical-pack-example.sh
+	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen ../kobkob-kaidf-generator/specs/kaidf.ethical-model-pack.example.yaml --out ../kobkob-kaidf-generator/out-ethical --force
 
 agent-shell:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" shell
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" shell
 
 agent-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" status
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" status
 
 agent-context:
 	@$(MAKE) ensure-generated-repo >/dev/null && \
@@ -109,16 +110,19 @@ agent-mentor:
 	cd agent-aidf && \
 	bash scripts/bootstrap.sh && \
 	if [[ -n "$$ANSWER" ]]; then \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
+		.venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
 	else \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor; \
+		.venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor; \
 	fi
 
 agent-mentor-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor --status
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor --status
 
 agent-mentor-reset:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor --reset
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor --reset
+
+agent-ui:
+	@cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob ui
 
 agent-packs:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" packs
@@ -152,7 +156,7 @@ workspace-up:
 	@docker-compose -f docker-compose.local.yml up -d
 	@echo "⏳ Aguardando inicialização do modelo OLMo no Ollama..."
 	@docker exec -it aidf-ollama ollama run olmo "Verify installation"
-	@echo "🚀 Tudo pronto! Execute 'agent-aidf init' para começar com contexto local."
+	@echo "🚀 Tudo pronto! Execute 'kob init' para começar com contexto local."
 
 workspace-down:
 	@docker-compose -f docker-compose.local.yml down

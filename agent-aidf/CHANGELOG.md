@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-19
+
+### Added
+
+- `kob status`, bundling the existing project/runtime status report
+- `kob shell`, bundling the existing interactive terminal shell
+- `kob serve [--port]` placeholder alias of `kob ui`
+- `kob compile [spec] --out <dir> [--force]` / `kob gen [spec] --out <dir> [--force]`, exposing `kaidf_gen.cli generate` the same way `kob init` already shells out to the generator
+
+### Changed
+
+- root `Makefile`: `agent-shell`, `agent-status`, `agent-mentor`, `agent-mentor-status`, and `agent-mentor-reset` now invoke `kob` instead of `agent_aidf.legacy_cli`; added `agent-ui`
+- root `Makefile`: `generate-default`, `generate-maturity`, and `generate-ethical` now invoke `kob gen` instead of the generator's own scripts directly
+- `agent-context`, `agent-packs`, `agent-apps`, and the `agent-app-*` targets remain on the legacy CLI, since `kob ui`/`serve` do not yet implement real app lifecycle control
+
 ## [0.3.0] - 2026-07-19
 
 ### Added

@@ -19,12 +19,14 @@ It does three things:
 `kob` is the new unified entrypoint (`agent_aidf.cli.main`), replacing the standalone `agent-aidf` command:
 
 - `kob init [--force]`
+- `kob status`
 - `kob mentor [answer] [--status] [--reset]`
-- `kob ui [--port]` — placeholder; will launch the local web daemon for the mentor UI
+- `kob shell`
+- `kob ui [--port]` / `kob serve [--port]` — placeholder; will launch the local web daemon for the mentor UI
+- `kob compile [spec] --out <dir> [--force]` / `kob gen [spec] --out <dir> [--force]` — runs the `kobkob-kaidf-generator` `generate` engine against a spec (defaults to its default spec)
 
 The remaining commands are still served by the legacy CLI while they migrate onto `kob`:
 
-- `python -m agent_aidf.legacy_cli status`
 - `python -m agent_aidf.legacy_cli context [prompt]`
 - `python -m agent_aidf.legacy_cli packs`
 - `python -m agent_aidf.legacy_cli contracts`
@@ -40,7 +42,6 @@ The remaining commands are still served by the legacy CLI while they migrate ont
 - `python -m agent_aidf.legacy_cli find <query>`
 - `python -m agent_aidf.legacy_cli open <id-or-path>`
 - `python -m agent_aidf.legacy_cli chat <prompt>`
-- `python -m agent_aidf.legacy_cli shell`
 
 The CLI resolves runtime context in this order:
 - `--repo` when you need an explicit override
