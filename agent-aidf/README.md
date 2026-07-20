@@ -16,16 +16,38 @@ It does three things:
 
 ## Commands
 
-`kob` is the new unified entrypoint (`agent_aidf.cli.main`), replacing the standalone `agent-aidf` command:
+`kob` (`agent_aidf.cli.main`) is dual-mode:
 
-- `kob init [--force]`
-- `kob status`
-- `kob mentor [answer] [--status] [--reset]`
-- `kob shell`
-- `kob ui [--port]` / `kob serve [--port]` — placeholder; will launch the local web daemon for the mentor UI
-- `kob compile [spec] --out <dir> [--force]` / `kob gen [spec] --out <dir> [--force]` — runs the `kobkob-kaidf-generator` `generate` engine against a spec (defaults to its default spec)
+- run `kob` with no arguments to launch a [Textual](https://textual.textualize.io/) terminal UI
+- run `kob <command> ...` with arguments to execute a single command non-interactively (for scripts, Makefile targets, CI)
 
-The remaining commands are still served by the legacy CLI while they migrate onto `kob`:
+### Interactive TUI
+
+```
+kob
+```
+
+Type commands into the bottom prompt of the running app:
+
+- `/init` — create `.kaidf/` for the current project
+- `/status` — show the 5-phase project status
+- `/mentor [answer]` — show/resume the pending mentor question, or record an answer
+- `/shell` — hand off the terminal to the interactive OLMo-backed shell (`agent_aidf.shell.run_shell`)
+- `/ui` / `/serve` — placeholder; will launch the local web daemon for the mentor UI
+- `/compile` / `/gen` — runs the `kobkob-kaidf-generator` `generate` engine against its default spec, writing to `./out`
+
+### One-shot CLI
+
+Same commands, run directly from the shell (this is what the root `Makefile` targets use):
+
+- `kob [--project ...] [--repo ...] init [--force]`
+- `kob [--project ...] [--repo ...] status`
+- `kob [--project ...] [--repo ...] mentor [answer] [--status] [--reset]`
+- `kob [--project ...] [--repo ...] shell`
+- `kob [--project ...] [--repo ...] ui [--port ...]` / `kob ... serve [--port ...]` — placeholder
+- `kob [--project ...] [--repo ...] compile [spec] --out <dir> [--force]` / `kob ... gen [spec] --out <dir> [--force]`
+
+The remaining commands are still served by the legacy CLI, which stays a plain one-shot script (no TUI):
 
 - `python -m agent_aidf.legacy_cli context [prompt]`
 - `python -m agent_aidf.legacy_cli packs`
@@ -63,12 +85,12 @@ If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller i
 
 ## Mentor Workflow
 
-The `mentor` command is now the main guided workflow entrypoint:
+The `mentor` command is the main guided workflow entrypoint, either as `/mentor` in the `kob` TUI or `kob mentor` from the shell:
 
-- `kob mentor`
+- `/mentor` / `kob mentor`
   Purpose: show or resume the current pending mentor question
 
-- `kob mentor "<answer>"`
+- `/mentor <answer>` / `kob mentor "<answer>"`
   Purpose: record the answer, analyze it against `.kaidf/`, update the active instant app when relevant, and ask the next question
 
 - `kob mentor --status`

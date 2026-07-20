@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Changed
+
+- `kob` (`agent_aidf.cli.main`) is now dual-mode: `kob` with no arguments launches an interactive [Textual](https://textual.textualize.io/) TUI (`/init`, `/status`, `/mentor [answer]`, `/shell`, `/compile`, `/gen`, `/ui`, `/serve` typed into the prompt); `kob <command> ...` with arguments still runs that command one-shot, via a new `argparse` dispatcher in `cli/main.py`, so the existing `Makefile` targets (`agent-shell`, `agent-status`, `agent-mentor*`, `agent-ui`, `generate-default/maturity/ethical`) keep working unchanged
+- swapped the `click>=8.1` runtime dependency for `textual>=0.58`
+
 ## [0.4.0] - 2026-07-19
 
 ### Added
