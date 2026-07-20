@@ -1,174 +1,124 @@
-# K-AIDF Workspace
+# K-AIDF
 
-K-AIDF uses itself as the creation tool.
-This directory is a single repository that groups three related K-AIDF projects as tracked subdirectories, forming the basic minimum environment for a working framework. We name it "**kaidf core**".
+K-AIDF (Knowledge and Artificial Intelligence Development Framework) is a governance framework for the ethical, responsible, and human-centered use of AI, paired with the tooling that implements it. This repository — **kaidf core** — is the single source tree for that tooling. See `MANIFESTO.md` for the framework's founding principles.
 
-## Purpose
-
-The intent is to keep the K-AIDF ecosystem split by responsibility:
-
-- `kobkob-kaidf-generator`: generates K-AIDF repository scaffolds from declarative YAML specs
-- `mcp-aidf`: exposes K-AIDF content through an MCP server for ChatGPT and other MCP clients
-- `agent-aidf`: hosts the interactive agent surfaces that operate on top of a K-AIDF repository structure
-
-This root directory is both the coordination layer and the single source tree. Each component was previously its own repository; their histories have been merged in as subdirectories via `git subtree`, and their standalone GitHub repositories are archived. All further changes to any component are made and versioned here.
-
-Beyond these three basic repositories extending the framework, we can include personal extensions or main projects in this same directory, creating a child project. You can have your fork of this repo to create your own application from this point. Following best-practices the improvements you make to this core could be updated to child projects.
+K-AIDF uses itself as its own creation tool: the generator scaffolds a K-AIDF repository, the agent (`kob`) guides a creator through it, and the MCP server exposes it to AI clients.
 
 ## Repository Layout
 
+This used to be a workspace of three separate nested Git repositories. They have since been merged into this single repository (with `git subtree`, preserving history) and their standalone GitHub repos archived. All further work happens here, in one commit/PR history.
+
 ```text
 K-AIDF/
-├── agent-aidf/
-├── kobkob-kaidf-generator/
-├── mcp-aidf/
-├── LICENSE
+├── agent-aidf/                 # the kob CLI and mentor agent
+├── kobkob-kaidf-generator/      # scaffold generator (kaidf-gen)
+├── mcp-aidf/                    # MCP server for AI-client integration
+├── Makefile                     # root automation for all three
+├── scripts/                     # shared env-loading scripts
+├── docker-compose.local.yml     # local Ollama + MCP stack
+├── MANIFESTO.md
 └── README.md
 ```
 
-## Recommended System Model
+Beyond these three components, you can add personal extensions or full projects as additional subdirectories, or fork this repo as a starting point for your own application — improvements to the core can be upstreamed back as child-project contributions.
 
-The cleanest way to think about the workspace is as a pipeline:
+## Components
 
-1. `kobkob-kaidf-generator` defines and generates the canonical K-AIDF file and folder structure.
-2. `agent-aidf` consumes that structure to guide user workflows in CLI and web interfaces.
-3. `mcp-aidf` publishes selected K-AIDF content and search/fetch capabilities to external AI clients through MCP.
+| Component | Role | Status |
+|---|---|---|
+| `kobkob-kaidf-generator` | Generates a K-AIDF repository scaffold from a declarative YAML spec — canonical doctrine, optional maturity-model and ethical-model packs, v2 front matter metadata | Working; `kaidf-gen validate`/`generate` CLI, own test suite |
+| `agent-aidf` | Hosts the `kob` CLI and mentor agent that operate on a project-local `.kaidf/` repository | Working; CLI is mid-migration from a legacy argparse interface to the new `kob` click CLI (see below) |
+| `mcp-aidf` | Exposes generated K-AIDF content over MCP (`search`/`fetch`) with OAuth 2.1, for ChatGPT and other MCP clients | Working; Flask server, Docker deployment, doctrine-aware ranking |
 
-That separation keeps concerns clear:
+Recommended mental model — a pipeline:
 
-- generation logic stays isolated from runtime agent behavior
-- external protocol and auth concerns stay isolated from the core methodology tooling
-- each project can version, test, and deploy independently
+1. `kobkob-kaidf-generator` defines and generates the canonical K-AIDF file/folder structure.
+2. `agent-aidf` (`kob`) consumes that structure to guide a creator's workflow.
+3. `mcp-aidf` publishes selected content and search/fetch to external AI clients.
 
-## Boundaries
+## The `kob` CLI
 
-Use these boundaries to avoid architectural drift:
+`kob` (`agent_aidf.cli.main`) is the unified entrypoint for `agent-aidf`, replacing the old standalone `agent-aidf` command. It is mid-migration: some commands are fully implemented, others are placeholders or still only reachable through the legacy CLI.
 
-- `kobkob-kaidf-generator` should own spec parsing, schema validation, template packaging, and scaffold generation
-- `agent-aidf` should own orchestration UX, prompt flows, local project interaction, and user-facing workflows
-- `mcp-aidf` should own MCP protocol handling, OAuth, indexing, search, fetch, and connector-facing integration
+| Command | Status |
+|---|---|
+| `kob init [--force]` | real — generates `.kaidf/` via the generator |
+| `kob status` | real — project/runtime status report |
+| `kob mentor [answer] [--status] [--reset]` | real — persisted, quiz-style mentor workflow |
+| `kob shell` | real — interactive terminal shell |
+| `kob compile [spec] --out <dir> [--force]` / `kob gen ...` | real — runs the generator's `generate` engine directly |
+| `kob ui [--port]` / `kob serve [--port]` | placeholder — will launch the local mentor web daemon |
 
-Avoid duplicating K-AIDF document semantics across all three projects. The generator should remain the source of truth for structure, while the agent and MCP server should consume generated repositories or shared exported artifacts.
+Commands not yet ported to `kob` still run through the legacy CLI:
 
-## Integration Direction
+```bash
+python -m agent_aidf.legacy_cli {context,packs,contracts,contract-create,contract-open,apps,app-create,app-open,app-run,app-runtime,app-stop,docs,find,open,chat}
+```
 
-A practical integration direction for the three repositories is:
+Context resolution order for both CLIs: `--repo` override → `.kaidf/` in `--project`/cwd → `AIDF_REPO_ROOT` → the project root as a fallback.
 
-- define a stable generated document layout in `kobkob-kaidf-generator`
-- make `agent-aidf` read and operate against that layout directly
-- make `mcp-aidf` index or fetch from generated K-AIDF repositories rather than inventing a separate content model
+## Local Development
 
-If shared contracts become necessary, keep them small and explicit:
+```bash
+make install-generator     # bootstrap the generator venv
+make install-agent         # bootstrap the agent-aidf venv (installs kob)
+make install-mcp           # bootstrap the mcp-aidf venv
+make test-all              # run all three test suites
+```
 
-- folder and file naming conventions
-- front matter or metadata conventions
-- document identifiers for MCP `fetch`
-- indexing rules for MCP `search`
+Copy `.env.example` to `.env` and fill in `OPENAI_API_KEY` (used by `kob mentor`/`kob shell`'s AI controller; falls back to a stub if unset), `KAIDF_GENERATED_REPO`, and `SECRET_KEY` (mcp-aidf).
+
+Common workflow targets (all resolve/generate the default repository automatically if missing):
+
+```bash
+make generate-default              # kob gen the default spec into kobkob-kaidf-generator/out
+make generate-maturity              # kob gen the maturity-model pack example
+make generate-ethical                # kob gen the ethical-model pack example
+make agent-status                   # kob status
+make agent-mentor ANSWER="..."       # kob mentor
+make agent-mentor-status             # kob mentor --status
+make agent-shell                     # kob shell
+make agent-ui                        # kob ui (placeholder)
+make agent-packs                     # legacy CLI: doctrine packs
+make agent-apps                      # legacy CLI: list instant apps
+make agent-app-run APP=<id> [PORT=...]  # legacy CLI: start a web instant app
+make mcp-up / mcp-down / mcp-logs    # Docker Compose control for mcp-aidf
+```
+
+Run `make help` for the full, current target list.
+
+## Local Inference Stack
+
+`docker-compose.local.yml` stands up a local-inference alternative to the OpenAI-backed controller: an Ollama container serving an OLMo model, plus the `mcp-aidf` server pointed at it (`workspace-up`/`workspace-down`). On the agent side, `agent_aidf.llm_provider.LLMProvider` defines the provider interface and `agent_aidf.providers.olmo_local.OLMoLocalProvider` is an in-progress driver for it — **not yet wired into the mentor controller**, which still runs on the OpenAI Responses API (with a stub fallback when no API key is set).
 
 ## Integration Contract
 
-The authoritative integration contract lives in `kobkob-kaidf-generator/docs/contract.md` (draft v1, with v2 front matter guidance). Each component owns a distinct slice:
+The authoritative integration contract lives in `kobkob-kaidf-generator/docs/contract.md` (draft v1, v2 front matter guidance). Each component owns a distinct slice:
 
 | Concern | Owner | Downstream rule |
-|---------|-------|-----------------|
+|---|---|---|
 | Repository layout, paths, templates | `kobkob-kaidf-generator` | Specs + template library are the only source of structure |
 | Document classes, stable IDs, front matter | Contract in generator docs | Generator emits; agent and MCP consume |
 | Doctrine categories, pack metadata | Contract (derived layer) | Agent and MCP infer/rank; generator emits pack fields in specs |
 | Mentor workflow, instant apps, contracts | `agent-aidf` | Runtime state under `.kaidf/` only — not part of the repo contract |
 | MCP search/fetch, OAuth, visibility policy | `mcp-aidf` | Indexes generated repos via `AIDF_REPO_ROOT`; no separate content model |
 
-**Verified alignment (agent-aidf + mcp-aidf):**
+Verified alignment (agent-aidf + mcp-aidf): same indexable surface (`README.md`, `MANIFESTO.md`, `docs/**/*.md`, `docs/**/*.csv`), same canonical doctrine paths under `docs/00-overview/`, same v2 front matter fields (`id`, `title`, `document_class`, `phase`, `visibility`, `status`) and pack fields (`pack`, `maturity_level`, `assessment_type`, `ethical_domain`, `control_type`, `risk_type`), same fetch-ID rule (front matter `id` preferred, path as fallback).
 
-- Same indexable surface: `README.md`, `MANIFESTO.md`, `docs/**/*.md`, `docs/**/*.csv`
-- Same canonical doctrine paths under `docs/00-overview/`
-- Same v2 front matter fields: `id`, `title`, `document_class`, `phase`, `visibility`, `status`
-- Same additive pack fields: `pack`, `maturity_level`, `assessment_type`, `ethical_domain`, `control_type`, `risk_type`
-- Fetch ID: front matter `id` preferred, repository-relative path as fallback
+Known gaps: indexing logic is duplicated across `agent-aidf/src/agent_aidf/repo.py` and `mcp-aidf/app.py` (no shared library yet); MCP does not yet enforce v2 visibility rules (exclude `private` by default); mentor/apps/contracts workflow state is intentionally outside the generated-repo contract.
 
-**Known gaps to address in future contract work:**
+## Boundaries
 
-- Indexing logic is duplicated across `agent-aidf/src/agent_aidf/repo.py` and `mcp-aidf/app.py` (no shared library yet)
-- MCP does not yet enforce v2 visibility rules (exclude `private` documents by default)
-- Cross-document workflow state (mentor, apps, contracts) is intentionally outside the generated-repo contract
+- `kobkob-kaidf-generator` owns spec parsing, schema validation, template packaging, and scaffold generation.
+- `agent-aidf` owns orchestration UX, prompt flows, local project interaction, and user-facing workflows.
+- `mcp-aidf` owns MCP protocol handling, OAuth, indexing, search, fetch, and connector-facing integration.
 
-## Workspace Conventions
+Avoid duplicating K-AIDF document semantics across components — the generator is the source of truth for structure; the agent and MCP server consume generated repositories.
 
-- each subdirectory is a tracked path within this single repository, not a separate Git repository
-- this root directory is the primary source tree for all three components, as well as workspace automation and documentation
-- cross-project changes are coordinated directly in this repository, in the same commit or PR when they touch shared contracts
+## Next Steps
 
-## Workspace Automation
-
-The root workspace now includes:
-
-- `Makefile`
-  Purpose: common entrypoints for tests, canonical generator scripts, agent mentor/runtime commands, and MCP Docker control
-
-- `scripts/env-common.sh`
-  Purpose: shared workspace environment defaults
-
-- `scripts/load-agent-env.sh`
-  Purpose: load the environment needed to run `agent-aidf`
-
-- `scripts/load-mcp-env.sh`
-  Purpose: load the environment needed to run `mcp-aidf`
-
-- `.env.example`
-  Purpose: example values for workspace-level environment configuration
-
-Typical commands:
-
-```bash
-make install-agent
-make test-all
-make generate-default
-make agent-status
-make agent-mentor
-make agent-mentor ANSWER="We need a transparent localhost review app."
-make agent-apps
-make agent-app-run APP=mentor-web-app
-make agent-shell
-make mcp-up
-```
-
-If needed, copy `.env.example` to `.env` and fill in local values such as `OPENAI_API_KEY`, `KAIDF_GENERATED_REPO`, and `SECRET_KEY`.
-
-The `agent-*` Make targets now assume the default generated K-AIDF repository should exist at the configured workspace path. If it is missing, the workspace will generate it automatically before running the agent command.
-
-## Current State
-
-The three components now have clear baseline roles and working local flows:
-
-- `kobkob-kaidf-generator`
-  Status: generates the canonical K-AIDF repository structure from declarative specs, including canonical doctrine packages, optional maturity-model and ethical-model packs, and version-2-style metadata/front matter support
-
-- `agent-aidf`
-  Status: now operates directly on project-local `.kaidf/` repositories with a persisted mentor workflow, quiz-style continuation, instant app management under `.kaidf/apps/`, and web-app runtime lifecycle commands
-
-- `mcp-aidf`
-  Status: is a functional MCP server over generated K-AIDF repositories with doctrine-aware search/fetch behavior and metadata-aware ranking
-
-In practice, the generator defines the structure, the agent uses that structure for creator workflows, and the MCP server exposes selected repository content to external AI clients.
-
-## Current Highlights
-
-- `kobkob-kaidf-generator` now provides the strongest downstream contract surface, including canonical doctrine layout, metadata emission, and packaged doctrine-pack examples
-- `agent-aidf` is now beyond a simple shell: it persists mentor state, guides a framework-led workflow across CLI invocations, creates or reuses instant apps, rewrites app scaffolds from workflow intent, and can start/restart/stop active localhost web apps
-- `mcp-aidf` now consumes the generated contract model instead of relying on a loose content interpretation only
-
-## Typical Local Flow
-
-One practical end-to-end flow in this workspace is:
-
-1. Use `kobkob-kaidf-generator` to generate or refresh a K-AIDF-compatible repository scaffold.
-2. Use `agent-aidf` inside a creator project to initialize `.kaidf/`, run the persisted mentor workflow, and evolve instant apps under `.kaidf/apps/`.
-3. Use `mcp-aidf` to expose the generated repository content to MCP clients for doctrine-aware search and fetch.
-
-## Suggested Next Steps
-
-- install the agent-aidf cli for global system use and as a web service with UIX
-- deepen `agent-aidf` from scaffold-refresh behavior into richer mentor-driven app generation
-- implement a rating system to define and evaluate the project adoption of the kaidf contracts
-- decide how much of the creator project outside `.kaidf/` should be inspected during mentor workflows
-- continue tightening the generator-to-agent-to-MCP contract around IDs, metadata, and runtime expectations
+- implement `kob ui`/`kob serve` for real (launch the local mentor web daemon)
+- wire `agent_aidf.providers.olmo_local.OLMoLocalProvider` into the mentor controller as a local-inference alternative to OpenAI
+- finish migrating the remaining legacy CLI commands (`context`, `packs`, `apps`, `contracts`, `app-*`, `docs`, `find`, `open`, `chat`) onto `kob`
+- close the known integration-contract gaps above (shared indexing library, MCP visibility enforcement)
 - define the next additive doctrine pack after the current maturity-model and ethical-model packs
