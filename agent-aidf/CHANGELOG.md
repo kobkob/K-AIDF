@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-19
+
+### Added
+
+- `kob` click-based root command group (`agent_aidf.cli.main`) as the new unified entrypoint
+- `kob init [--force]`, bundling the existing `.kaidf/` generator-backed initialization
+- `kob mentor [answer] [--status] [--reset]`, bundling the existing persisted mentor workflow
+- `kob ui [--port]` placeholder command, to later launch the local web server daemon for the mentor UI
+- `click` runtime dependency
+
+### Changed
+
+- renamed the legacy argparse CLI module from `agent_aidf.cli` to `agent_aidf.legacy_cli` to free the `agent_aidf.cli` package name for the new `kob` entrypoint; `Makefile` targets, `tests/test_cli.py`, and `scripts/{dev,shell,list-docs}.sh` updated accordingly
+- `[project.scripts]` now installs `kob` instead of `agent-aidf`
+
 ## [0.2.0] - 2026-03-27
 
 ### Added

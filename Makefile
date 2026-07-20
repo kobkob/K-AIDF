@@ -1,3 +1,5 @@
+# K-AIDF/Makefile
+
 SHELL := /usr/bin/env bash
 
 export ANSWER
@@ -7,7 +9,8 @@ export PROMPT
 	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
-	mcp-up mcp-down mcp-logs
+	mcp-up mcp-down mcp-logs \
+        workspace-up workspace-down
 
 help:
 	@echo "K-AIDF workspace automation"
@@ -84,10 +87,10 @@ generate-ethical:
 	@cd kobkob-kaidf-generator && bash scripts/generate-ethical-pack-example.sh
 
 agent-shell:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" shell
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" shell
 
 agent-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" status
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" status
 
 agent-context:
 	@$(MAKE) ensure-generated-repo >/dev/null && \
@@ -95,9 +98,9 @@ agent-context:
 	cd agent-aidf && \
 	bash scripts/bootstrap.sh && \
 	if [[ -n "$$PROMPT" ]]; then \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context "$$PROMPT"; \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" context "$$PROMPT"; \
 	else \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" context; \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" context; \
 	fi
 
 agent-mentor:
@@ -106,34 +109,34 @@ agent-mentor:
 	cd agent-aidf && \
 	bash scripts/bootstrap.sh && \
 	if [[ -n "$$ANSWER" ]]; then \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
 	else \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor; \
+		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor; \
 	fi
 
 agent-mentor-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --status
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor --status
 
 agent-mentor-reset:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" mentor --reset
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" mentor --reset
 
 agent-packs:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" packs
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" packs
 
 agent-apps:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" apps
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" apps
 
 agent-app-run:
 	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-run APP=<app-id> [PORT=<port>]"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-run "$(APP)" $(if $(PORT),--port $(PORT),)
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-run "$(APP)" $(if $(PORT),--port $(PORT),)
 
 agent-app-runtime:
 	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-runtime APP=<app-id>"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-runtime "$(APP)"
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-runtime "$(APP)"
 
 agent-app-stop:
 	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-stop APP=<app-id>"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.cli --repo "$$AIDF_REPO_ROOT" app-stop "$(APP)"
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-stop "$(APP)"
 
 mcp-up:
 	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose up --build -d
@@ -143,3 +146,13 @@ mcp-down:
 
 mcp-logs:
 	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose logs -f
+
+workspace-up:
+	@echo "🤖 Iniciando infraestrutura local K-AIDF (Comunitária + OLMo)..."
+	@docker-compose -f docker-compose.local.yml up -d
+	@echo "⏳ Aguardando inicialização do modelo OLMo no Ollama..."
+	@docker exec -it aidf-ollama ollama run olmo "Verify installation"
+	@echo "🚀 Tudo pronto! Execute 'agent-aidf init' para começar com contexto local."
+
+workspace-down:
+	@docker-compose -f docker-compose.local.yml down

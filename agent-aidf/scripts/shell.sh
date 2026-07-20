@@ -2,4 +2,4 @@
 set -euo pipefail
 
 bash scripts/bootstrap.sh
-PYTHONPATH=src .venv/bin/python -m agent_aidf.cli shell "$@"
+PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli shell "$@"

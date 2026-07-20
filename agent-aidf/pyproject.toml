@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-aidf"
-version = "0.2.0"
+version = "0.3.0"
 description = "Terminal-first agent shell for navigating and consuming K-AIDF repositories."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "PyYAML>=6.0.1",
+  "click>=8.1",
 ]
 
 [project.optional-dependencies]
@@ -18,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-agent-aidf = "agent_aidf.cli:main"
+kob = "agent_aidf.cli.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

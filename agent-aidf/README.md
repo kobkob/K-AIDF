@@ -16,25 +16,31 @@ It does three things:
 
 ## Commands
 
-- `agent-aidf init [--force]`
-- `agent-aidf status`
-- `agent-aidf context [prompt]`
-- `agent-aidf mentor [answer] [--status] [--reset]`
-- `agent-aidf packs`
-- `agent-aidf contracts`
-- `agent-aidf contract-create [contract-id] [--brief ...] [--force]`
-- `agent-aidf contract-open <contract-id-or-path>`
-- `agent-aidf apps`
-- `agent-aidf app-create <app-id> [--mode persistent|ephemeral] [--kind shell|web]`
-- `agent-aidf app-open <app-id-or-path>`
-- `agent-aidf app-run <app-id> [--port ...]`
-- `agent-aidf app-runtime <app-id>`
-- `agent-aidf app-stop <app-id>`
-- `agent-aidf docs [--pack ...] [--phase ...] [--ethical-domain ...] [--maturity-level ...]`
-- `agent-aidf find <query>`
-- `agent-aidf open <id-or-path>`
-- `agent-aidf chat <prompt>`
-- `agent-aidf shell`
+`kob` is the new unified entrypoint (`agent_aidf.cli.main`), replacing the standalone `agent-aidf` command:
+
+- `kob init [--force]`
+- `kob mentor [answer] [--status] [--reset]`
+- `kob ui [--port]` — placeholder; will launch the local web daemon for the mentor UI
+
+The remaining commands are still served by the legacy CLI while they migrate onto `kob`:
+
+- `python -m agent_aidf.legacy_cli status`
+- `python -m agent_aidf.legacy_cli context [prompt]`
+- `python -m agent_aidf.legacy_cli packs`
+- `python -m agent_aidf.legacy_cli contracts`
+- `python -m agent_aidf.legacy_cli contract-create [contract-id] [--brief ...] [--force]`
+- `python -m agent_aidf.legacy_cli contract-open <contract-id-or-path>`
+- `python -m agent_aidf.legacy_cli apps`
+- `python -m agent_aidf.legacy_cli app-create <app-id> [--mode persistent|ephemeral] [--kind shell|web]`
+- `python -m agent_aidf.legacy_cli app-open <app-id-or-path>`
+- `python -m agent_aidf.legacy_cli app-run <app-id> [--port ...]`
+- `python -m agent_aidf.legacy_cli app-runtime <app-id>`
+- `python -m agent_aidf.legacy_cli app-stop <app-id>`
+- `python -m agent_aidf.legacy_cli docs [--pack ...] [--phase ...] [--ethical-domain ...] [--maturity-level ...]`
+- `python -m agent_aidf.legacy_cli find <query>`
+- `python -m agent_aidf.legacy_cli open <id-or-path>`
+- `python -m agent_aidf.legacy_cli chat <prompt>`
+- `python -m agent_aidf.legacy_cli shell`
 
 The CLI resolves runtime context in this order:
 - `--repo` when you need an explicit override
@@ -42,7 +48,7 @@ The CLI resolves runtime context in this order:
 - `AIDF_REPO_ROOT` if no local `.kaidf/` exists
 - the project root as a fallback for repository-style inspection
 
-`agent-aidf init` creates `.kaidf/` by calling the local `kobkob-kaidf-generator` default spec.
+`kob init` creates `.kaidf/` by calling the local `kobkob-kaidf-generator` default spec.
 
 ## AI Controller
 
@@ -58,16 +64,16 @@ If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller i
 
 The `mentor` command is now the main guided workflow entrypoint:
 
-- `agent-aidf mentor`
+- `kob mentor`
   Purpose: show or resume the current pending mentor question
 
-- `agent-aidf mentor "<answer>"`
+- `kob mentor "<answer>"`
   Purpose: record the answer, analyze it against `.kaidf/`, update the active instant app when relevant, and ask the next question
 
-- `agent-aidf mentor --status`
+- `kob mentor --status`
   Purpose: inspect persisted workflow state, active app, and last action summary
 
-- `agent-aidf mentor --reset`
+- `kob mentor --reset`
   Purpose: clear the persisted mentor workflow state
 
 Mentor state is stored in `.kaidf/mentor-workflow.json`.
@@ -76,13 +82,13 @@ Mentor state is stored in `.kaidf/mentor-workflow.json`.
 
 Persistent basic contracts live under `.kaidf/contracts/<contract-id>/`.
 
-- `agent-aidf contracts`
+- `python -m agent_aidf.legacy_cli contracts`
   Purpose: list generated contracts
 
-- `agent-aidf contract-create [contract-id] [--brief ...] [--force]`
+- `python -m agent_aidf.legacy_cli contract-create [contract-id] [--brief ...] [--force]`
   Purpose: create a mentor-aware contract scaffold that follows the five K-AIDF Basic phases
 
-- `agent-aidf contract-open <contract-id-or-path>`
+- `python -m agent_aidf.legacy_cli contract-open <contract-id-or-path>`
   Purpose: inspect a generated contract and its current mentor/app context
 
 Each contract currently writes:
@@ -131,7 +137,7 @@ The mentor currently uses these rules:
   Purpose: run the test suite quickly
 
 - `scripts/list-docs.sh`
-  Purpose: invoke `agent-aidf docs` directly from a script surface
+  Purpose: invoke `python -m agent_aidf.legacy_cli docs` directly from a script surface
 
 - `scripts/shell.sh`
   Purpose: start the interactive shell
