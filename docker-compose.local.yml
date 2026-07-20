@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  aidf-ollama:
+    image: ollama/ollama:latest
+    container_name: aidf-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  mcp-server:
+    build:
+      context: ./mcp-aidf
+    container_name: mcp-aidf-server
+    ports:
+      - "8080:8080"
+    environment:
+      - KAIDF_LOCAL_INFERENCE=true
+      - OLLAMA_HOST=http://aidf-ollama:11434
+    depends_on:
+      - aidf-ollama
+
+volumes:
+  ollama_data:
