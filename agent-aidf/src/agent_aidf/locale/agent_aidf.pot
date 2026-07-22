@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: agent-aidf 0.4.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-22 16:41-0400\n"
+"POT-Creation-Date: 2026-07-22 18:51-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,204 +17,226 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/agent_aidf/cli/main.py:50
+#: src/agent_aidf/cli/main.py:54
 msgid "Run the K-AIDF generator and write the scaffolded framework."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:51
-msgid "Alias for /compile."
-msgstr ""
-
-#: src/agent_aidf/cli/main.py:52
-msgid "Create the local .kaidf/ directory using the default pattern."
-msgstr ""
-
-#: src/agent_aidf/cli/main.py:53
-msgid "Show the pending mentor question, or record an answer."
-msgstr ""
-
-#: src/agent_aidf/cli/main.py:54
-msgid "Alias for /ui."
-msgstr ""
-
 #: src/agent_aidf/cli/main.py:55
-msgid "Hand off the terminal to the interactive OLMo-backed shell."
+msgid "Stop the web UI if running, then quit kob."
 msgstr ""
 
 #: src/agent_aidf/cli/main.py:56
-msgid "Show the status of the 5 K-AIDF delivery phases."
+msgid "Alias for /compile."
 msgstr ""
 
 #: src/agent_aidf/cli/main.py:57
-msgid "Launch the local mentor web app (placeholder)."
+msgid "Create the local .kaidf/ directory using the default pattern."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:65
+#: src/agent_aidf/cli/main.py:58
+msgid "Show the pending mentor question, or record an answer."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:59
+msgid "Alias for /ui."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:60
+msgid "Hand off the terminal to the interactive OLMo-backed shell."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:61
+msgid "Show the status of the 5 K-AIDF delivery phases."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:64 src/agent_aidf/cli/main.py:406
+msgid "Launch the mentor web UI (Maturity Model phases + mentor chat)."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:73
 msgid "unknown"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:197
+#: src/agent_aidf/cli/main.py:205
 msgid "Type a command here (e.g. /status)..."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:202
+#: src/agent_aidf/cli/main.py:210
 #, python-brace-format
 msgid "Model: {model}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:204
+#: src/agent_aidf/cli/main.py:212
 #, python-brace-format
 msgid ""
 "Current directory:\n"
 "{path}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:210
+#: src/agent_aidf/cli/main.py:223
 #, python-brace-format
 msgid "Kob agent {version} - model {model}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:215
+#: src/agent_aidf/cli/main.py:228
 msgid "Welcome!"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:215
+#: src/agent_aidf/cli/main.py:228
 msgid "Commands:"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:222
+#: src/agent_aidf/cli/main.py:235
 msgid ""
 "Run a command above by typing it into the prompt below.\n"
 "Example: [italic green]/status[/italic green] or [italic green]/init[/italic "
 "green]"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:228
+#: src/agent_aidf/cli/main.py:241
 #, python-brace-format
 msgid "Current Status - K-AIDF Phase {current}/{total}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:235
+#: src/agent_aidf/cli/main.py:248
 msgid "status: Phase 0. Use /init to begin your work"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:237
+#: src/agent_aidf/cli/main.py:250
 #, python-brace-format
 msgid "status: Phase 0/{total}. Use /mentor to begin your work"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:239
+#: src/agent_aidf/cli/main.py:252
 #, python-brace-format
 msgid "status: Phase {current}/{total}. Pending category: {category}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:242
+#: src/agent_aidf/cli/main.py:255
 #, python-brace-format
 msgid "status: Phase {current}/{total}."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:264
+#: src/agent_aidf/cli/main.py:294
+#, python-brace-format
+msgid "Web UI is already running at {url}"
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:298
+#, python-brace-format
+msgid "Starting the web UI at {url} ..."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:306 src/agent_aidf/webui.py:111
+msgid "Web UI stopped."
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:323
 #, python-brace-format
 msgid ""
 "Running /init via the generator...\n"
 "Initialized {name} at {path}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:270
+#: src/agent_aidf/cli/main.py:329
 msgid "Project Status"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:271
+#: src/agent_aidf/cli/main.py:330
 msgid "yes"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:271
+#: src/agent_aidf/cli/main.py:330
 msgid "no"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:284
+#: src/agent_aidf/cli/main.py:343
 #, python-brace-format
 msgid "Processing mentor answer: '{answer}'"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:286
+#: src/agent_aidf/cli/main.py:345
 msgid "Showing the pending mentor question..."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:292
+#: src/agent_aidf/cli/main.py:351
 msgid "Starting the interactive OLMo-backed shell..."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:296 src/agent_aidf/cli/main.py:390
-#, python-brace-format
-msgid "kob ui/serve started on port {port} (placeholder)."
-msgstr ""
-
-#: src/agent_aidf/cli/main.py:302 src/agent_aidf/cli/main.py:395
+#: src/agent_aidf/cli/main.py:360 src/agent_aidf/cli/main.py:466
 #, python-brace-format
 msgid "Generated template framework inside: {out}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:305
+#: src/agent_aidf/cli/main.py:366
+msgid "Goodbye!"
+msgstr ""
+
+#: src/agent_aidf/cli/main.py:370
 msgid "Unknown command:"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:308
+#: src/agent_aidf/cli/main.py:373
 #, python-brace-format
 msgid "Valid commands: {commands}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:311
+#: src/agent_aidf/cli/main.py:376
 msgid "Error running command:"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:320
+#: src/agent_aidf/cli/main.py:387
 msgid "Run a kob command non-interactively instead of launching the TUI."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:322
+#: src/agent_aidf/cli/main.py:389
 msgid "Path to the creator project."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:323
+#: src/agent_aidf/cli/main.py:390
 msgid "Path to a K-AIDF repository override."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:326
+#: src/agent_aidf/cli/main.py:393
 msgid "Create .kaidf/ in the current project."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:329
+#: src/agent_aidf/cli/main.py:396
 msgid "Show current project and .kaidf runtime status."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:331
+#: src/agent_aidf/cli/main.py:398
 msgid "Continue the persisted mentor workflow."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:337
+#: src/agent_aidf/cli/main.py:404
 msgid "Start the interactive OLMo-backed shell."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:340
-msgid "Local mentor web daemon placeholder."
-msgstr ""
-
-#: src/agent_aidf/cli/main.py:344
+#: src/agent_aidf/cli/main.py:412
 msgid "Run the K-AIDF generator against a spec."
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:360
+#: src/agent_aidf/cli/main.py:428
 #, python-brace-format
 msgid "Initialized {name} at {path}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:377
+#: src/agent_aidf/cli/main.py:445
 #, python-brace-format
 msgid "Reset mentor workflow state at {path}"
 msgstr ""
 
-#: src/agent_aidf/cli/main.py:398
+#: src/agent_aidf/cli/main.py:469
 #, python-brace-format
 msgid "Unknown command: {command}"
+msgstr ""
+
+#: src/agent_aidf/webui.py:80
+msgid "Exit requested from the web UI. Stopping the server..."
+msgstr ""
+
+#: src/agent_aidf/webui.py:106
+#, python-brace-format
+msgid "Web UI listening on http://{host}:{port}"
 msgstr ""

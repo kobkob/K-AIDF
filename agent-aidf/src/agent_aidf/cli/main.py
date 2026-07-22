@@ -6,15 +6,18 @@ import io
 import os
 import subprocess
 import sys
+from functools import partial
 from importlib import metadata
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
+from werkzeug.serving import BaseWSGIServer
 
 from ..controller import OpenAIResponsesController, build_controller
 from ..i18n import _
+from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from ..project import (
     ProjectStatus,
@@ -27,11 +30,12 @@ from ..project import (
     resolve_runtime_repo_root,
 )
 from ..shell import run_shell
+from ..webui import run_webui
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
 DEFAULT_LOCAL_MODEL = "OLMo local"
 DEFAULT_UI_PORT = 8501
-TOTAL_PHASES = 5
+MAX_LOG_LINES = 400
 
 # Source: top-level README.md "## Logo" section.
 LOGO = (
@@ -48,13 +52,17 @@ LOGO = (
 # (command, description) pairs, kept alphabetical by command name.
 COMMAND_HELP = (
     ("/compile", lambda: _("Run the K-AIDF generator and write the scaffolded framework.")),
+    ("/exit", lambda: _("Stop the web UI if running, then quit kob.")),
     ("/gen", lambda: _("Alias for /compile.")),
     ("/init", lambda: _("Create the local .kaidf/ directory using the default pattern.")),
     ("/mentor", lambda: _("Show the pending mentor question, or record an answer.")),
     ("/serve", lambda: _("Alias for /ui.")),
     ("/shell", lambda: _("Hand off the terminal to the interactive OLMo-backed shell.")),
     ("/status", lambda: _("Show the status of the 5 K-AIDF delivery phases.")),
-    ("/ui", lambda: _("Launch the local mentor web app (placeholder).")),
+    (
+        "/ui",
+        lambda: _("Launch the mentor web UI (Maturity Model phases + mentor chat)."),
+    ),
 )
 
 
@@ -75,12 +83,6 @@ def active_model_label() -> str:
 
 def ui_port() -> int:
     return int(os.environ.get("AIDF_UI_PORT", str(DEFAULT_UI_PORT)))
-
-
-def phase_progress(status: ProjectStatus) -> tuple[int, int]:
-    if not status.has_kaidf:
-        return 0, TOTAL_PHASES
-    return min(TOTAL_PHASES, status.mentor_step_count), TOTAL_PHASES
 
 
 def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
@@ -151,12 +153,14 @@ class KobAgentApp(App):
         color: #FFB86C;
         text-style: bold;
     }
-    #canvas {
+    #canvas-scroll {
         height: 1fr;
+        background: #000000;
+    }
+    #canvas {
         padding: 0 1;
         color: #F8F8F2;
         background: #000000;
-        overflow-y: scroll;
     }
     .footer-box {
         border: solid #50FA7B;
@@ -178,6 +182,9 @@ class KobAgentApp(App):
         self.repo_override = repo_override
         self.project_root = resolve_project_root(project_dir)
         self.repo_root = resolve_runtime_repo_root(self.project_root, repo_override)
+        self._web_server: BaseWSGIServer | None = None
+        self._web_url: str | None = None
+        self._log_lines: list[str] = []
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-box"):
@@ -191,7 +198,8 @@ class KobAgentApp(App):
 
         with Vertical(classes="canvas-box"):
             yield Static("", id="canvas-status")
-            yield Static(self._canvas_placeholder_text(), id="canvas")
+            with VerticalScroll(id="canvas-scroll"):
+                yield Static(self._canvas_placeholder_text(), id="canvas")
 
         with Vertical(classes="footer-box"):
             yield Input(placeholder=_("Type a command here (e.g. /status)..."), id="prompt")
@@ -205,6 +213,11 @@ class KobAgentApp(App):
         self.query_one("#directory-line").update(directory_line)
         self.query_one("#prompt").focus()
         self._refresh_status_panels()
+
+    def on_unmount(self) -> None:
+        # Guarantee the background web server dies with the app, however it quits
+        # (typed /exit, Ctrl+C, Ctrl+Q, or the terminal window closing).
+        self._stop_webui()
 
     def _header_title_text(self) -> str:
         return _("Kob agent {version} - model {model}").format(
@@ -246,6 +259,52 @@ class KobAgentApp(App):
         self.query_one("#canvas-status").update(self._canvas_status_text(status))
         self.query_one("#status-line").update(self._footer_status_text(status))
 
+    def _log(self, text: str) -> None:
+        """Append a block of output to the scrolling canvas. Must run on the Textual thread."""
+        if not text:
+            return
+        self._log_lines.append(text)
+        del self._log_lines[:-MAX_LOG_LINES]
+        self.query_one("#canvas", Static).update("\n".join(self._log_lines))
+        self.query_one("#canvas-scroll", VerticalScroll).scroll_end(animate=False)
+
+    def _log_from_thread(self, text: str) -> None:
+        """log_sink for run_webui(): called from the web server's background thread."""
+        self.call_from_thread(self._log, text)
+
+    def _set_web_server(self, server: BaseWSGIServer) -> None:
+        self._web_server = server
+
+    def _run_webui_worker(self, port: int) -> None:
+        try:
+            run_webui(
+                self.project_root,
+                self.repo_root,
+                port=port,
+                log_sink=self._log_from_thread,
+                on_server_ready=self._set_web_server,
+            )
+        finally:
+            self._web_server = None
+            self._web_url = None
+            self.call_from_thread(self._refresh_status_panels)
+
+    def _start_webui(self) -> str:
+        if self._web_server is not None:
+            return _("Web UI is already running at {url}").format(url=self._web_url)
+        port = ui_port()
+        self._web_url = f"http://127.0.0.1:{port}"
+        self.run_worker(partial(self._run_webui_worker, port), thread=True, group="webui")
+        return _("Starting the web UI at {url} ...").format(url=self._web_url)
+
+    def _stop_webui(self) -> str | None:
+        if self._web_server is None:
+            return None
+        self._web_server.shutdown()
+        self._web_server = None
+        self._web_url = None
+        return _("Web UI stopped.")
+
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         command_text = event.value.strip()
         self.query_one("#prompt").value = ""
@@ -253,7 +312,7 @@ class KobAgentApp(App):
         if not command_text:
             return
 
-        canvas = self.query_one("#canvas")
+        should_exit = False
 
         output_buffer = io.StringIO()
         with contextlib.redirect_stdout(output_buffer):
@@ -293,13 +352,19 @@ class KobAgentApp(App):
                     run_shell(self.repo_root)
 
                 elif command_text in ("/ui", "/serve"):
-                    message = _("kob ui/serve started on port {port} (placeholder).")
-                    print(message.format(port=ui_port()))
+                    print(self._start_webui())
 
                 elif command_text.startswith("/compile") or command_text.startswith("/gen"):
                     out_dir = "./out"
                     _run_compile_backend(None, out_dir, False)
                     print(_("Generated template framework inside: {out}").format(out=out_dir))
+
+                elif command_text == "/exit":
+                    stopped_message = self._stop_webui()
+                    if stopped_message:
+                        print(stopped_message)
+                    print(_("Goodbye!"))
+                    should_exit = True
 
                 else:
                     unknown_label = _("Unknown command:")
@@ -311,7 +376,9 @@ class KobAgentApp(App):
                 error_label = _("Error running command:")
                 print(f"[bold red]{error_label}[/bold red] {str(e)}")
 
-        canvas.update(output_buffer.getvalue())
+        self._log(output_buffer.getvalue())
+        if should_exit:
+            self.exit()
 
 
 def _build_cli_parser() -> argparse.ArgumentParser:
@@ -336,8 +403,9 @@ def _build_cli_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("shell", help=_("Start the interactive OLMo-backed shell."))
 
+    ui_help = _("Launch the mentor web UI (Maturity Model phases + mentor chat).")
     for name in ("ui", "serve"):
-        ui_parser = subparsers.add_parser(name, help=_("Local mentor web daemon placeholder."))
+        ui_parser = subparsers.add_parser(name, help=ui_help)
         ui_parser.add_argument("--port", type=int, default=ui_port())
 
     for name in ("compile", "gen"):
@@ -387,7 +455,10 @@ def _run_cli(argv: list[str]) -> int:
         return run_shell(repo_root)
 
     if args.command in ("ui", "serve"):
-        print(_("kob ui/serve started on port {port} (placeholder).").format(port=args.port))
+        try:
+            run_webui(project_root, repo_root, port=args.port, log_sink=print)
+        except KeyboardInterrupt:
+            pass
         return 0
 
     if args.command in ("compile", "gen"):

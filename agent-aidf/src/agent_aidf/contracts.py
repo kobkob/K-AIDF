@@ -78,6 +78,12 @@ _BASIC_PHASES = (
 )
 
 
+def basic_phase_definitions() -> tuple[dict, ...]:
+    """The 5 K-AIDF Basic delivery phases, as plain dicts (order, name, human_role, ai_role,
+    deliverables, exit_criteria, quiz_prompts)."""
+    return _BASIC_PHASES
+
+
 @dataclass(frozen=True)
 class ContractPhase:
     order: int

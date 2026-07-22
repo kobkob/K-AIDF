@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-aidf"
-version = "0.4.1"
+version = "0.4.2"
 description = "Terminal-first agent shell for navigating and consuming K-AIDF repositories."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "PyYAML>=6.0.1",
   "textual>=0.58",
+  "Flask>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +26,12 @@ kob = "agent_aidf.cli.main:main"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-agent_aidf = ["locale/*.pot", "locale/**/LC_MESSAGES/*.po", "locale/**/LC_MESSAGES/*.mo"]
+agent_aidf = [
+  "locale/*.pot",
+  "locale/**/LC_MESSAGES/*.po",
+  "locale/**/LC_MESSAGES/*.mo",
+  "webui_dist/**/*",
+]
 
 [tool.ruff]
 target-version = "py310"

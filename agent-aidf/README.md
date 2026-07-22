@@ -4,7 +4,7 @@ Terminal-first mentor and architect agent for K-AIDF-compatible projects.
 
 ## Scope
 
-This first version is a CLI and interactive shell connected to a project-local `.kaidf/` repository, not a web UI.
+This is a terminal-first CLI and interactive shell connected to a project-local `.kaidf/` repository, plus a small optional local web UI (`kob ui`) for the same mentor workflow.
 
 It does three things:
 - initializes and maintains `.kaidf/` in the current project
@@ -13,6 +13,7 @@ It does three things:
 - provides a terminal shell backed by a real AI controller when configured
 - manages project-local instant apps under `.kaidf/apps/<app-id>` for mentor-driven local workflows
 - generates mentor-aware basic contracts under `.kaidf/contracts/<contract-id>` for K-AIDF delivery setup
+- serves a local web UI (`kob ui`) showing live Maturity Model phase progress and a mentor chat
 
 ## Commands
 
@@ -33,8 +34,9 @@ Type commands into the bottom prompt of the running app:
 - `/status` — show the 5-phase project status
 - `/mentor [answer]` — show/resume the pending mentor question, or record an answer
 - `/shell` — hand off the terminal to the interactive OLMo-backed shell (`agent_aidf.shell.run_shell`)
-- `/ui` / `/serve` — placeholder; will launch the local web daemon for the mentor UI
+- `/ui` / `/serve` — launch the mentor web UI (see below) in the background and keep using the TUI; request/mentor activity is piped into the same scrolling canvas
 - `/compile` / `/gen` — runs the `kobkob-kaidf-generator` `generate` engine against its default spec, writing to `./out`
+- `/exit` — stop the web UI if one is running, then quit `kob`
 
 The TUI has four regions: a top bar (the K-AIDF logo, the active model, and the current working directory on the left; the command legend on the right), a scrollable output canvas with a live `Current Status - K-AIDF Phase {current}/{total}` header, and a bottom prompt/status bar. Everything in it is read from the running system rather than hardcoded:
 
@@ -51,8 +53,19 @@ Same commands, run directly from the shell (this is what the root `Makefile` tar
 - `kob [--project ...] [--repo ...] status`
 - `kob [--project ...] [--repo ...] mentor [answer] [--status] [--reset]`
 - `kob [--project ...] [--repo ...] shell`
-- `kob [--project ...] [--repo ...] ui [--port ...]` / `kob ... serve [--port ...]` — placeholder
+- `kob [--project ...] [--repo ...] ui [--port ...]` / `kob ... serve [--port ...]` — runs the web UI in the foreground until stopped (Ctrl+C, or `/exit` typed into the web UI itself)
 - `kob [--project ...] [--repo ...] compile [spec] --out <dir> [--force]` / `kob ... gen [spec] --out <dir> [--force]`
+
+### Web UI
+
+`kob ui` (from the TUI or the one-shot CLI) serves a small React + Tailwind + shadcn-style frontend (source under `webui/`, built output committed at `src/agent_aidf/webui_dist/`) backed by a Flask server (`agent_aidf.webui`) on `AIDF_UI_PORT` (default `8501`). It shows:
+
+- a live view of the 5 K-AIDF Basic delivery phases (`agent_aidf.maturity.phase_snapshot()`), each marked done/current/pending against the real mentor progress
+- a mentor chat panel — free text is sent straight to `continue_mentor_workflow()` as an answer; `/status` and `/exit` work the same as in the TUI
+
+The frontend talks to three JSON endpoints: `GET /api/status`, `POST /api/mentor {"answer": str|null}`, and `POST /api/exit` (gracefully shuts the server down via `werkzeug.serving.make_server(...).shutdown()`, which is what both the TUI's `/exit` and Ctrl+C on the one-shot CLI also call).
+
+To change the frontend, edit `webui/src/**` and run `npm install && npm run build` inside `agent-aidf/webui/` — the build writes directly into `src/agent_aidf/webui_dist/`, which is what ships in the Python package. End users running `kob ui` only need Python; Node is only required to modify the frontend source.
 
 The remaining commands are still served by the legacy CLI, which stays a plain one-shot script (no TUI):
 

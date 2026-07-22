@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-22
+
+### Added
+
+- `kob ui` / `kob serve` (and `/ui`, `/serve` in the TUI) now launch a real local web UI instead of a placeholder: a React + Tailwind + shadcn-style frontend (`agent-aidf/webui/`, built output committed at `src/agent_aidf/webui_dist/`) backed by a new Flask server (`agent_aidf.webui`) exposing `GET /api/status`, `POST /api/mentor`, and `POST /api/exit`. It shows the 5 K-AIDF Basic delivery phases with live done/current/pending state and a mentor chat panel
+- `agent_aidf.maturity` — shared `phase_progress()`/`phase_snapshot()` mapping mentor progress onto the 5 phases from `contracts.basic_phase_definitions()`, used by both the TUI and the web UI
+- `/exit` command in the TUI: stops the web UI if one is running (via `werkzeug.serving.make_server(...).shutdown()`), then quits `kob`. The web UI has the same `/exit` typed into its own command input, which stops its own server and shows a "Session ended" screen
+- `flask>=3.0` runtime dependency (matches the version already used by `mcp-aidf`)
+
+### Changed
+
+- in the TUI, command output and web UI request/mentor activity now share one scrolling log in the canvas (previously each command replaced the canvas contents outright)
+
 ## [0.4.1] - 2026-07-22
 
 ### Added
