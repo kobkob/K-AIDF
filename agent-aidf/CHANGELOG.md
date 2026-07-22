@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-22
+
 ### Added
 
 - redesigned the `kob` TUI layout: a single bordered header with the K-AIDF logo (from the root `README.md`), the active model, and the current directory on the left, the command legend on the right, embedded as the header's border title; a canvas with a live `Current Status - K-AIDF Phase {current}/{total}` line; and a footer status bar — all values (version, model, directory, phase) are read from the running system instead of hardcoded
