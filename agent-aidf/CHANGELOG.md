@@ -6,10 +6,16 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- redesigned the `kob` TUI layout: a single bordered header with the K-AIDF logo (from the root `README.md`), the active model, and the current directory on the left, the command legend on the right, embedded as the header's border title; a canvas with a live `Current Status - K-AIDF Phase {current}/{total}` line; and a footer status bar — all values (version, model, directory, phase) are read from the running system instead of hardcoded
+- `agent_aidf.i18n` — a `gettext`-based `_()` helper used by every `kob` TUI/CLI string; English is the source language and the default (no catalog required), with a `src/agent_aidf/locale/agent_aidf.pot` template for adding other languages via standard `.po`/`.mo` catalogs
+
 ### Changed
 
 - `kob` (`agent_aidf.cli.main`) is now dual-mode: `kob` with no arguments launches an interactive [Textual](https://textual.textualize.io/) TUI (`/init`, `/status`, `/mentor [answer]`, `/shell`, `/compile`, `/gen`, `/ui`, `/serve` typed into the prompt); `kob <command> ...` with arguments still runs that command one-shot, via a new `argparse` dispatcher in `cli/main.py`, so the existing `Makefile` targets (`agent-shell`, `agent-status`, `agent-mentor*`, `agent-ui`, `generate-default/maturity/ethical`) keep working unchanged
 - swapped the `click>=8.1` runtime dependency for `textual>=0.58`
+- the TUI's displayed model name now reflects the controller `build_controller()` actually resolves (`OPENAI_MODEL` when `OPENAI_API_KEY` is set, otherwise `AIDF_MODEL` or the `OLMo local` default) instead of a hardcoded label
 
 ## [0.4.0] - 2026-07-19
 

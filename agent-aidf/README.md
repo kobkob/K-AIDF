@@ -36,6 +36,13 @@ Type commands into the bottom prompt of the running app:
 - `/ui` / `/serve` — placeholder; will launch the local web daemon for the mentor UI
 - `/compile` / `/gen` — runs the `kobkob-kaidf-generator` `generate` engine against its default spec, writing to `./out`
 
+The TUI has four regions: a top bar (the K-AIDF logo, the active model, and the current working directory on the left; the command legend on the right), a scrollable output canvas with a live `Current Status - K-AIDF Phase {current}/{total}` header, and a bottom prompt/status bar. Everything in it is read from the running system rather than hardcoded:
+
+- the version in the title bar comes from the installed `agent-aidf` distribution metadata
+- the model name reflects the controller `build_controller()` actually resolves (the configured `OPENAI_MODEL` when `OPENAI_API_KEY` is set, otherwise `AIDF_MODEL` or the `OLMo local` default)
+- the working directory is `Path.cwd()`
+- the phase counter and pending category come from `read_project_status()` against the current `--project`/`--repo`
+
 ### One-shot CLI
 
 Same commands, run directly from the shell (this is what the root `Makefile` targets use):
@@ -150,6 +157,17 @@ The mentor currently uses these rules:
 - refresh app files on relevant mentor steps
 - start or restart the active web app automatically and report the live localhost URL
 - stop a superseded running web app when the workflow switches to a different active app
+
+## Internationalization
+
+All `kob` TUI and CLI-facing text is wrapped in `agent_aidf.i18n._()`, a thin `gettext` helper (`src/agent_aidf/i18n.py`). English is the source language and the default: `_()` falls back to the literal source string whenever no matching translation catalog is installed, so no `.po`/`.mo` files are required to run in English.
+
+To add a language:
+
+1. Generate/refresh the template: `xgettext --language=Python --keyword=_ -o src/agent_aidf/locale/agent_aidf.pot src/agent_aidf/cli/main.py`
+2. Seed a catalog from it, e.g. `msginit -l pt_BR -i src/agent_aidf/locale/agent_aidf.pot -o src/agent_aidf/locale/pt_BR/LC_MESSAGES/agent_aidf.po`
+3. Fill in the `msgstr` entries, then compile: `msgfmt -o src/agent_aidf/locale/pt_BR/LC_MESSAGES/agent_aidf.mo src/agent_aidf/locale/pt_BR/LC_MESSAGES/agent_aidf.po`
+4. Run `kob` with `LANGUAGE=pt_BR` (or `LANG=pt_BR.UTF-8`) set for `gettext.translation()` to pick up the new catalog.
 
 ## Scripts
 

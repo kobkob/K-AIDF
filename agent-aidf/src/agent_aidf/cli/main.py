@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import argparse
-import io
 import contextlib
+import io
+import os
 import subprocess
 import sys
+from importlib import metadata
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.widgets import Static, Input
 from textual.containers import Horizontal, Vertical
+from textual.widgets import Input, Static
 
+from ..controller import OpenAIResponsesController, build_controller
+from ..i18n import _
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from ..project import (
+    ProjectStatus,
     init_project_repo,
     locate_generator_repo,
     project_repo_root,
@@ -22,6 +27,60 @@ from ..project import (
     resolve_runtime_repo_root,
 )
 from ..shell import run_shell
+
+PACKAGE_DISTRIBUTION = "agent-aidf"
+DEFAULT_LOCAL_MODEL = "OLMo local"
+DEFAULT_UI_PORT = 8501
+TOTAL_PHASES = 5
+
+# Source: top-level README.md "## Logo" section.
+LOGO = (
+    " ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄\n"
+    " █  ▄▄▄    ▄▄▄  █\n"
+    " █  █ █    █ █  █\n"
+    " █  ▀▀▀    ▀▀▀  █\n"
+    " █              █\n"
+    " █   █▀▀▀▀▀▀█   █\n"
+    " █   ▀▀▀▀▀▀▀▀   █\n"
+    " ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀"
+)
+
+# (command, description) pairs, kept alphabetical by command name.
+COMMAND_HELP = (
+    ("/compile", lambda: _("Run the K-AIDF generator and write the scaffolded framework.")),
+    ("/gen", lambda: _("Alias for /compile.")),
+    ("/init", lambda: _("Create the local .kaidf/ directory using the default pattern.")),
+    ("/mentor", lambda: _("Show the pending mentor question, or record an answer.")),
+    ("/serve", lambda: _("Alias for /ui.")),
+    ("/shell", lambda: _("Hand off the terminal to the interactive OLMo-backed shell.")),
+    ("/status", lambda: _("Show the status of the 5 K-AIDF delivery phases.")),
+    ("/ui", lambda: _("Launch the local mentor web app (placeholder).")),
+)
+
+
+def package_version() -> str:
+    try:
+        return metadata.version(PACKAGE_DISTRIBUTION)
+    except metadata.PackageNotFoundError:
+        return _("unknown")
+
+
+def active_model_label() -> str:
+    """The model actually driving /mentor and /shell, resolved like build_controller() does."""
+    controller = build_controller()
+    if isinstance(controller, OpenAIResponsesController):
+        return controller.model
+    return os.environ.get("AIDF_MODEL", DEFAULT_LOCAL_MODEL)
+
+
+def ui_port() -> int:
+    return int(os.environ.get("AIDF_UI_PORT", str(DEFAULT_UI_PORT)))
+
+
+def phase_progress(status: ProjectStatus) -> tuple[int, int]:
+    if not status.has_kaidf:
+        return 0, TOTAL_PHASES
+    return min(TOTAL_PHASES, status.mentor_step_count), TOTAL_PHASES
 
 
 def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
@@ -43,35 +102,65 @@ def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
 
 
 class KobAgentApp(App):
-    """Uma aplicação terminal interativa TUI para o Kob Agent 0.4.0."""
+    """Interactive Textual TUI for the kob agent."""
 
     CSS = """
     Screen {
         background: #0D0705;
     }
-    .header-box {
+    #header-box {
         border: solid #50FA7B;
-        height: 8;
-        padding: 1;
+        height: auto;
         color: #F8F8F2;
     }
-    .commands-box {
-        border: solid #50FA7B;
-        height: 8;
+    #info-pane {
+        width: 1fr;
+        height: auto;
+        padding: 1;
+    }
+    #logo-row {
+        height: auto;
+    }
+    #logo {
+        width: auto;
+        color: #50FA7B;
+        padding-right: 2;
+    }
+    #model-label {
         color: #F8F8F2;
-        overflow-y: scroll;
+        padding-top: 1;
+    }
+    #directory-line {
+        color: #F8F8F2;
+        padding-top: 1;
+    }
+    #commands-pane {
+        width: 1fr;
+        height: auto;
+        padding: 1;
+        border-left: solid #50FA7B;
+        color: #F8F8F2;
     }
     .canvas-box {
         border: solid #50FA7B;
         height: 1fr;
+    }
+    #canvas-status {
+        height: 1;
+        padding: 0 1;
+        color: #FFB86C;
+        text-style: bold;
+    }
+    #canvas {
+        height: 1fr;
+        padding: 0 1;
         color: #F8F8F2;
         background: #000000;
-        padding: 1;
         overflow-y: scroll;
     }
     .footer-box {
         border: solid #50FA7B;
-        height: 3;
+        height: 4;
         padding: 0 1;
         color: #FF5555;
     }
@@ -79,6 +168,7 @@ class KobAgentApp(App):
         background: #111;
         color: #50FA7B;
         border: none;
+        height: 1;
     }
     """
 
@@ -90,40 +180,71 @@ class KobAgentApp(App):
         self.repo_root = resolve_runtime_repo_root(self.project_root, repo_override)
 
     def compose(self) -> ComposeResult:
-        # 1. Painel Superior (Header dividido)
-        with Horizontal():
-            yield Static(
-                f"[bold cyan]Kob agent 0.4.0[/bold cyan]\n\n"
-                f"🤖 Model: OLMo local\n\n"
-                f"Current directory:\n{Path.cwd()}",
-                classes="header-box", id="info-pane"
-            )
-            yield Static(
-                "[bold green]Welcome![/bold green]\n"
-                "[bold]Commands:[/bold]\n"
-                " /init      Create local .kaidf/ default pattern\n"
-                " /status    Show status of the 5 phases\n"
-                " /mentor    Interact with mentor K-AIDF\n"
-                " /shell     Talk to OLMo local\n"
-                " /compile   Create the framework\n"
-                " /ui        Launch web local app",
-                classes="commands-box", id="commands-pane"
-            )
+        with Horizontal(id="header-box"):
+            with Vertical(id="info-pane"):
+                with Horizontal(id="logo-row"):
+                    yield Static(LOGO, id="logo")
+                    yield Static("", id="model-label")
+                yield Static("", id="directory-line")
+            with Vertical(id="commands-pane"):
+                yield Static(self._commands_text(), id="commands-list")
 
-        # 2. Painel Central (O grande Canvas de Output)
-        yield Static(
-            "Execute um comando acima digitando no prompt inferior.\n"
-            "Exemplo: [italic green]/status[/italic green] ou [italic green]/init[/italic green]",
-            classes="canvas-box", id="canvas"
-        )
+        with Vertical(classes="canvas-box"):
+            yield Static("", id="canvas-status")
+            yield Static(self._canvas_placeholder_text(), id="canvas")
 
-        # 3. Painel Inferior (Prompt interativo + Status)
         with Vertical(classes="footer-box"):
-            yield Input(placeholder="Digite seu comando aqui (ex: /status)...", id="prompt")
-            yield Static("status: Phase 0. Use /init to begin your work", id="status-line")
+            yield Input(placeholder=_("Type a command here (e.g. /status)..."), id="prompt")
+            yield Static("", id="status-line")
 
     def on_mount(self) -> None:
+        self.query_one("#header-box").border_title = self._header_title_text()
+        model_line = _("Model: {model}").format(model=active_model_label())
+        self.query_one("#model-label").update(model_line)
+        directory_line = _("Current directory:\n{path}").format(path=Path.cwd())
+        self.query_one("#directory-line").update(directory_line)
         self.query_one("#prompt").focus()
+        self._refresh_status_panels()
+
+    def _header_title_text(self) -> str:
+        return _("Kob agent {version} - model {model}").format(
+            version=package_version(), model=active_model_label()
+        )
+
+    def _commands_text(self) -> str:
+        lines = [_("Welcome!"), _("Commands:")]
+        for name, describe in COMMAND_HELP:
+            lines.append(f" {name:<10}{describe()}")
+        return "\n".join(lines)
+
+    def _canvas_placeholder_text(self) -> str:
+        return _(
+            "Run a command above by typing it into the prompt below.\n"
+            "Example: [italic green]/status[/italic green] or [italic green]/init[/italic green]"
+        )
+
+    def _canvas_status_text(self, status: ProjectStatus) -> str:
+        current, total = phase_progress(status)
+        return _("Current Status - K-AIDF Phase {current}/{total}").format(
+            current=current, total=total
+        )
+
+    def _footer_status_text(self, status: ProjectStatus) -> str:
+        current, total = phase_progress(status)
+        if not status.has_kaidf:
+            return _("status: Phase 0. Use /init to begin your work")
+        if current == 0:
+            return _("status: Phase 0/{total}. Use /mentor to begin your work").format(total=total)
+        if status.mentor_pending_category:
+            return _("status: Phase {current}/{total}. Pending category: {category}").format(
+                current=current, total=total, category=status.mentor_pending_category
+            )
+        return _("status: Phase {current}/{total}.").format(current=current, total=total)
+
+    def _refresh_status_panels(self) -> None:
+        status = read_project_status(self.project_root, self.repo_root)
+        self.query_one("#canvas-status").update(self._canvas_status_text(status))
+        self.query_one("#status-line").update(self._footer_status_text(status))
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         command_text = event.value.strip()
@@ -133,58 +254,62 @@ class KobAgentApp(App):
             return
 
         canvas = self.query_one("#canvas")
-        status_line = self.query_one("#status-line")
 
-        # Intercepta e captura os prints dos scripts legados para exibir no Canvas central
         output_buffer = io.StringIO()
         with contextlib.redirect_stdout(output_buffer):
             try:
                 if command_text == "/init":
                     repo_root = init_project_repo(self.project_root, force=False)
-                    print(f"🔄 Executando kob init via generator...\nInitialized {project_repo_root(self.project_root).name} at {repo_root}")
-                    status_line.update("status: Phase 1 (Intent & Constraints) Initialized.")
+                    name = project_repo_root(self.project_root).name
+                    message = _("Running /init via the generator...\nInitialized {name} at {path}")
+                    print(message.format(name=name, path=repo_root))
+                    self._refresh_status_panels()
 
                 elif command_text == "/status":
-                    project_status = read_project_status(self.project_root, self.repo_root)
-                    print(f"[bold gold1]Project Status Structure:[/bold gold1]")
-                    print(f" project_root: {project_status.project_root}")
-                    print(f" repo_root: {project_status.repo_root}")
-                    print(f" has_kaidf: {'yes' if project_status.has_kaidf else 'no'}")
-                    print(f" pack_count: {project_status.pack_count}")
-                    print(f" mentor_step_count: {project_status.mentor_step_count}")
-                    status_line.update(f"status: Active Phase: {project_status.mentor_pending_category or '0'}")
+                    status = read_project_status(self.project_root, self.repo_root)
+                    title = _("Project Status")
+                    has_kaidf = _("yes") if status.has_kaidf else _("no")
+                    print(f"[bold gold1]{title}[/bold gold1]")
+                    print(f" project_root: {status.project_root}")
+                    print(f" repo_root: {status.repo_root}")
+                    print(f" has_kaidf: {has_kaidf}")
+                    print(f" pack_count: {status.pack_count}")
+                    print(f" mentor_step_count: {status.mentor_step_count}")
+                    self._refresh_status_panels()
 
                 elif command_text.startswith("/mentor"):
-                    args = command_text.split(" ", 1)
-                    answer = args[1] if len(args) > 1 else None
+                    parts = command_text.split(" ", 1)
+                    answer = parts[1] if len(parts) > 1 else None
                     if answer:
-                        print(f"🧠 kob processando resposta: '{answer}'")
+                        print(_("Processing mentor answer: '{answer}'").format(answer=answer))
                     else:
-                        print("🤔 Exibindo próxima pergunta pendente do mentor...")
+                        print(_("Showing the pending mentor question..."))
                     turn = continue_mentor_workflow(self.repo_root, answer=answer)
                     print(f"\n{turn.message}")
+                    self._refresh_status_panels()
 
                 elif command_text == "/shell":
-                    print("⚠️ Inicializando sub-processo do OLMo Local Shell...")
-                    # Shell interativo exige controle completo do terminal, disparado de forma resiliente
+                    print(_("Starting the interactive OLMo-backed shell..."))
                     run_shell(self.repo_root)
 
-                elif command_text == "/ui" or command_text == "/serve":
-                    print(f"🌐 kob ui/serve iniciado na porta 8501 (Daemon operacional).")
+                elif command_text in ("/ui", "/serve"):
+                    message = _("kob ui/serve started on port {port} (placeholder).")
+                    print(message.format(port=ui_port()))
 
                 elif command_text.startswith("/compile") or command_text.startswith("/gen"):
-                    args = command_text.split(" ")
-                    # Fallback default para compilação local
                     out_dir = "./out"
                     _run_compile_backend(None, out_dir, False)
-                    print(f"✅ Generated template framework inside: {out_dir}")
+                    print(_("Generated template framework inside: {out}").format(out=out_dir))
 
                 else:
-                    print(f"[red]Comando desconhecido:[/red] {command_text}")
-                    print("Comandos válidos: /init, /status, /mentor, /shell, /compile, /ui")
+                    unknown_label = _("Unknown command:")
+                    print(f"[red]{unknown_label}[/red] {command_text}")
+                    commands = ", ".join(name for name, _d in COMMAND_HELP)
+                    print(_("Valid commands: {commands}").format(commands=commands))
 
             except Exception as e:
-                print(f"[bold red]Erro ao executar comando:[/bold red] {str(e)}")
+                error_label = _("Error running command:")
+                print(f"[bold red]{error_label}[/bold red] {str(e)}")
 
         canvas.update(output_buffer.getvalue())
 
@@ -192,30 +317,31 @@ class KobAgentApp(App):
 def _build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kob",
-        description="Run a kob command non-interactively instead of launching the TUI.",
+        description=_("Run a kob command non-interactively instead of launching the TUI."),
     )
-    parser.add_argument("--project", default=None, help="Path to the creator project.")
-    parser.add_argument("--repo", default=None, help="Path to a K-AIDF repository override.")
+    parser.add_argument("--project", default=None, help=_("Path to the creator project."))
+    parser.add_argument("--repo", default=None, help=_("Path to a K-AIDF repository override."))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_parser = subparsers.add_parser("init", help="Create .kaidf/ in the current project.")
+    init_parser = subparsers.add_parser("init", help=_("Create .kaidf/ in the current project."))
     init_parser.add_argument("--force", action="store_true")
 
-    subparsers.add_parser("status", help="Show current project and .kaidf runtime status.")
+    subparsers.add_parser("status", help=_("Show current project and .kaidf runtime status."))
 
-    mentor_parser = subparsers.add_parser("mentor", help="Continue the persisted mentor workflow.")
+    mentor_help = _("Continue the persisted mentor workflow.")
+    mentor_parser = subparsers.add_parser("mentor", help=mentor_help)
     mentor_parser.add_argument("answer", nargs="?")
     mentor_parser.add_argument("--status", dest="show_status", action="store_true")
     mentor_parser.add_argument("--reset", action="store_true")
 
-    subparsers.add_parser("shell", help="Start the interactive OLMo-backed shell.")
+    subparsers.add_parser("shell", help=_("Start the interactive OLMo-backed shell."))
 
     for name in ("ui", "serve"):
-        ui_parser = subparsers.add_parser(name, help="Local mentor web daemon placeholder.")
-        ui_parser.add_argument("--port", type=int, default=8501)
+        ui_parser = subparsers.add_parser(name, help=_("Local mentor web daemon placeholder."))
+        ui_parser.add_argument("--port", type=int, default=ui_port())
 
     for name in ("compile", "gen"):
-        gen_parser = subparsers.add_parser(name, help="Run the K-AIDF generator against a spec.")
+        gen_parser = subparsers.add_parser(name, help=_("Run the K-AIDF generator against a spec."))
         gen_parser.add_argument("spec", nargs="?")
         gen_parser.add_argument("--out", default="./out")
         gen_parser.add_argument("--force", action="store_true")
@@ -230,7 +356,8 @@ def _run_cli(argv: list[str]) -> int:
 
     if args.command == "init":
         repo_root = init_project_repo(project_root, force=args.force)
-        print(f"Initialized {project_repo_root(project_root).name} at {repo_root}")
+        name = project_repo_root(project_root).name
+        print(_("Initialized {name} at {path}").format(name=name, path=repo_root))
         return 0
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
@@ -247,7 +374,7 @@ def _run_cli(argv: list[str]) -> int:
     if args.command == "mentor":
         if args.reset:
             path = reset_mentor_state(repo_root)
-            print(f"Reset mentor workflow state at {path}")
+            print(_("Reset mentor workflow state at {path}").format(path=path))
             return 0
         if args.show_status:
             print(mentor_status_text(repo_root))
@@ -260,15 +387,15 @@ def _run_cli(argv: list[str]) -> int:
         return run_shell(repo_root)
 
     if args.command in ("ui", "serve"):
-        print(f"kob ui/serve started on port {args.port} (placeholder).")
+        print(_("kob ui/serve started on port {port} (placeholder).").format(port=args.port))
         return 0
 
     if args.command in ("compile", "gen"):
         _run_compile_backend(args.spec, args.out, args.force)
-        print(f"Generated template framework inside: {args.out}")
+        print(_("Generated template framework inside: {out}").format(out=args.out))
         return 0
 
-    parser.error(f"Unknown command: {args.command}")
+    parser.error(_("Unknown command: {command}").format(command=args.command))
     return 2
 
 
