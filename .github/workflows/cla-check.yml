@@ -1,0 +1,20 @@
+name: "K-AIDF CLA Assistant"
+on:
+  pull_request_target:
+    types: [opened, synchronized, reopened]
+
+jobs:
+  CLAsistant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "CLA Assistant Check"
+        uses: cla-assistant/github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Armazena as assinaturas digitais em um gist secreto ou banco da Kobkob
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.KOBKOB_CLA_PAT }}
+        with:
+          path-to-signatures: 'signatures/cla.json'
+          path-to-document: 'https://github.com/kobkob/K-AIDF/blob/main/CONTRIBUTOR_LICENSE_AGREEMENT.md' # Link para o CLA
+          branch: 'master'
+          allowlist: 'bot-kobkob,monsenhor'
