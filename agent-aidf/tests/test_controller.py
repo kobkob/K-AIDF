@@ -2,17 +2,66 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_aidf.controller import OpenAIResponsesController, build_controller, select_context_documents
+from agent_aidf.controller import (
+    OllamaChatController,
+    OpenAIResponsesController,
+    build_controller,
+    select_context_documents,
+)
 from agent_aidf.instant_apps import create_instant_app
 from agent_aidf.repo import load_documents
 
 
-def test_build_controller_uses_stub_without_api_key(monkeypatch) -> None:
+def test_build_controller_uses_stub_when_provider_is_none(monkeypatch) -> None:
+    monkeypatch.setenv("AIDF_CHAT_PROVIDER", "none")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     controller = build_controller()
 
     assert controller.chat("hello").startswith("AI chat controller is not configured yet.")
+
+
+def test_build_controller_defaults_to_local_ollama_without_api_key(monkeypatch) -> None:
+    monkeypatch.delenv("AIDF_CHAT_PROVIDER", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AIDF_MODEL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+
+    controller = build_controller()
+
+    assert isinstance(controller, OllamaChatController)
+    assert controller.model == "olmo2:7b-1124-instruct-q4_K_M"
+    assert controller.base_url == "http://localhost:11434"
+
+
+def test_build_controller_ignores_ambient_api_key_without_explicit_provider(monkeypatch) -> None:
+    # A stray OPENAI_API_KEY in the environment must not silently switch the
+    # default away from local — only AIDF_CHAT_PROVIDER=openai does that.
+    monkeypatch.delenv("AIDF_CHAT_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-ambient-leftover-key")
+
+    controller = build_controller()
+
+    assert isinstance(controller, OllamaChatController)
+
+
+def test_build_controller_uses_openai_when_explicitly_selected(monkeypatch) -> None:
+    monkeypatch.setenv("AIDF_CHAT_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5")
+
+    controller = build_controller()
+
+    assert isinstance(controller, OpenAIResponsesController)
+    assert controller.model == "gpt-5"
+
+
+def test_ollama_controller_reports_connection_failure_without_raising() -> None:
+    controller = OllamaChatController(base_url="http://127.0.0.1:1")
+
+    reply = controller.chat("hello")
+
+    assert "Could not reach local Ollama" in reply
 
 
 def test_openai_controller_builds_payload_with_repo_context(tmp_path: Path) -> None:

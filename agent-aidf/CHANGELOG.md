@@ -6,6 +6,24 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-27
+
+### Added
+
+- `agent_aidf.controller.OllamaChatController` — a local-inference `ChatController` backed by a locally running Ollama/OLMo instance, reusing the same repo-context builder as `OpenAIResponsesController`. Connection failures return a friendly message instead of raising, so `/mentor`, `kob shell`'s `chat` command, and the TUI degrade gracefully instead of crashing when Ollama isn't running
+- `build_controller()` is local-first by default: it now returns `OllamaChatController` unless `AIDF_CHAT_PROVIDER=openai` is explicitly set (`none` still forces the no-AI stub). Merely having `OPENAI_API_KEY` set in the environment no longer switches the backend — that previously caused an ambient/leftover key to silently divert `kob` to the cloud
+- in the `kob` TUI, any input that isn't a recognized `/command` is no longer rejected as "Unknown command" — it's sent to the active chat controller as a prompt, and the reply streams into the canvas asynchronously (same worker-thread pattern already used for the web UI), so free text now round-trips through the local OLMo model by default
+- new `agent-aidf/tests/conftest.py` with an autouse fixture forcing `AIDF_CHAT_PROVIDER=none` by default, keeping the test suite deterministic and network-free
+- `DEFAULT_LOCAL_MODEL` in the TUI is now `"OLMo 3.1 local"`, shown until `make workspace-up` (see the root `Makefile`) has picked and pulled a real model tag into `AIDF_MODEL`, at which point the header reflects that exact tag
+
+### Changed
+
+- `active_model_label()` no longer special-cases `OpenAIResponsesController` via `isinstance`; it now also recognizes `OllamaChatController` explicitly so the local path can fall back to the friendly `OLMo 3.1 local` label instead of a raw technical tag when unconfigured
+
+### Removed
+
+- `agent_aidf.llm_provider.LLMProvider` and `agent_aidf.providers.olmo_local.OLMoLocalProvider` — dead code that was never wired into `build_controller()`, used a different interface shape than `ChatController`, and imported `requests`, which was never a declared dependency (would have raised `ModuleNotFoundError` if it had ever been instantiated). Superseded by `OllamaChatController` above
+
 ## [0.4.2] - 2026-07-22
 
 ### Added

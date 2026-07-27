@@ -1,0 +1,17 @@
+# Optional overlay: passes NVIDIA GPUs through to the aidf-ollama container.
+#
+# Applied automatically by scripts/workspace-up.sh when it detects `nvidia-smi`
+# on the host. Requires the NVIDIA Container Toolkit to be installed and
+# configured for Docker; if it isn't, `docker compose up` will fail with a
+# clear error about the missing "nvidia" device driver.
+#
+# Usage: docker compose -f docker-compose.local.yml -f docker-compose.gpu.yml up -d
+services:
+  aidf-ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

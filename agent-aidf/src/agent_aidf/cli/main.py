@@ -15,7 +15,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
-from ..controller import OpenAIResponsesController, build_controller
+from ..controller import OllamaChatController, build_controller
 from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
@@ -33,7 +33,7 @@ from ..shell import run_shell
 from ..webui import run_webui
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
-DEFAULT_LOCAL_MODEL = "OLMo local"
+DEFAULT_LOCAL_MODEL = "OLMo 3.1 local"
 DEFAULT_UI_PORT = 8501
 MAX_LOG_LINES = 400
 
@@ -74,11 +74,13 @@ def package_version() -> str:
 
 
 def active_model_label() -> str:
-    """The model actually driving /mentor and /shell, resolved like build_controller() does."""
+    """The model actually driving chat, /mentor, and /shell, resolved like build_controller() does."""
     controller = build_controller()
-    if isinstance(controller, OpenAIResponsesController):
-        return controller.model
-    return os.environ.get("AIDF_MODEL", DEFAULT_LOCAL_MODEL)
+    if isinstance(controller, OllamaChatController):
+        # Show the friendly local label until `make workspace-up` has picked and
+        # pulled a real tag (AIDF_MODEL) — once it has, reflect that exact model.
+        return os.environ.get("AIDF_MODEL", DEFAULT_LOCAL_MODEL)
+    return getattr(controller, "model", None) or DEFAULT_LOCAL_MODEL
 
 
 def ui_port() -> int:
@@ -185,6 +187,7 @@ class KobAgentApp(App):
         self._web_server: BaseWSGIServer | None = None
         self._web_url: str | None = None
         self._log_lines: list[str] = []
+        self._chat_controller = build_controller()
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-box"):
@@ -228,12 +231,15 @@ class KobAgentApp(App):
         lines = [_("Welcome!"), _("Commands:")]
         for name, describe in COMMAND_HELP:
             lines.append(f" {name:<10}{describe()}")
+        lines.append("")
+        lines.append(_("Anything else you type is sent to the active model as a chat prompt."))
         return "\n".join(lines)
 
     def _canvas_placeholder_text(self) -> str:
         return _(
             "Run a command above by typing it into the prompt below.\n"
-            "Example: [italic green]/status[/italic green] or [italic green]/init[/italic green]"
+            "Example: [italic green]/status[/italic green] or [italic green]/init[/italic green]\n"
+            "Or just type a message to chat with the active model."
         )
 
     def _canvas_status_text(self, status: ProjectStatus) -> str:
@@ -274,6 +280,10 @@ class KobAgentApp(App):
 
     def _set_web_server(self, server: BaseWSGIServer) -> None:
         self._web_server = server
+
+    def _run_chat_worker(self, prompt: str) -> None:
+        reply = self._chat_controller.chat(prompt, self.repo_root)
+        self.call_from_thread(self._log, reply)
 
     def _run_webui_worker(self, port: int) -> None:
         try:
@@ -366,11 +376,18 @@ class KobAgentApp(App):
                     print(_("Goodbye!"))
                     should_exit = True
 
-                else:
+                elif command_text.startswith("/"):
                     unknown_label = _("Unknown command:")
                     print(f"[red]{unknown_label}[/red] {command_text}")
                     commands = ", ".join(name for name, _d in COMMAND_HELP)
                     print(_("Valid commands: {commands}").format(commands=commands))
+
+                else:
+                    print(f"[bold cyan]you>[/bold cyan] {command_text}")
+                    print(_("[dim]Thinking... ({model})[/dim]").format(model=active_model_label()))
+                    self.run_worker(
+                        partial(self._run_chat_worker, command_text), thread=True, group="chat"
+                    )
 
             except Exception as e:
                 error_label = _("Error running command:")

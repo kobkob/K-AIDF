@@ -12,6 +12,17 @@ K-AIDF uses itself as its own creation tool: the generator scaffolds a K-AIDF re
 ### Simplified Architecture Diagram
 <img width="1701" height="924" alt="achitecture_0 4 2" src="https://github.com/user-attachments/assets/598eb2fa-967a-4836-bae5-405ec44e9681" />
 
+## Logo
+ ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ █  ▄▄▄    ▄▄▄  █
+ █  █ █    █ █  █
+ █  ▀▀▀    ▀▀▀  █
+ █              █
+ █   █▀▀▀▀▀▀█   █
+ █   ▀▀▀▀▀▀▀▀   █
+ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+
 ## Repository Layout
 
 This used to be a workspace of three separate nested Git repositories. They have since been merged into this single repository (with `git subtree`, preserving history) and their standalone GitHub repos archived. All further work happens here, in one commit/PR history.
@@ -55,17 +66,6 @@ Recommended mental model — a pipeline:
 | `kob mentor [answer] [--status] [--reset]` | real — persisted, quiz-style mentor workflow |
 | `kob shell` | real — interactive terminal shell |
 | `kob compile [spec] --out <dir> [--force]` / `kob gen ...` | real — runs the generator's `generate` engine directly |
-| `kob ui [--port]` / `kob serve [--port]` | placeholder — will launch the local mentor web daemon |
-
-Commands not yet ported to `kob` still run through the legacy CLI:
-
-```bash
-python -m agent_aidf.legacy_cli {context,packs,contracts,contract-create,contract-open,apps,app-create,app-open,app-run,app-runtime,app-stop,docs,find,open,chat}
-```
-
-Context resolution order for both CLIs: `--repo` override → `.kaidf/` in `--project`/cwd → `AIDF_REPO_ROOT` → the project root as a fallback.
-
-## Local Development
 
 ```bash
 make install-generator     # bootstrap the generator venv
@@ -74,7 +74,7 @@ make install-mcp           # bootstrap the mcp-aidf venv
 make test-all              # run all three test suites
 ```
 
-Copy `.env.example` to `.env` and fill in `OPENAI_API_KEY` (used by `kob mentor`/`kob shell`'s AI controller; falls back to a stub if unset), `KAIDF_GENERATED_REPO`, and `SECRET_KEY` (mcp-aidf).
+Copy `.env.example` to `.env` and fill in `KAIDF_GENERATED_REPO` and `SECRET_KEY` (mcp-aidf). The AI controller behind `kob`'s chat, `/mentor`, and `kob shell` is local-first by default: it talks to a local Ollama/OLMo instance (see [Local Inference Stack](#local-inference-stack) below) unless you explicitly set `AIDF_CHAT_PROVIDER=openai` (in addition to `OPENAI_API_KEY`) to opt into the cloud — merely having `OPENAI_API_KEY` set in your shell is not enough by itself, so a leftover/ambient key from another project can't silently divert `kob` to the cloud. `AIDF_CHAT_PROVIDER=none` forces the no-AI stub.
 
 Common workflow targets (all resolve/generate the default repository automatically if missing):
 
@@ -91,13 +91,25 @@ make agent-packs                     # legacy CLI: doctrine packs
 make agent-apps                      # legacy CLI: list instant apps
 make agent-app-run APP=<id> [PORT=...]  # legacy CLI: start a web instant app
 make mcp-up / mcp-down / mcp-logs    # Docker Compose control for mcp-aidf
+make workspace-up / workspace-down / workspace-logs  # Docker Compose control for the local OLMo/Ollama stack
+make agent-tui                       # kob (interactive TUI, no subcommand)
 ```
 
 Run `make help` for the full, current target list.
 
 ## Local Inference Stack
 
-`docker-compose.local.yml` stands up a local-inference alternative to the OpenAI-backed controller: an Ollama container serving an OLMo model, plus the `mcp-aidf` server pointed at it (`workspace-up`/`workspace-down`). On the agent side, `agent_aidf.llm_provider.LLMProvider` defines the provider interface and `agent_aidf.providers.olmo_local.OLMoLocalProvider` is an in-progress driver for it — **not yet wired into the mentor controller**, which still runs on the OpenAI Responses API (with a stub fallback when no API key is set).
+`docker-compose.local.yml` stands up a local-inference alternative to the OpenAI-backed controller: an Ollama container serving an OLMo model, plus the `mcp-aidf` server pointed at it.
+
+```bash
+make workspace-up      # detect this machine's RAM/disk/GPU, start Ollama in Docker, pull the right OLMo model
+make agent-tui          # kob — free text you type is sent to the active model, results stream into the canvas
+make workspace-down     # stop the local stack
+```
+
+`make workspace-up` (`scripts/workspace-up.sh` + `scripts/detect-ollama-model.sh`) picks the model tag for you instead of blindly pulling a fixed one. Ollama's library only publishes the OLMo 2 family starting at 7B (there's no smaller official OLMo to fall back to), so the tiers are: machines with >=32GB RAM or a GPU with >=12GB VRAM (and enough free disk) get the larger `olmo2:13b-1124-instruct-q4_K_M`; machines with >=8GB RAM or a >=4GB-VRAM GPU get the standard `olmo2:7b-1124-instruct-q4_K_M`; machines below that floor get a clear error instead of a pull that would be too heavy to run at a usable speed. The chosen model, plus `OLLAMA_HOST` and `KAIDF_LOCAL_INFERENCE`, are written to the workspace `.env`. Set `AIDF_OLLAMA_MODEL` to skip auto-detection and force a specific tag.
+
+On the agent side, `agent_aidf.controller.OllamaChatController` implements the same `ChatController` interface as the OpenAI path (reusing the same repo-context builder), and `build_controller()` uses it by default — the mentor controller, `kob shell`'s `chat` command, and the `kob` TUI's free-text input all route to it automatically. Only setting `AIDF_CHAT_PROVIDER=openai` switches to `OpenAIResponsesController` (`none` forces the no-AI stub); an ambient `OPENAI_API_KEY` alone has no effect on which backend is chosen.
 
 ## Integration Contract
 
@@ -122,11 +134,21 @@ Known gaps: indexing logic is duplicated across `agent-aidf/src/agent_aidf/repo.
 - `mcp-aidf` owns MCP protocol handling, OAuth, indexing, search, fetch, and connector-facing integration.
 
 Avoid duplicating K-AIDF document semantics across components — the generator is the source of truth for structure; the agent and MCP server consume generated repositories.
+Verified alignment (agent-aidf + mcp-aidf): same indexable surface (`README.md`, `MANIFESTO.md`, `docs/**/*.md`, `docs/**/*.csv`), same canonical doctrine paths under `docs/00-overview/`, same v2 front matter fields (`id`, `title`, `document_class`, `phase`, `visibility`, `status`) and pack fields (`pack`, `maturity_level`, `assessment_type`, `ethical_domain`, `control_type`, `risk_type`), same fetch-ID rule (front matter `id` preferred, path as fallback).
+
+Known gaps: indexing logic is duplicated across `agent-aidf/src/agent_aidf/repo.py` and `mcp-aidf/app.py` (no shared library yet); MCP does not yet enforce v2 visibility rules (exclude `private` by default); mentor/apps/contracts workflow state is intentionally outside the generated-repo contract.
+
+## Boundaries
+
+- `kobkob-kaidf-generator` owns spec parsing, schema validation, template packaging, and scaffold generation.
+- `agent-aidf` owns orchestration UX, prompt flows, local project interaction, and user-facing workflows.
+- `mcp-aidf` owns MCP protocol handling, OAuth, indexing, search, fetch, and connector-facing integration.
+
+Avoid duplicating K-AIDF document semantics across components — the generator is the source of truth for structure; the agent and MCP server consume generated repositories.
 
 ## Next Steps
 
 - implement `kob ui`/`kob serve` for real (launch the local mentor web daemon)
-- wire `agent_aidf.providers.olmo_local.OLMoLocalProvider` into the mentor controller as a local-inference alternative to OpenAI
 - finish migrating the remaining legacy CLI commands (`context`, `packs`, `apps`, `contracts`, `app-*`, `docs`, `find`, `open`, `chat`) onto `kob`
 - close the known integration-contract gaps above (shared indexing library, MCP visibility enforcement)
 - define the next additive doctrine pack after the current maturity-model and ethical-model packs

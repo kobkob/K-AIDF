@@ -1,13 +1,17 @@
-version: '3.8'
-
 services:
   aidf-ollama:
     image: ollama/ollama:latest
     container_name: aidf-ollama
+    restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
     ports:
       - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   mcp-server:
     build:
@@ -19,7 +23,8 @@ services:
       - KAIDF_LOCAL_INFERENCE=true
       - OLLAMA_HOST=http://aidf-ollama:11434
     depends_on:
-      - aidf-ollama
+      aidf-ollama:
+        condition: service_healthy
 
 volumes:
   ollama_data:

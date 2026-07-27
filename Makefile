@@ -6,11 +6,11 @@ export ANSWER
 export PROMPT
 
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
-	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-packs \
+	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-tui agent-packs \
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs \
-        workspace-up workspace-down
+	workspace-up workspace-down workspace-logs
 
 help:
 	@echo "K-AIDF workspace automation"
@@ -29,6 +29,7 @@ help:
 	@echo "make env-agent        Print/export agent environment summary"
 	@echo "make env-mcp          Print/export MCP environment summary"
 	@echo "make agent-shell      Launch the terminal agent shell (kob shell)"
+	@echo "make agent-tui        Launch the interactive kob TUI (kob, no subcommand)"
 	@echo "make agent-status     Show current agent project/runtime status (kob status)"
 	@echo "make agent-context    Show current agent context"
 	@echo "make agent-mentor     Continue the mentor workflow (kob mentor, pass ANSWER='...')"
@@ -43,6 +44,9 @@ help:
 	@echo "make mcp-up           Start the MCP stack with Docker Compose"
 	@echo "make mcp-down         Stop the MCP stack"
 	@echo "make mcp-logs         Tail MCP logs"
+	@echo "make workspace-up     Install/start the local OLMo-over-Ollama Docker stack, sized to this machine"
+	@echo "make workspace-down   Stop the local OLMo/Ollama stack"
+	@echo "make workspace-logs   Tail the local OLMo/Ollama stack logs"
 
 env-agent:
 	@source ./scripts/load-agent-env.sh
@@ -89,6 +93,9 @@ generate-ethical:
 
 agent-shell:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" shell
+
+agent-tui:
+	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT"
 
 agent-status:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" status
@@ -152,11 +159,10 @@ mcp-logs:
 	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose logs -f
 
 workspace-up:
-	@echo "🤖 Iniciando infraestrutura local K-AIDF (Comunitária + OLMo)..."
-	@docker-compose -f docker-compose.local.yml up -d
-	@echo "⏳ Aguardando inicialização do modelo OLMo no Ollama..."
-	@docker exec -it aidf-ollama ollama run olmo "Verify installation"
-	@echo "🚀 Tudo pronto! Execute 'kob init' para começar com contexto local."
+	@bash scripts/workspace-up.sh
 
 workspace-down:
-	@docker-compose -f docker-compose.local.yml down
+	@bash scripts/workspace-down.sh
+
+workspace-logs:
+	@docker compose -f docker-compose.local.yml logs -f

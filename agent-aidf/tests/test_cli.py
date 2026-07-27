@@ -58,7 +58,7 @@ def _build_project(tmp_path: Path) -> Path:
 
 
 def _run(*args: str, repo: Path) -> subprocess.CompletedProcess[str]:
-    env = {"PYTHONPATH": "src"}
+    env = {"PYTHONPATH": "src", "AIDF_CHAT_PROVIDER": "none"}
     env.update()
     return subprocess.run(
         [sys.executable, "-m", "agent_aidf.legacy_cli", "--repo", str(repo), *args],
@@ -71,7 +71,7 @@ def _run(*args: str, repo: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _run_project(*args: str, project: Path) -> subprocess.CompletedProcess[str]:
-    env = {"PYTHONPATH": "src"}
+    env = {"PYTHONPATH": "src", "AIDF_CHAT_PROVIDER": "none"}
     env.update()
     return subprocess.run(
         [sys.executable, "-m", "agent_aidf.legacy_cli", "--project", str(project), *args],

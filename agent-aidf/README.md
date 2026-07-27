@@ -38,10 +38,12 @@ Type commands into the bottom prompt of the running app:
 - `/compile` / `/gen` — runs the `kobkob-kaidf-generator` `generate` engine against its default spec, writing to `./out`
 - `/exit` — stop the web UI if one is running, then quit `kob`
 
+Anything else you type (no leading `/`) is not a command — it's sent straight to the active chat model (`build_controller().chat(...)`), and the reply streams into the canvas asynchronously once it arrives, the same way `/ui` activity is piped in.
+
 The TUI has four regions: a top bar (the K-AIDF logo, the active model, and the current working directory on the left; the command legend on the right), a scrollable output canvas with a live `Current Status - K-AIDF Phase {current}/{total}` header, and a bottom prompt/status bar. Everything in it is read from the running system rather than hardcoded:
 
 - the version in the title bar comes from the installed `agent-aidf` distribution metadata
-- the model name reflects the controller `build_controller()` actually resolves (the configured `OPENAI_MODEL` when `OPENAI_API_KEY` is set, otherwise `AIDF_MODEL` or the `OLMo local` default)
+- the model name reflects the controller `build_controller()` actually resolves: by default the local Ollama/OLMo model — `AIDF_MODEL` once `make workspace-up` has picked and pulled a real tag, otherwise the friendly placeholder `OLMo 3.1 local` — or `OPENAI_MODEL` if you've explicitly set `AIDF_CHAT_PROVIDER=openai` (having `OPENAI_API_KEY` set by itself does not switch backends). See [the root README's Local Inference Stack section](../README.md#local-inference-stack) for how `make workspace-up` picks and starts that model in Docker.
 - the working directory is `Path.cwd()`
 - the phase counter and pending category come from `read_project_status()` against the current `--project`/`--repo`
 

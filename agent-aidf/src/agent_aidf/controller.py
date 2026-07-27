@@ -99,20 +99,74 @@ class OpenAIResponsesController:
         return "\n".join(chunk for chunk in chunks if chunk).strip()
 
 
+@dataclass
+class OllamaChatController:
+    model: str = "olmo2:7b-1124-instruct-q4_K_M"
+    base_url: str = "http://localhost:11434"
+    temperature: float = 0.2
+    instructions: str = (
+        "You are the AI controller for a terminal-first K-AIDF mentor agent. "
+        "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
+        "Use the provided repository metadata and document excerpts to answer pragmatically."
+    )
+
+    def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
+        repo = resolve_repo_root(repo_root)
+        full_prompt = f"{self.instructions}\n\n{_build_context_prompt(repo, prompt)}"
+        payload = {
+            "model": self.model,
+            "prompt": full_prompt,
+            "options": {"temperature": self.temperature},
+            "stream": False,
+        }
+        http_request = request.Request(
+            url=f"{self.base_url.rstrip('/')}/api/generate",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with request.urlopen(http_request, timeout=120) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace")
+            return f"Ollama API error {exc.code} from {self.base_url}: {details}"
+        except error.URLError as exc:
+            return (
+                f"Could not reach local Ollama at {self.base_url} ({exc.reason}). "
+                "Run 'make workspace-up' to start the local OLMo/Ollama stack."
+            )
+        text = data.get("response", "")
+        return text.strip() if text else "Ollama returned no text output."
+
+
 def build_controller() -> ChatController:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
+    provider = os.environ.get("AIDF_CHAT_PROVIDER", "").strip().lower()
+
+    if provider == "none":
         return NullChatController()
-    return OpenAIResponsesController(
-        api_key=api_key,
-        model=os.environ.get("OPENAI_MODEL", "gpt-5"),
-        base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-        instructions=os.environ.get(
-            "AIDF_CHAT_INSTRUCTIONS",
-            "You are the AI controller for a terminal-first K-AIDF mentor agent. "
-            "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
-            "Use the repository metadata and excerpts provided to answer pragmatically.",
-        ),
+
+    if provider == "openai":
+        return OpenAIResponsesController(
+            api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
+            model=os.environ.get("OPENAI_MODEL", "gpt-5"),
+            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            instructions=os.environ.get(
+                "AIDF_CHAT_INSTRUCTIONS",
+                "You are the AI controller for a terminal-first K-AIDF mentor agent. "
+                "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
+                "Use the repository metadata and excerpts provided to answer pragmatically.",
+            ),
+        )
+
+    # Default (including provider="ollama" or unset): route to the local
+    # Ollama/OLMo stack (see docker-compose.local.yml, `make workspace-up`).
+    # kob is local-first — merely having OPENAI_API_KEY set in the ambient
+    # environment is NOT enough to switch to cloud; that requires explicitly
+    # setting AIDF_CHAT_PROVIDER=openai.
+    return OllamaChatController(
+        model=os.environ.get("AIDF_MODEL", "olmo2:7b-1124-instruct-q4_K_M"),
+        base_url=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
     )
 
 
