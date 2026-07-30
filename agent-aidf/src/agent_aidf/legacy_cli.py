@@ -16,9 +16,11 @@ from .instant_apps import (
 )
 from .mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from .project import (
+    MentorNotInitializedError,
     init_project_repo,
     project_repo_root,
     read_project_status,
+    resolve_mentor_repo_root,
     resolve_project_root,
     resolve_runtime_repo_root,
 )
@@ -27,7 +29,7 @@ from .shell import run_shell
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agent-aidf")
+    parser = argparse.ArgumentParser(prog="python -m agent_aidf.legacy_cli")
     parser.add_argument(
         "--project",
         default=os.environ.get("AIDF_PROJECT_ROOT"),
@@ -367,7 +369,12 @@ def main() -> int:
     if args.command == "context":
         return _cmd_context(project_root, repo_root, args.prompt)
     if args.command == "mentor":
-        return _cmd_mentor(repo_root, args)
+        try:
+            mentor_repo_root = resolve_mentor_repo_root(project_root)
+        except MentorNotInitializedError as exc:
+            print(str(exc))
+            return 1
+        return _cmd_mentor(mentor_repo_root, args)
     if args.command == "packs":
         return _cmd_packs(repo_root)
     if args.command == "contracts":
@@ -397,7 +404,7 @@ def main() -> int:
     if args.command == "chat":
         return _cmd_chat(repo_root, args.prompt)
     if args.command == "shell":
-        return run_shell(repo_root)
+        return run_shell(repo_root, project_root)
     parser.error(f"Unknown command: {args.command}")
     return 2
 

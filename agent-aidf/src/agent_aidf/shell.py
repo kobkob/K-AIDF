@@ -15,6 +15,7 @@ from .instant_apps import (
     stop_instant_app,
 )
 from .mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from .project import MentorNotInitializedError, resolve_mentor_repo_root
 from .repo import filter_documents, find_documents, get_document, list_packs, load_documents
 
 
@@ -156,13 +157,13 @@ def _print_app_runtime(repo_root: Path, ref: str) -> int:
     return 0
 
 
-def run_shell(repo_root: Path) -> int:
+def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
     controller = build_controller()
-    print("agent-aidf shell")
+    print("kob shell")
     print("type 'help' for commands, 'quit' to exit")
     while True:
         try:
-            raw = input("agent-aidf> ").strip()
+            raw = input("kob> ").strip()
         except EOFError:
             print()
             return 0
@@ -212,15 +213,20 @@ def run_shell(repo_root: Path) -> int:
         if command == "chat" and len(parts) >= 2:
             print(controller.chat(" ".join(parts[1:]), repo_root))
             continue
-        if command == "mentor":
-            answer = " ".join(parts[1:]) if len(parts) >= 2 else None
-            print(continue_mentor_workflow(repo_root, answer=answer).message)
-            continue
-        if command == "mentor-status":
-            print(mentor_status_text(repo_root))
-            continue
-        if command == "mentor-reset":
-            path = reset_mentor_state(repo_root)
+        if command in ("mentor", "mentor-status", "mentor-reset"):
+            try:
+                mentor_repo_root = resolve_mentor_repo_root(project_root)
+            except MentorNotInitializedError as exc:
+                print(str(exc))
+                continue
+            if command == "mentor":
+                answer = " ".join(parts[1:]) if len(parts) >= 2 else None
+                print(continue_mentor_workflow(mentor_repo_root, answer=answer).message)
+                continue
+            if command == "mentor-status":
+                print(mentor_status_text(mentor_repo_root))
+                continue
+            path = reset_mentor_state(mentor_repo_root)
             print(f"Reset mentor workflow state at {path}")
             continue
         if command == "app-run" and len(parts) >= 2:

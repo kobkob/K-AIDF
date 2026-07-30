@@ -102,16 +102,20 @@ sections:
       - path: "decision-rights.md"
         content: "library:docs/00-overview/decision-rights.md"
 
-  - path: "docs/01-intent-constraints"
+  # The 5 K-AIDF Basic delivery phases (see agent-aidf's contracts.py::_BASIC_PHASES,
+  # the canonical source for these phase names, deliverables, and exit criteria).
+  - path: "docs/01_intent_constraints"
     files:
       - path: "README.md"
         inline: "# Phase 1 — Intent & Constraints\n\nDeliverable: Intent & Constraint Brief (ICB)\n"
       - path: "templates/ICB.md"
-        content: "library:docs/01-intent-constraints/templates/ICB.md"
+        content: "library:docs/01_intent_constraints/templates/ICB.md"
       - path: "templates/constraint-matrix.csv"
-        content: "library:docs/01-intent-constraints/templates/constraint-matrix.csv"
+        content: "library:docs/01_intent_constraints/templates/constraint-matrix.csv"
+      - path: "data-provenance.md"
+        content: "library:docs/01_intent_constraints/data-provenance.md"
       - path: "prompts/framing.prompt.md"
-        content: "library:docs/01-intent-constraints/prompts/framing.prompt.md"
+        content: "library:docs/01_intent_constraints/prompts/framing.prompt.md"
       - path: "exit-criteria.md"
         inline: |
           # Exit Criteria (Phase 1)
@@ -119,3 +123,251 @@ sections:
           - Constraints acknowledged
           - Success metrics defined
           - Stakeholder sign-off recorded
+
+  - path: "docs/02_discovery_mapping"
+    files:
+      - path: "README.md"
+        inline: "# Phase 2 — Discovery & Mapping\n\nDeliverable: System Map, Context Inventory, Requirements List\n"
+      - path: "templates/system-map.md"
+        content: "library:docs/02_discovery_mapping/templates/system-map.md"
+      - path: "templates/requirements-matrix.csv"
+        content: "library:docs/02_discovery_mapping/templates/requirements-matrix.csv"
+      - path: "prompts/mapping.prompt.md"
+        content: "library:docs/02_discovery_mapping/prompts/mapping.prompt.md"
+      - path: "exit-criteria.md"
+        inline: |
+          # Exit Criteria (Phase 2)
+          - Systems, actors, and requirements are mapped
+          - Unresolved dependencies are flagged
+          - Enough context exists to design against
+
+  - path: "docs/03_design_simulation"
+    files:
+      - path: "README.md"
+        inline: "# Phase 3 — Design & Simulation\n\nDeliverable: Blueprint, Prototype Plan, Review Checklist\n"
+      - path: "templates/blueprint.md"
+        content: "library:docs/03_design_simulation/templates/blueprint.md"
+      - path: "templates/review-checklist.md"
+        content: "library:docs/03_design_simulation/templates/review-checklist.md"
+      - path: "prompts/simulation.prompt.md"
+        content: "library:docs/03_design_simulation/prompts/simulation.prompt.md"
+      - path: "exit-criteria.md"
+        inline: |
+          # Exit Criteria (Phase 3)
+          - Chosen concept is documented and reviewable
+          - Unsafe or low-value options are rejected
+          - Design assumptions are simulated or reviewed
+
+  - path: "docs/04_execution_instrumentation"
+    files:
+      - path: "README.md"
+        inline: "# Phase 4 — Execution & Instrumentation\n\nDeliverable: Working System, Instrumentation Plan, Runtime Notes\n"
+      - path: "templates/instrumentation-plan.md"
+        content: "library:docs/04_execution_instrumentation/templates/instrumentation-plan.md"
+      - path: "templates/runtime-notes.md"
+        content: "library:docs/04_execution_instrumentation/templates/runtime-notes.md"
+      - path: "prompts/execution.prompt.md"
+        content: "library:docs/04_execution_instrumentation/prompts/execution.prompt.md"
+      - path: "exit-criteria.md"
+        inline: |
+          # Exit Criteria (Phase 4)
+          - System runs and is observable
+          - Metrics, logs, and checkpoints are in place
+          - Progress toward target metrics is evident
+
+  - path: "docs/05_verification_transfer"
+    files:
+      - path: "README.md"
+        inline: "# Phase 5 — Verification & Transfer\n\nDeliverable: Verification Report, Handover Notes, Next-Step Backlog\n"
+      - path: "templates/verification-report.md"
+        content: "library:docs/05_verification_transfer/templates/verification-report.md"
+      - path: "templates/handover-notes.md"
+        content: "library:docs/05_verification_transfer/templates/handover-notes.md"
+      - path: "templates/backlog.csv"
+        content: "library:docs/05_verification_transfer/templates/backlog.csv"
+      - path: "prompts/verification.prompt.md"
+        content: "library:docs/05_verification_transfer/prompts/verification.prompt.md"
+      - path: "exit-criteria.md"
+        inline: |
+          # Exit Criteria (Phase 5)
+          - Acceptance is explicit
+          - Ownership is transferred with enough context to continue
+          - Next-step backlog is recorded
+
+  # Optional packs, injected by default so every `.kaidf/` project ships with them.
+  - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
+    files:
+      - path: "README.md"
+        content: "library:docs/10-maturity-model/README.md"
+        front_matter:
+          id: "docs/10-maturity-model/README.md"
+          title: "Maturity Model Pack"
+      - path: "levels/01-experimental.md"
+        content: "library:docs/10-maturity-model/levels/01-experimental.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/01-experimental.md"
+          title: "Experimental"
+          maturity_level: "experimental"
+      - path: "levels/02-assisted.md"
+        content: "library:docs/10-maturity-model/levels/02-assisted.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/02-assisted.md"
+          title: "Assisted"
+          maturity_level: "assisted"
+      - path: "levels/03-operational.md"
+        content: "library:docs/10-maturity-model/levels/03-operational.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/03-operational.md"
+          title: "Operational"
+          maturity_level: "operational"
+      - path: "levels/04-managed.md"
+        content: "library:docs/10-maturity-model/levels/04-managed.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/04-managed.md"
+          title: "Managed"
+          maturity_level: "managed"
+      - path: "levels/05-transformative.md"
+        content: "library:docs/10-maturity-model/levels/05-transformative.md"
+        front_matter:
+          id: "docs/10-maturity-model/levels/05-transformative.md"
+          title: "Transformative"
+          maturity_level: "transformative"
+      - path: "assessment/checklist.md"
+        content: "library:docs/10-maturity-model/assessment/checklist.md"
+        front_matter:
+          id: "docs/10-maturity-model/assessment/checklist.md"
+          title: "Maturity Assessment Checklist"
+          assessment_type: "checklist"
+      - path: "assessment/scorecard.md"
+        content: "library:docs/10-maturity-model/assessment/scorecard.md"
+        front_matter:
+          id: "docs/10-maturity-model/assessment/scorecard.md"
+          title: "Maturity Scorecard Guidance"
+          assessment_type: "guidance"
+  - path: "docs/10-maturity-model"
+    files:
+      - path: "assessment/scorecard.csv"
+        content: "library:docs/10-maturity-model/assessment/scorecard.csv"
+  - path: "docs/10-maturity-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "10-maturity-model"
+      visibility: "internal"
+      status: "active"
+      pack: "maturity-model"
+    files:
+      - path: "governance/adoption-guidance.md"
+        content: "library:docs/10-maturity-model/governance/adoption-guidance.md"
+        front_matter:
+          id: "docs/10-maturity-model/governance/adoption-guidance.md"
+          title: "Adoption Guidance"
+          assessment_type: "guidance"
+
+  - path: "docs/20-ethical-model"
+    metadata_defaults:
+      document_class: "core-doc"
+      phase: "20-ethical-model"
+      visibility: "internal"
+      status: "active"
+      pack: "ethical-model"
+    files:
+      - path: "README.md"
+        content: "library:docs/20-ethical-model/README.md"
+        front_matter:
+          id: "docs/20-ethical-model/README.md"
+          title: "Ethical Model Pack"
+      - path: "principles/human-centrality.md"
+        content: "library:docs/20-ethical-model/principles/human-centrality.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/human-centrality.md"
+          title: "Human Centrality"
+          ethical_domain: "human-centrality"
+      - path: "principles/responsibility.md"
+        content: "library:docs/20-ethical-model/principles/responsibility.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/responsibility.md"
+          title: "Responsibility"
+          ethical_domain: "responsibility"
+      - path: "principles/transparency.md"
+        content: "library:docs/20-ethical-model/principles/transparency.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/transparency.md"
+          title: "Transparency"
+          ethical_domain: "transparency"
+      - path: "principles/limits-of-automation.md"
+        content: "library:docs/20-ethical-model/principles/limits-of-automation.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/limits-of-automation.md"
+          title: "Limits Of Automation"
+          ethical_domain: "limits-of-automation"
+      - path: "principles/human-validation.md"
+        content: "library:docs/20-ethical-model/principles/human-validation.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/human-validation.md"
+          title: "Human Validation"
+          ethical_domain: "human-validation"
+      - path: "principles/data-protection.md"
+        content: "library:docs/20-ethical-model/principles/data-protection.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/data-protection.md"
+          title: "Data Protection"
+          ethical_domain: "data-protection"
+      - path: "principles/quality-before-efficiency.md"
+        content: "library:docs/20-ethical-model/principles/quality-before-efficiency.md"
+        front_matter:
+          id: "docs/20-ethical-model/principles/quality-before-efficiency.md"
+          title: "Quality Before Efficiency"
+          ethical_domain: "quality"
+      - path: "risk/bias-and-harm.md"
+        content: "library:docs/20-ethical-model/risk/bias-and-harm.md"
+        front_matter:
+          id: "docs/20-ethical-model/risk/bias-and-harm.md"
+          title: "Bias And Harm"
+          risk_type: "bias-and-harm"
+      - path: "risk/risk-classification.md"
+        content: "library:docs/20-ethical-model/risk/risk-classification.md"
+        front_matter:
+          id: "docs/20-ethical-model/risk/risk-classification.md"
+          title: "Risk Classification"
+          risk_type: "risk-classification"
+      - path: "controls/validation-checklist.md"
+        content: "library:docs/20-ethical-model/controls/validation-checklist.md"
+        front_matter:
+          id: "docs/20-ethical-model/controls/validation-checklist.md"
+          title: "Validation Checklist"
+          control_type: "checklist"
+          ethical_domain: "human-validation"
+      - path: "controls/transparency-checklist.md"
+        content: "library:docs/20-ethical-model/controls/transparency-checklist.md"
+        front_matter:
+          id: "docs/20-ethical-model/controls/transparency-checklist.md"
+          title: "Transparency Checklist"
+          control_type: "checklist"
+          ethical_domain: "transparency"
+      - path: "controls/privacy-checklist.md"
+        content: "library:docs/20-ethical-model/controls/privacy-checklist.md"
+        front_matter:
+          id: "docs/20-ethical-model/controls/privacy-checklist.md"
+          title: "Privacy Checklist"
+          control_type: "checklist"
+          ethical_domain: "data-protection"
+      - path: "governance/accountability-model.md"
+        content: "library:docs/20-ethical-model/governance/accountability-model.md"
+        front_matter:
+          id: "docs/20-ethical-model/governance/accountability-model.md"
+          title: "Accountability Model"
+          control_type: "policy"
+          ethical_domain: "responsibility"
+      - path: "governance/escalation-and-review.md"
+        content: "library:docs/20-ethical-model/governance/escalation-and-review.md"
+        front_matter:
+          id: "docs/20-ethical-model/governance/escalation-and-review.md"
+          title: "Escalation And Review"
+          control_type: "review"
+          risk_type: "social-impact"

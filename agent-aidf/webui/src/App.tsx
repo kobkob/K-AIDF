@@ -54,7 +54,10 @@ async function postMentor(answer: string | null): Promise<MentorResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ answer }),
   })
-  if (!response.ok) throw new Error(`POST /api/mentor -> ${response.status}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error || `POST /api/mentor -> ${response.status}`)
+  }
   return response.json()
 }
 

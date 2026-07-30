@@ -30,19 +30,19 @@ sections:
           id: "docs/00-overview/glossary.md"
           title: "Glossary"
 
-  - path: "docs/01-intent-constraints"
+  - path: "docs/01_intent_constraints"
     metadata_defaults:
-      phase: "01-intent-constraints"
+      phase: "01_intent_constraints"
     files:
       - path: "README.md"
         inline: "# Phase 1 — Intent & Constraints\n"
         front_matter:
-          id: "docs/01-intent-constraints/README.md"
+          id: "docs/01_intent_constraints/README.md"
           title: "Intent & Constraints"
           document_class: "core-doc"
       - path: "prompts/framing.prompt.md"
-        content: "library:docs/01-intent-constraints/prompts/framing.prompt.md"
+        content: "library:docs/01_intent_constraints/prompts/framing.prompt.md"
         front_matter:
-          id: "docs/01-intent-constraints/prompts/framing.prompt.md"
+          id: "docs/01_intent_constraints/prompts/framing.prompt.md"
           title: "Framing Prompt"
           document_class: "prompt-doc"

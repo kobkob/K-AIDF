@@ -44,6 +44,26 @@ def project_repo_root(project_root: str | Path | None) -> Path:
     return resolve_project_root(project_root) / KAIDF_DIRNAME
 
 
+class MentorNotInitializedError(ValueError):
+    pass
+
+
+def resolve_mentor_repo_root(project_root: str | Path | None = None) -> Path:
+    """The mentor workflow always reads and writes .kaidf/mentor-workflow.json.
+
+    Unlike resolve_runtime_repo_root(), this never falls back to the project root or
+    AIDF_REPO_ROOT: doing so let `kob mentor` write its state file outside .kaidf/ before
+    `kob init` had run, scattering local runtime state across the project tree.
+    """
+    project = resolve_project_root(project_root)
+    repo = project_repo_root(project)
+    if not repo.exists():
+        raise MentorNotInitializedError(
+            f"No {KAIDF_DIRNAME}/ found at {project}. Run `kob init` first to start the mentor workflow."
+        )
+    return repo
+
+
 def resolve_runtime_repo_root(
     project_root: str | Path | None = None,
     repo_root: str | Path | None = None,

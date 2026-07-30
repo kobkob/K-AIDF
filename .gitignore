@@ -11,6 +11,10 @@
 /kobkob-kaidf-generator/out-ethical/
 /kobkob-kaidf-generator/out-maturity/
 
+# Local kob runtime state - mentor state belongs in .kaidf/mentor-workflow.json only
+/.kaidf/
+/mentor-workflow.json
+
 # Local-only, never commit or push
 /columns.json
 /issues.json

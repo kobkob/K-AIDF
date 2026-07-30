@@ -10,7 +10,7 @@ from werkzeug.serving import BaseWSGIServer, make_server
 from .i18n import _
 from .maturity import phase_progress, phase_snapshot
 from .mentor import continue_mentor_workflow
-from .project import read_project_status
+from .project import MentorNotInitializedError, read_project_status, resolve_mentor_repo_root
 
 STATIC_DIR = Path(__file__).resolve().parent / "webui_dist"
 
@@ -63,7 +63,11 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
     def api_mentor():
         payload = request.get_json(silent=True) or {}
         answer = payload.get("answer") or None
-        turn = continue_mentor_workflow(repo_root, answer=answer)
+        try:
+            mentor_repo_root = resolve_mentor_repo_root(project_root)
+        except MentorNotInitializedError as exc:
+            return jsonify({"error": str(exc)}), 400
+        turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
         return jsonify(
             {
                 "message": turn.message,

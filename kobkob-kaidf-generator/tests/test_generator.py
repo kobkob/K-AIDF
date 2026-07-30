@@ -46,7 +46,7 @@ def test_generate_default_spec_writes_expected_files(tmp_path: Path) -> None:
         "status: active\n"
         "---\n\n"
     )
-    assert (target / "docs/01-intent-constraints/exit-criteria.md").read_text(encoding="utf-8").startswith(
+    assert (target / "docs/01_intent_constraints/exit-criteria.md").read_text(encoding="utf-8").startswith(
         "# Exit Criteria"
     )
 

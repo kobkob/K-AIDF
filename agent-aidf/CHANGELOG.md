@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-30
+
+### Fixed
+
+- the mentor workflow now always reads and writes `.kaidf/mentor-workflow.json` — never the project root. New `project.resolve_mentor_repo_root()` requires `.kaidf/` to exist and raises a clear "Run `kob init` first" error otherwise, instead of the previous silent fallback (via `resolve_runtime_repo_root()`) that let `kob mentor`, the TUI's `/mentor`, `kob shell`'s `mentor`/`mentor-status`/`mentor-reset`, `python -m agent_aidf.legacy_cli mentor`, and the web UI's `POST /api/mentor` write mentor state outside `.kaidf/` before `kob init` had run
+- the web UI surfaces this as a `400` JSON `{"error": ...}` response, and `postMentor()` in `webui/src/App.tsx` now shows that message instead of a bare `POST /api/mentor -> 400`
+
+### Removed
+
+- the stray root-level `mentor-workflow.json` runtime artifact that had been committed by mistake (see 27d3b13); `.gitignore` now excludes `/mentor-workflow.json` and `/.kaidf/` so local runtime state can't be committed again
+
+### Changed
+
+- `kob init` now generates the maturity-model and ethical-model packs by default (`kobkob-kaidf-generator`'s `kaidf.default.yaml` bundles them), so every fresh `.kaidf/` project ships with `docs/10-maturity-model/` and `docs/20-ethical-model/` without a separate `generate` call
+- deprecated `agent-aidf` as a shell command name, now that only `kob` is installed as a console script: `python -m agent_aidf.legacy_cli --help` no longer shows `usage: agent-aidf ...`, and `kob shell`'s banner/prompt now read `kob shell` / `kob> ` instead of `agent-aidf shell` / `agent-aidf> `. The `agent-aidf` name is unaffected as the directory, distribution, and `agent_aidf` module name
+
 ## [0.5.0] - 2026-07-27
 
 ### Added

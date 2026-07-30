@@ -20,12 +20,14 @@ from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from ..project import (
+    MentorNotInitializedError,
     ProjectStatus,
     init_project_repo,
     locate_generator_repo,
     project_repo_root,
     read_project_status,
     resolve_generator_python,
+    resolve_mentor_repo_root,
     resolve_project_root,
     resolve_runtime_repo_root,
 )
@@ -353,13 +355,14 @@ class KobAgentApp(App):
                         print(_("Processing mentor answer: '{answer}'").format(answer=answer))
                     else:
                         print(_("Showing the pending mentor question..."))
-                    turn = continue_mentor_workflow(self.repo_root, answer=answer)
+                    mentor_repo_root = resolve_mentor_repo_root(self.project_root)
+                    turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
                     print(f"\n{turn.message}")
                     self._refresh_status_panels()
 
                 elif command_text == "/shell":
                     print(_("Starting the interactive OLMo-backed shell..."))
-                    run_shell(self.repo_root)
+                    run_shell(self.repo_root, self.project_root)
 
                 elif command_text in ("/ui", "/serve"):
                     print(self._start_webui())
@@ -457,19 +460,24 @@ def _run_cli(argv: list[str]) -> int:
         return 0
 
     if args.command == "mentor":
+        try:
+            mentor_repo_root = resolve_mentor_repo_root(project_root)
+        except MentorNotInitializedError as exc:
+            print(str(exc))
+            return 1
         if args.reset:
-            path = reset_mentor_state(repo_root)
+            path = reset_mentor_state(mentor_repo_root)
             print(_("Reset mentor workflow state at {path}").format(path=path))
             return 0
         if args.show_status:
-            print(mentor_status_text(repo_root))
+            print(mentor_status_text(mentor_repo_root))
             return 0
-        turn = continue_mentor_workflow(repo_root, answer=args.answer)
+        turn = continue_mentor_workflow(mentor_repo_root, answer=args.answer)
         print(turn.message)
         return 0
 
     if args.command == "shell":
-        return run_shell(repo_root)
+        return run_shell(repo_root, project_root)
 
     if args.command in ("ui", "serve"):
         try:

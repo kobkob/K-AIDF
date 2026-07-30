@@ -10,7 +10,11 @@ repository:
 
   required_directories:
     - docs/00-overview
-    - docs/01-intent-constraints
+    - docs/01_intent_constraints
+    - docs/02_discovery_mapping
+    - docs/03_design_simulation
+    - docs/04_execution_instrumentation
+    - docs/05_verification_transfer
 
 generator_spec_extension:
   metadata_defaults:
@@ -145,7 +149,7 @@ metadata:
         type: string
         examples:
           - 00-overview
-          - 01-intent-constraints
+          - 01_intent_constraints
       visibility:
         type: enum
         values:

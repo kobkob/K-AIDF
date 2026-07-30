@@ -51,9 +51,13 @@ The generator may add more files over time, but consumers should treat the root 
 At minimum, generated repositories should support:
 
 - `docs/00-overview/`
-- `docs/01-intent-constraints/`
+- `docs/01_intent_constraints/`
+- `docs/02_discovery_mapping/`
+- `docs/03_design_simulation/`
+- `docs/04_execution_instrumentation/`
+- `docs/05_verification_transfer/`
 
-Additional numbered `docs/NN-*` phases are allowed and expected as the methodology expands.
+These five `docs/0N_name/` directories are the K-AIDF Basic delivery phases (see `agent-aidf`'s `contracts.py::_BASIC_PHASES`, the canonical source for their names, deliverables, and exit criteria). Additional numbered `docs/NN-*` directories (overview, additive packs) are allowed and expected as the methodology expands.
 
 ## Required Files
 
@@ -63,18 +67,41 @@ Current baseline examples include:
 - `docs/00-overview/glossary.md`
 - `docs/00-overview/principles.md`
 - `docs/00-overview/decision-rights.md`
-- `docs/01-intent-constraints/README.md`
-- `docs/01-intent-constraints/exit-criteria.md`
-- `docs/01-intent-constraints/templates/ICB.md`
-- `docs/01-intent-constraints/templates/constraint-matrix.csv`
-- `docs/01-intent-constraints/prompts/framing.prompt.md`
+- `docs/01_intent_constraints/README.md`
+- `docs/01_intent_constraints/exit-criteria.md`
+- `docs/01_intent_constraints/templates/ICB.md`
+- `docs/01_intent_constraints/templates/constraint-matrix.csv`
+- `docs/01_intent_constraints/data-provenance.md`
+- `docs/01_intent_constraints/prompts/framing.prompt.md`
+- `docs/02_discovery_mapping/README.md`
+- `docs/02_discovery_mapping/exit-criteria.md`
+- `docs/02_discovery_mapping/templates/system-map.md`
+- `docs/02_discovery_mapping/templates/requirements-matrix.csv`
+- `docs/02_discovery_mapping/prompts/mapping.prompt.md`
+- `docs/03_design_simulation/README.md`
+- `docs/03_design_simulation/exit-criteria.md`
+- `docs/03_design_simulation/templates/blueprint.md`
+- `docs/03_design_simulation/templates/review-checklist.md`
+- `docs/03_design_simulation/prompts/simulation.prompt.md`
+- `docs/04_execution_instrumentation/README.md`
+- `docs/04_execution_instrumentation/exit-criteria.md`
+- `docs/04_execution_instrumentation/templates/instrumentation-plan.md`
+- `docs/04_execution_instrumentation/templates/runtime-notes.md`
+- `docs/04_execution_instrumentation/prompts/execution.prompt.md`
+- `docs/05_verification_transfer/README.md`
+- `docs/05_verification_transfer/exit-criteria.md`
+- `docs/05_verification_transfer/templates/verification-report.md`
+- `docs/05_verification_transfer/templates/handover-notes.md`
+- `docs/05_verification_transfer/templates/backlog.csv`
+- `docs/05_verification_transfer/prompts/verification.prompt.md`
 
 Consumers must tolerate additional files in the same directories.
 
 ## Path And Naming Rules
 
 - repository-relative paths are the canonical location reference
-- phase directories use `docs/NN-name/` with a two-digit numeric prefix
+- the 5 K-AIDF Basic delivery phase directories use `docs/0N_name/` with a two-digit numeric prefix and an underscore-separated name (e.g. `01_intent_constraints`)
+- other numbered `docs/NN-name/` directories (overview, additive packs) use a two-digit numeric prefix and a hyphen-separated name (e.g. `00-overview`, `10-maturity-model`)
 - prompts belong under `prompts/`
 - reusable fill-in assets belong under `templates/`
 - overview and methodology reference material belongs directly under the relevant phase directory
@@ -186,6 +213,8 @@ Canonical doctrine front matter should at minimum provide:
 ## Additive Doctrine Packs
 
 The next layer after the default doctrine baseline should be additive doctrine packs.
+
+The maturity-model and ethical-model packs described below ship as default sections of `specs/kaidf.default.yaml`, so `kob init` generates them into every `.kaidf/` project without a separate `generate` call. They remain independently generatable via their own example specs (`kaidf.maturity-model-pack.example.yaml`, `kaidf.ethical-model-pack.example.yaml`) for standalone or downstream use.
 
 The first first-class optional additive pack is a structured maturity-model pack under:
 
@@ -301,7 +330,7 @@ Examples:
 
 - `README.md`
 - `docs/00-overview/kaidf.md`
-- `docs/01-intent-constraints/templates/ICB.md`
+- `docs/01_intent_constraints/templates/ICB.md`
 
 Implications:
 
@@ -325,10 +354,10 @@ Version 2 should use YAML front matter at the top of markdown files:
 
 ```yaml
 ---
-id: docs/01-intent-constraints/prompts/framing.prompt.md
+id: docs/01_intent_constraints/prompts/framing.prompt.md
 title: Framing Prompt
 document_class: prompt-doc
-phase: 01-intent-constraints
+phase: 01_intent_constraints
 visibility: internal
 status: active
 ---
@@ -354,7 +383,7 @@ Required version 2 fields:
 - `phase`
   Description: logical phase identifier
   Rule: should match the phase directory for `docs/NN-*` content
-  Example: `00-overview`, `01-intent-constraints`
+  Example: `00-overview`, `01_intent_constraints`
 
 - `visibility`
   Allowed values:
@@ -417,14 +446,14 @@ repo:
     status: active
 
 sections:
-  - path: docs/01-intent-constraints
+  - path: docs/01_intent_constraints
     metadata_defaults:
-      phase: 01-intent-constraints
+      phase: 01_intent_constraints
     files:
       - path: prompts/framing.prompt.md
-        content: library:docs/01-intent-constraints/prompts/framing.prompt.md
+        content: library:docs/01_intent_constraints/prompts/framing.prompt.md
         front_matter:
-          id: docs/01-intent-constraints/prompts/framing.prompt.md
+          id: docs/01_intent_constraints/prompts/framing.prompt.md
           title: Framing Prompt
           document_class: prompt-doc
 ```

@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-30
+
+### Changed
+
+- the 5 K-AIDF Basic delivery phase directories in `specs/kaidf.default.yaml` are now `docs/01_intent_constraints/` … `docs/05_verification_transfer/` (underscore-separated, matching `agent-aidf`'s `contracts.py::_BASIC_PHASES` names and order), replacing the single hyphenated `docs/01-intent-constraints/` — a contract-affecting path rename, since `docs/01-intent-constraints/` no longer exists in the default spec output
+- `specs/kaidf.default.yaml` now bundles the maturity-model and ethical-model additive pack sections by default, so a plain `generate`/`kob init` run produces `docs/10-maturity-model/` and `docs/20-ethical-model/` without a separate spec or `generate` call; the packs remain independently generatable via their own example specs
+- `docs/contract.md` and the example specs (`specs/contract.example.yaml`, `specs/kaidf.metadata-v2.example.yaml`) updated for the new phase directory naming, required files, and default-pack inclusion
+
+### Added
+
+- `docs/02_discovery_mapping/`, `docs/03_design_simulation/`, `docs/04_execution_instrumentation/`, and `docs/05_verification_transfer/` template/prompt/exit-criteria scaffolding, mirroring phase 1's existing minimal-skeleton style
+- `docs/01_intent_constraints/data-provenance.md` template
+
 ## [0.1.4] - 2026-03-20
 
 ### Added
