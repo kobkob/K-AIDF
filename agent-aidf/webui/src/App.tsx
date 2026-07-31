@@ -120,12 +120,29 @@ export default function App() {
   const [exited, setExited] = useState(false)
   const [busy, setBusy] = useState(false)
   const [statusLine, setStatusLine] = useState<string | null>(null)
+  const [lastReply, setLastReply] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
   const spinnerRef = useRef<{ timer: number; start: number } | null>(null)
 
   const appendLog = useCallback((line: string) => {
     setLog((prev) => [...prev.slice(-200), line])
   }, [])
+
+  const copyText = useCallback(
+    async (text: string, label: string) => {
+      if (!text) {
+        appendLog("Nothing to copy yet.")
+        return
+      }
+      try {
+        await navigator.clipboard.writeText(text)
+        appendLog(`Copied ${label} to your clipboard.`)
+      } catch (error) {
+        appendLog(`Could not copy ${label}: ${(error as Error).message}`)
+      }
+    },
+    [appendLog],
+  )
 
   const startSpinner = useCallback(() => {
     const verb = SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]
@@ -207,6 +224,7 @@ export default function App() {
           stopSpinnerWithResult(next.token_usage, next.elapsed_seconds)
           setStatus(next)
           setPendingQuestion(next.pending_question)
+          setLastReply(next.message)
           appendLog(next.message)
         } else {
           startSpinner()
@@ -214,6 +232,7 @@ export default function App() {
           stopSpinnerWithResult(next.token_usage, next.elapsed_seconds)
           setStatus(next)
           setPendingQuestion(next.pending_question)
+          setLastReply(next.message)
           appendLog(next.message)
         }
       } catch (error) {
@@ -259,7 +278,27 @@ export default function App() {
 
       <Card className="flex-1 overflow-hidden">
         <CardHeader>
-          <CardTitle>Mentor</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Mentor</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => copyText(lastReply ?? "", "the last reply")}
+              >
+                Copy last
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => copyText(log.join("\n"), "the full transcript")}
+              >
+                Copy all
+              </Button>
+            </div>
+          </div>
           {pendingQuestion && <CardDescription>{pendingQuestion}</CardDescription>}
         </CardHeader>
         <CardContent className="flex h-full flex-col gap-2 overflow-y-auto pt-0 text-sm">

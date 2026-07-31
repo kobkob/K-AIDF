@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-07-31
+
+### Added
+
+- `AIDF_CHAT_TIMEOUT_SECONDS` env var to control how long kob waits for a chat/mentor reply before giving up (documented in `.env.example`); invalid or non-positive values fall back to the default. The default itself is also raised from 120s to 300s, since CPU-only/slower local machines were routinely hitting "did not respond within 120s" on otherwise-healthy requests
+- `/copy` and `/copy-all` commands in the TUI, copying the last reply or the full canvas transcript to the system clipboard via Textual's OSC52-based `copy_to_clipboard()` - works over SSH and needs no clipboard tool installed locally
+- "Copy last" / "Copy all" buttons on the web UI's Mentor card, using the browser clipboard API
+
 ## [0.5.2] - 2026-07-31
 
 ### Added

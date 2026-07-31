@@ -17,8 +17,25 @@ from .repo import Document, list_packs, load_documents, resolve_repo_root
 # returns a human-readable string and never raises, even on network failure,
 # timeout, or a malformed upstream response. Callers (mentor.py, the TUI, kob
 # shell, the web UI) rely on this and do not wrap .chat() in try/except.
-_HTTP_TIMEOUT_SECONDS = 120
+_DEFAULT_HTTP_TIMEOUT_SECONDS = 300
 _PACKAGE_DISTRIBUTION = "agent-aidf"
+
+
+def _resolve_timeout_seconds() -> int:
+    # Local inference speed varies wildly by machine (CPU-only vs GPU, model size,
+    # prompt length) - AIDF_CHAT_TIMEOUT_SECONDS lets slower machines raise the ceiling
+    # instead of hitting "did not respond within Ns" on otherwise-healthy requests.
+    raw = os.environ.get("AIDF_CHAT_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return _DEFAULT_HTTP_TIMEOUT_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_HTTP_TIMEOUT_SECONDS
+    return value if value > 0 else _DEFAULT_HTTP_TIMEOUT_SECONDS
+
+
+_HTTP_TIMEOUT_SECONDS = _resolve_timeout_seconds()
 
 # Shared behavior contract for every controller: kob converses openly, but has no
 # file/shell tool access of its own in this mode - mutating actions always go through

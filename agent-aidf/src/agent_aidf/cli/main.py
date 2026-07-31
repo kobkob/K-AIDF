@@ -56,6 +56,8 @@ LOGO = (
 # (command, description) pairs, kept alphabetical by command name.
 COMMAND_HELP = (
     ("/compile", lambda: _("Run the K-AIDF generator and write the scaffolded framework.")),
+    ("/copy", lambda: _("Copy the last reply to your system clipboard.")),
+    ("/copy-all", lambda: _("Copy the whole visible canvas transcript to your system clipboard.")),
     ("/exit", lambda: _("Stop the web UI if running, then quit kob.")),
     ("/gen", lambda: _("Alias for /compile.")),
     ("/init", lambda: _("Create the local .kaidf/ directory using the default pattern.")),
@@ -215,6 +217,7 @@ class KobAgentApp(App):
         self._status_timer = None
         self._status_verb = ""
         self._status_start = 0.0
+        self._last_reply: str | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-box"):
@@ -349,6 +352,7 @@ class KobAgentApp(App):
         except Exception as exc:  # noqa: BLE001 - last-resort guard, see comment above
             reply = _("Chat failed unexpectedly: {error}").format(error=exc)
         usage = getattr(self._chat_controller, "last_usage", None)
+        self._last_reply = reply
         self.call_from_thread(self._stop_status_timer, time.monotonic() - start, usage)
         self.call_from_thread(self._log, reply)
 
@@ -362,6 +366,7 @@ class KobAgentApp(App):
             turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
             message = f"\n{turn.message}"
             usage = turn.token_usage
+            self._last_reply = turn.message
         except Exception as exc:  # noqa: BLE001 - keep the TUI alive on unexpected failures
             message = _("Mentor failed unexpectedly: {error}").format(error=exc)
             usage = None
@@ -429,6 +434,21 @@ class KobAgentApp(App):
                     print(f" pack_count: {status.pack_count}")
                     print(f" mentor_step_count: {status.mentor_step_count}")
                     self._refresh_status_panels()
+
+                elif command_text == "/copy":
+                    if self._last_reply:
+                        self.copy_to_clipboard(self._last_reply)
+                        print(_("Copied the last reply to your clipboard."))
+                    else:
+                        print(_("Nothing to copy yet."))
+
+                elif command_text == "/copy-all":
+                    transcript = "\n".join(self._log_lines).strip()
+                    if transcript:
+                        self.copy_to_clipboard(transcript)
+                        print(_("Copied the full canvas transcript to your clipboard."))
+                    else:
+                        print(_("Nothing to copy yet."))
 
                 elif command_text.startswith("/mentor"):
                     parts = command_text.split(" ", 1)

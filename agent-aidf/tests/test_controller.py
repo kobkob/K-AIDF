@@ -326,3 +326,25 @@ def test_manifesto_excerpt_is_full_body_not_a_teaser(tmp_path: Path) -> None:
 
     assert "docs/00-overview/manifesto.md" in context
     assert "KAIDF principle line 49." in context
+
+
+def test_resolve_timeout_seconds_defaults_when_unset(monkeypatch) -> None:
+    monkeypatch.delenv("AIDF_CHAT_TIMEOUT_SECONDS", raising=False)
+
+    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+
+
+def test_resolve_timeout_seconds_honors_valid_override(monkeypatch) -> None:
+    monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "600")
+
+    assert controller_module._resolve_timeout_seconds() == 600
+
+
+def test_resolve_timeout_seconds_falls_back_on_garbage_value(monkeypatch) -> None:
+    monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "not-a-number")
+
+    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+
+    monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "-5")
+
+    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
