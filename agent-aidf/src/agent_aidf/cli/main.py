@@ -4,8 +4,10 @@ import argparse
 import contextlib
 import io
 import os
+import random
 import subprocess
 import sys
+import time
 from functools import partial
 from importlib import metadata
 from pathlib import Path
@@ -65,6 +67,21 @@ COMMAND_HELP = (
         "/ui",
         lambda: _("Launch the mentor web UI (Maturity Model phases + mentor chat)."),
     ),
+)
+
+# Spinner verbs shown while waiting on the LLM, picked at random per request so the
+# wait has a bit of personality instead of a static "Thinking..." label.
+SPINNER_VERBS = (
+    "Deliberating",
+    "Marinating",
+    "Incubating",
+    "Unscrambling",
+    "Weaving",
+    "Calibrating",
+    "Churning",
+    "Concocting",
+    "Noodling",
+    "Faffing",
 )
 
 
@@ -168,9 +185,14 @@ class KobAgentApp(App):
     }
     .footer-box {
         border: solid #50FA7B;
-        height: 4;
+        height: 5;
         padding: 0 1;
         color: #FF5555;
+    }
+    #llm-status {
+        height: 1;
+        color: #8BE9FD;
+        text-style: italic;
     }
     Input {
         background: #111;
@@ -190,6 +212,9 @@ class KobAgentApp(App):
         self._web_url: str | None = None
         self._log_lines: list[str] = []
         self._chat_controller = build_controller()
+        self._status_timer = None
+        self._status_verb = ""
+        self._status_start = 0.0
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-box"):
@@ -207,6 +232,7 @@ class KobAgentApp(App):
                 yield Static(self._canvas_placeholder_text(), id="canvas")
 
         with Vertical(classes="footer-box"):
+            yield Static("", id="llm-status")
             yield Input(placeholder=_("Type a command here (e.g. /status)..."), id="prompt")
             yield Static("", id="status-line")
 
@@ -283,9 +309,65 @@ class KobAgentApp(App):
     def _set_web_server(self, server: BaseWSGIServer) -> None:
         self._web_server = server
 
+    def _start_status_timer(self, verb: str) -> None:
+        """Must run on the Textual thread - call via call_from_thread() from a worker."""
+        self._status_verb = verb
+        self._status_start = time.monotonic()
+        self._render_status_line(0.0)
+        self._status_timer = self.set_interval(1.0, self._tick_status)
+
+    def _tick_status(self) -> None:
+        self._render_status_line(time.monotonic() - self._status_start)
+
+    def _render_status_line(self, elapsed: float) -> None:
+        self.query_one("#llm-status", Static).update(
+            _("{verb}... {elapsed}s").format(verb=self._status_verb, elapsed=int(elapsed))
+        )
+
+    def _stop_status_timer(self, elapsed: float, usage: dict | None) -> None:
+        """Must run on the Textual thread - call via call_from_thread() from a worker."""
+        if self._status_timer is not None:
+            self._status_timer.stop()
+            self._status_timer = None
+        tokens = None
+        if usage:
+            tokens = usage.get("completion_tokens") or usage.get("output_tokens") or usage.get("total_tokens")
+        if tokens:
+            text = _("Replied in {elapsed:.1f}s ({tokens} tokens)").format(elapsed=elapsed, tokens=tokens)
+        else:
+            text = _("Replied in {elapsed:.1f}s").format(elapsed=elapsed)
+        self.query_one("#llm-status", Static).update(text)
+
     def _run_chat_worker(self, prompt: str) -> None:
-        reply = self._chat_controller.chat(prompt, self.repo_root)
+        # ChatController.chat() should never raise (see controller.py), but this worker
+        # runs on a background thread where an uncaught exception crashes the whole TUI
+        # instead of just failing the one exchange - so treat that as a hard invariant.
+        self.call_from_thread(self._start_status_timer, random.choice(SPINNER_VERBS))
+        start = time.monotonic()
+        try:
+            reply = self._chat_controller.chat(prompt, self.repo_root)
+        except Exception as exc:  # noqa: BLE001 - last-resort guard, see comment above
+            reply = _("Chat failed unexpectedly: {error}").format(error=exc)
+        usage = getattr(self._chat_controller, "last_usage", None)
+        self.call_from_thread(self._stop_status_timer, time.monotonic() - start, usage)
         self.call_from_thread(self._log, reply)
+
+    def _run_mentor_worker(self, mentor_repo_root: Path, answer: str | None) -> None:
+        # continue_mentor_workflow() calls the same LLM controller as chat, so it can take
+        # just as long - running it on the main thread used to freeze the whole TUI for the
+        # duration of the call.
+        self.call_from_thread(self._start_status_timer, random.choice(SPINNER_VERBS))
+        start = time.monotonic()
+        try:
+            turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
+            message = f"\n{turn.message}"
+            usage = turn.token_usage
+        except Exception as exc:  # noqa: BLE001 - keep the TUI alive on unexpected failures
+            message = _("Mentor failed unexpectedly: {error}").format(error=exc)
+            usage = None
+        self.call_from_thread(self._stop_status_timer, time.monotonic() - start, usage)
+        self.call_from_thread(self._log, message)
+        self.call_from_thread(self._refresh_status_panels)
 
     def _run_webui_worker(self, port: int) -> None:
         try:
@@ -356,9 +438,11 @@ class KobAgentApp(App):
                     else:
                         print(_("Showing the pending mentor question..."))
                     mentor_repo_root = resolve_mentor_repo_root(self.project_root)
-                    turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
-                    print(f"\n{turn.message}")
-                    self._refresh_status_panels()
+                    self.run_worker(
+                        partial(self._run_mentor_worker, mentor_repo_root, answer),
+                        thread=True,
+                        group="mentor",
+                    )
 
                 elif command_text == "/shell":
                     print(_("Starting the interactive OLMo-backed shell..."))
@@ -387,7 +471,6 @@ class KobAgentApp(App):
 
                 else:
                     print(f"[bold cyan]you>[/bold cyan] {command_text}")
-                    print(_("[dim]Thinking... ({model})[/dim]").format(model=active_model_label()))
                     self.run_worker(
                         partial(self._run_chat_worker, command_text), thread=True, group="chat"
                     )

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import agent_aidf.controller as controller_module
 from agent_aidf.controller import (
     OllamaChatController,
     OpenAIResponsesController,
@@ -62,6 +64,37 @@ def test_ollama_controller_reports_connection_failure_without_raising() -> None:
     reply = controller.chat("hello")
 
     assert "Could not reach local Ollama" in reply
+
+
+def test_ollama_controller_reports_timeout_without_raising(tmp_path: Path, monkeypatch) -> None:
+    # Regression test: response.read() can time out on its own, separately from
+    # URLError, when the connection succeeds but the model is slow to finish
+    # generating. Left uncaught, this crashed the whole TUI/shell process.
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def _raise_timeout(*args, **kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _raise_timeout)
+    controller = OllamaChatController()
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "did not respond within" in reply
+
+
+def test_openai_controller_reports_timeout_without_raising(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def _raise_timeout(*args, **kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _raise_timeout)
+    controller = OpenAIResponsesController(api_key="test-key")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "timed out" in reply
 
 
 def test_openai_controller_builds_payload_with_repo_context(tmp_path: Path) -> None:
@@ -202,3 +235,94 @@ def test_select_context_documents_prefers_maturity_checklist_for_checklist_promp
 
     assert selected
     assert selected[0].path == "docs/10-maturity-model/assessment/checklist.md"
+
+
+class _FakeResponse:
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def __enter__(self) -> "_FakeResponse":
+        return self
+
+    def __exit__(self, *exc_info: object) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return self._body
+
+
+def test_ollama_controller_sends_kob_identity_and_captures_usage(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(
+            json.dumps({"response": "hi", "eval_count": 5, "prompt_eval_count": 10}).encode("utf-8")
+        )
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OllamaChatController(model="test-model")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert reply == "hi"
+    prompt_sent = captured["body"]["prompt"]
+    assert "You are kob, version" in prompt_sent
+    assert "running the test-model model" in prompt_sent
+    assert "Kobkob LLC" in prompt_sent
+    assert controller.last_usage == {"prompt_tokens": 10, "completion_tokens": 5}
+
+
+def test_openai_controller_sends_kob_identity_and_captures_usage(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(
+            json.dumps(
+                {
+                    "id": "resp_1",
+                    "output": [{"type": "message", "content": [{"type": "output_text", "text": "hi"}]}],
+                    "usage": {"input_tokens": 12, "output_tokens": 3, "total_tokens": 15},
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OpenAIResponsesController(api_key="test-key", model="gpt-5")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert reply == "hi"
+    developer_message = captured["body"]["input"][0]["content"]
+    assert "You are kob, version" in developer_message
+    assert "running the gpt-5 model" in developer_message
+    assert controller.last_usage == {"input_tokens": 12, "output_tokens": 3, "total_tokens": 15}
+
+
+def test_manifesto_excerpt_is_full_body_not_a_teaser(tmp_path: Path) -> None:
+    repo = tmp_path / "demo"
+    repo.mkdir()
+    (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
+    manifesto = repo / "docs/00-overview/manifesto.md"
+    manifesto.parent.mkdir(parents=True, exist_ok=True)
+    long_body = "\n".join(f"KAIDF principle line {i}." for i in range(50))
+    manifesto.write_text(
+        "---\n"
+        "id: docs/00-overview/manifesto.md\n"
+        "title: KAIDF Manifesto\n"
+        "document_class: core-doc\n"
+        "phase: 00-overview\n"
+        "visibility: internal\n"
+        "status: active\n"
+        "---\n\n"
+        f"# KAIDF Manifesto\n\n{long_body}\n",
+        encoding="utf-8",
+    )
+
+    context = controller_module._build_context_prompt(repo, "what is kaidf?")
+
+    assert "docs/00-overview/manifesto.md" in context
+    assert "KAIDF principle line 49." in context

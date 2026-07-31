@@ -69,6 +69,7 @@ class MentorState:
 class MentorTurn:
     message: str
     state: MentorState
+    token_usage: dict[str, int] | None = None
 
 
 def mentor_state_path(repo_root: str | Path | None) -> Path:
@@ -195,7 +196,7 @@ def continue_mentor_workflow(
             state=next_state,
         )
 
-    mentor_reply, previous_response_id = _build_mentor_reply(
+    mentor_reply, previous_response_id, token_usage = _build_mentor_reply(
         repo,
         state,
         documents,
@@ -248,7 +249,7 @@ def continue_mentor_workflow(
             f"Next question: {next_state.pending_question}",
         ]
     ).strip()
-    return MentorTurn(message=message, state=next_state)
+    return MentorTurn(message=message, state=next_state, token_usage=token_usage)
 
 
 def _build_mentor_reply(
@@ -259,7 +260,7 @@ def _build_mentor_reply(
     pending_category: str,
     pending_document_path: str,
     answer: str,
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, dict[str, int] | None]:
     from .controller import build_controller
 
     controller = build_controller()
@@ -275,10 +276,12 @@ def _build_mentor_reply(
     )
     raw_reply = controller.chat(prompt, repo_root)
     next_response_id = getattr(controller, "previous_response_id", state.previous_response_id)
+    token_usage = getattr(controller, "last_usage", None)
     if raw_reply.startswith("AI chat controller is not configured yet."):
         raw_reply = _offline_reply(documents, state, pending_question, pending_category, pending_document_path, answer)
         next_response_id = state.previous_response_id
-    return raw_reply, next_response_id
+        token_usage = None
+    return raw_reply, next_response_id, token_usage
 
 
 def _build_mentor_prompt(

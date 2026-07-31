@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from importlib import metadata
 from pathlib import Path
 import re
 from typing import Protocol
@@ -12,6 +13,42 @@ from .instant_apps import list_instant_apps, load_instant_app_runtime
 from .mentor import load_mentor_state
 from .repo import Document, list_packs, load_documents, resolve_repo_root
 
+# Every ChatController implementation must honor this contract: chat() always
+# returns a human-readable string and never raises, even on network failure,
+# timeout, or a malformed upstream response. Callers (mentor.py, the TUI, kob
+# shell, the web UI) rely on this and do not wrap .chat() in try/except.
+_HTTP_TIMEOUT_SECONDS = 120
+_PACKAGE_DISTRIBUTION = "agent-aidf"
+
+# Shared behavior contract for every controller: kob converses openly, but has no
+# file/shell tool access of its own in this mode - mutating actions always go through
+# the mentor workflow's deterministic action layer, never through raw chat output.
+DEFAULT_CHAT_INSTRUCTIONS = (
+    "You are having an open, helpful conversation and may discuss any topic freely. "
+    "When asked about KAIDF (the Knowledge and AI Development Framework), explain its concepts "
+    "and process by drawing on the K-AIDF manifesto excerpt provided in your context - its "
+    "principles, operational best practices, and implementation phases - rather than speaking "
+    "generically. You cannot read or write files or run shell commands yourself right now; if the "
+    "user asks you to create files, scaffold something, or take an action, tell them to continue "
+    "with the mentor workflow so the change can be applied safely."
+)
+
+
+def _package_version() -> str:
+    try:
+        return metadata.version(_PACKAGE_DISTRIBUTION)
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _kob_identity_line(model: str) -> str:
+    return (
+        f"You are kob, version {_package_version()}, running the {model} model. "
+        "You are an ethical and humanized agent made by Kobkob LLC. If asked who or what you "
+        "are, state exactly that identity."
+    )
+
+
 class ChatController(Protocol):
     def chat(self, prompt: str) -> str: ...
 
@@ -19,6 +56,7 @@ class ChatController(Protocol):
 @dataclass(frozen=True)
 class NullChatController:
     message: str = "AI chat controller is not configured yet."
+    last_usage: dict[str, int] | None = None
 
     def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
         return f"{self.message} Prompt received: {prompt}"
@@ -29,12 +67,9 @@ class OpenAIResponsesController:
     api_key: str
     model: str = "gpt-5"
     base_url: str = "https://api.openai.com/v1"
-    instructions: str = (
-        "You are the AI controller for a terminal-first K-AIDF mentor agent. "
-        "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
-        "Use the provided repository metadata and document excerpts to answer pragmatically."
-    )
+    instructions: str = DEFAULT_CHAT_INSTRUCTIONS
     previous_response_id: str | None = None
+    last_usage: dict[str, int] | None = None
 
     def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
         repo = resolve_repo_root(repo_root)
@@ -49,25 +84,39 @@ class OpenAIResponsesController:
             method="POST",
         )
         try:
-            with request.urlopen(http_request) as response:
+            with request.urlopen(http_request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"OpenAI API error {exc.code}: {details}") from exc
+            self.last_usage = None
+            return f"OpenAI API error {exc.code}: {details}"
         except error.URLError as exc:
-            raise RuntimeError(f"OpenAI API request failed: {exc.reason}") from exc
+            self.last_usage = None
+            return f"OpenAI API request failed: {exc.reason}"
+        except TimeoutError:
+            self.last_usage = None
+            return (
+                f"OpenAI API request timed out after {_HTTP_TIMEOUT_SECONDS}s. "
+                "The model may be slow to respond right now - try again."
+            )
+        except json.JSONDecodeError as exc:
+            self.last_usage = None
+            return f"OpenAI API returned an unreadable response: {exc}"
+        except OSError as exc:
+            self.last_usage = None
+            return f"OpenAI API request failed: {exc}"
 
         self.previous_response_id = data.get("id")
+        usage = data.get("usage")
+        self.last_usage = usage if isinstance(usage, dict) else None
         text = self._extract_output_text(data)
-        if not text:
-            raise RuntimeError("OpenAI API returned no text output.")
-        return text
+        return text if text else "OpenAI API returned no text output."
 
     def _build_payload(self, prompt: str, repo_root: Path) -> dict[str, object]:
         payload: dict[str, object] = {
             "model": self.model,
             "input": [
-                {"role": "developer", "content": self.instructions},
+                {"role": "developer", "content": f"{_kob_identity_line(self.model)}\n\n{self.instructions}"},
                 {"role": "user", "content": _build_context_prompt(repo_root, prompt)},
             ],
         }
@@ -104,15 +153,12 @@ class OllamaChatController:
     model: str = "olmo2:7b-1124-instruct-q4_K_M"
     base_url: str = "http://localhost:11434"
     temperature: float = 0.2
-    instructions: str = (
-        "You are the AI controller for a terminal-first K-AIDF mentor agent. "
-        "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
-        "Use the provided repository metadata and document excerpts to answer pragmatically."
-    )
+    instructions: str = DEFAULT_CHAT_INSTRUCTIONS
+    last_usage: dict[str, int] | None = None
 
     def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
         repo = resolve_repo_root(repo_root)
-        full_prompt = f"{self.instructions}\n\n{_build_context_prompt(repo, prompt)}"
+        full_prompt = f"{_kob_identity_line(self.model)}\n\n{self.instructions}\n\n{_build_context_prompt(repo, prompt)}"
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -126,16 +172,40 @@ class OllamaChatController:
             method="POST",
         )
         try:
-            with request.urlopen(http_request, timeout=120) as response:
+            with request.urlopen(http_request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
+            self.last_usage = None
             return f"Ollama API error {exc.code} from {self.base_url}: {details}"
         except error.URLError as exc:
+            self.last_usage = None
             return (
                 f"Could not reach local Ollama at {self.base_url} ({exc.reason}). "
                 "Run 'make workspace-up' to start the local OLMo/Ollama stack."
             )
+        except TimeoutError:
+            # response.read() times out on its own, separately from URLError, when the
+            # connection succeeds but the model takes longer than _HTTP_TIMEOUT_SECONDS
+            # to finish generating - this previously crashed the whole TUI/shell process.
+            self.last_usage = None
+            return (
+                f"Local Ollama at {self.base_url} did not respond within {_HTTP_TIMEOUT_SECONDS}s. "
+                f"The model ({self.model}) may still be loading, or the prompt may be too long - try again."
+            )
+        except json.JSONDecodeError as exc:
+            self.last_usage = None
+            return f"Ollama at {self.base_url} returned an unreadable response: {exc}"
+        except OSError as exc:
+            self.last_usage = None
+            return f"Could not reach local Ollama at {self.base_url}: {exc}"
+
+        prompt_tokens = data.get("prompt_eval_count")
+        completion_tokens = data.get("eval_count")
+        if isinstance(prompt_tokens, int) or isinstance(completion_tokens, int):
+            self.last_usage = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
+        else:
+            self.last_usage = None
         text = data.get("response", "")
         return text.strip() if text else "Ollama returned no text output."
 
@@ -151,12 +221,7 @@ def build_controller() -> ChatController:
             api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
             model=os.environ.get("OPENAI_MODEL", "gpt-5"),
             base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-            instructions=os.environ.get(
-                "AIDF_CHAT_INSTRUCTIONS",
-                "You are the AI controller for a terminal-first K-AIDF mentor agent. "
-                "Act as a pragmatic architect for creators working inside a project with a local .kaidf repository. "
-                "Use the repository metadata and excerpts provided to answer pragmatically.",
-            ),
+            instructions=os.environ.get("AIDF_CHAT_INSTRUCTIONS", DEFAULT_CHAT_INSTRUCTIONS),
         )
 
     # Default (including provider="ollama" or unset): route to the local
@@ -210,11 +275,23 @@ def _build_context_prompt(repo_root: Path, prompt: str) -> str:
                 lines.append(f"  assessment_type={doc.assessment_type}")
             if doc.risk_type:
                 lines.append(f"  risk_type={doc.risk_type}")
-            excerpt = " ".join(doc.body.splitlines()[:3]).strip()
+            excerpt = _excerpt_for(doc)
             if excerpt:
-                lines.append(f"  excerpt={excerpt[:280]}")
+                lines.append(f"  excerpt={excerpt}")
     lines.extend(["", "User prompt:", prompt])
     return "\n".join(lines)
+
+
+_MANIFESTO_EXCERPT_CHARS = 6000
+
+
+def _excerpt_for(doc: Document) -> str:
+    # The manifesto is the one document kob must actually reason from, not skim, when
+    # explaining KAIDF - a 3-line teaser isn't enough to cover its principles, best
+    # practices, and implementation phases, so give it the full body (bounded).
+    if doc.doctrine_category == "manifesto":
+        return doc.body.strip()[:_MANIFESTO_EXCERPT_CHARS]
+    return " ".join(doc.body.splitlines()[:3]).strip()[:280]
 
 
 def select_context_documents(documents: list[Document], prompt: str, limit: int = 5) -> list[Document]:
@@ -270,6 +347,8 @@ def _score_document(doc: Document, prompt_norm: str, terms: list[str]) -> int:
         score += 180
     if doc.canonical_doctrine:
         score += 40
+    if doc.doctrine_category == "manifesto" and ("kaidf" in terms or prompt_norm == "kaidf"):
+        score += 200
     if doc.pack == "ethical-model":
         score += _ethical_pack_bias(doc, prompt_norm, terms)
     if doc.pack == "maturity-model":

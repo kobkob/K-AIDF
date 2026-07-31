@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -67,12 +68,15 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
             mentor_repo_root = resolve_mentor_repo_root(project_root)
         except MentorNotInitializedError as exc:
             return jsonify({"error": str(exc)}), 400
+        start = time.monotonic()
         turn = continue_mentor_workflow(mentor_repo_root, answer=answer)
         return jsonify(
             {
                 "message": turn.message,
                 "pending_question": turn.state.pending_question,
                 "current_app_id": turn.state.current_app_id,
+                "elapsed_seconds": time.monotonic() - start,
+                "token_usage": turn.token_usage,
                 **_status_payload(project_root, repo_root),
             }
         )

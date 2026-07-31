@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-31
+
+### Added
+
+- kob now has a stated identity: every chat/mentor exchange (TUI, `kob shell`, the web UI) opens its system prompt with "You are kob, version {version}, running the {model} model. You are an ethical and humanized agent made by Kobkob LLC.", composed dynamically from the installed package version and the active controller's model so it can't go stale
+- when asked about KAIDF, kob now grounds its answer in the actual K-AIDF manifesto document instead of speaking generically: the manifesto's full body (previously truncated to a 3-line/280-char teaser like any other document) is now injected into context whenever a query matches "kaidf", with a scoring boost so it reliably surfaces
+- a live, responsive status indicator replaces the old static "Thinking..." text in both the TUI and the web UI: a randomly-picked verb (Deliberating, Marinating, Incubating, Unscrambling, Weaving, Calibrating, Churning, Concocting, Noodling, Faffing) ticks with elapsed seconds while a chat/mentor call is in flight, then resolves to "Replied in {elapsed}s ({tokens} tokens)" once the reply lands. Token counts come from Ollama's `eval_count`/`prompt_eval_count` and OpenAI's `usage`, surfaced via a new `ChatController.last_usage` side-channel and threaded through `MentorTurn.token_usage` and the web UI's `/api/mentor` response
+
+### Changed
+
+- `/shell`'s embedded `chat` command and the TUI's default free-text chat now use an explicitly open, unrestricted system prompt (shared by every `ChatController`, mentor included) instead of the old narrow "act as a pragmatic architect" instructions. kob still cannot read/write files or run shell commands on its own in this mode — the prompt tells it to redirect any such request to the mentor workflow, which remains the only path that actually mutates files. `/shell`'s other REPL commands (`packs`, `apps`, `contracts`, `docs`, `app-run`, `app-create`, etc.) are unchanged
+
+### Fixed
+
+- the TUI's `/mentor` command used to run the LLM call synchronously on the main thread, freezing the entire UI for the duration of the request; it now runs in a background worker with the same live status indicator as chat, matching how `/mentor` already behaved in the web UI
+
 ## [0.5.1] - 2026-07-30
 
 ### Fixed

@@ -34,6 +34,8 @@ interface MentorResponse extends Status {
   message: string
   pending_question: string | null
   current_app_id: string | null
+  elapsed_seconds: number
+  token_usage: Record<string, number> | null
 }
 
 const STATE_BADGE: Record<PhaseState, { label: string; variant: "accent" | "default" | "outline" }> = {
@@ -41,6 +43,21 @@ const STATE_BADGE: Record<PhaseState, { label: string; variant: "accent" | "defa
   current: { label: "Current", variant: "accent" },
   pending: { label: "Pending", variant: "outline" },
 }
+
+// Spinner verbs shown while waiting on the LLM, picked at random per request so the
+// wait has a bit of personality instead of a static "Loading..." label.
+const SPINNER_VERBS = [
+  "Deliberating",
+  "Marinating",
+  "Incubating",
+  "Unscrambling",
+  "Weaving",
+  "Calibrating",
+  "Churning",
+  "Concocting",
+  "Noodling",
+  "Faffing",
+]
 
 async function getStatus(): Promise<Status> {
   const response = await fetch("/api/status")
@@ -102,11 +119,41 @@ export default function App() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [exited, setExited] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [statusLine, setStatusLine] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
+  const spinnerRef = useRef<{ timer: number; start: number } | null>(null)
 
   const appendLog = useCallback((line: string) => {
     setLog((prev) => [...prev.slice(-200), line])
   }, [])
+
+  const startSpinner = useCallback(() => {
+    const verb = SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]
+    const start = Date.now()
+    setStatusLine(`${verb}... 0s`)
+    const timer = window.setInterval(() => {
+      setStatusLine(`${verb}... ${Math.floor((Date.now() - start) / 1000)}s`)
+    }, 1000)
+    spinnerRef.current = { timer, start }
+  }, [])
+
+  const clearSpinner = useCallback(() => {
+    if (spinnerRef.current) {
+      window.clearInterval(spinnerRef.current.timer)
+      spinnerRef.current = null
+    }
+  }, [])
+
+  const stopSpinnerWithResult = useCallback(
+    (usage: Record<string, number> | null, elapsedSeconds: number) => {
+      clearSpinner()
+      const tokens = usage?.completion_tokens ?? usage?.output_tokens ?? usage?.total_tokens
+      setStatusLine(
+        tokens ? `Replied in ${elapsedSeconds.toFixed(1)}s (${tokens} tokens)` : `Replied in ${elapsedSeconds.toFixed(1)}s`,
+      )
+    },
+    [clearSpinner],
+  )
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -155,23 +202,29 @@ export default function App() {
           )
         } else if (trimmed.startsWith("/mentor")) {
           const answer = trimmed.slice("/mentor".length).trim() || null
+          startSpinner()
           const next = await postMentor(answer)
+          stopSpinnerWithResult(next.token_usage, next.elapsed_seconds)
           setStatus(next)
           setPendingQuestion(next.pending_question)
           appendLog(next.message)
         } else {
+          startSpinner()
           const next = await postMentor(trimmed)
+          stopSpinnerWithResult(next.token_usage, next.elapsed_seconds)
           setStatus(next)
           setPendingQuestion(next.pending_question)
           appendLog(next.message)
         }
       } catch (error) {
+        clearSpinner()
+        setStatusLine(null)
         appendLog(`Error running command: ${(error as Error).message}`)
       } finally {
         setBusy(false)
       }
     },
-    [appendLog, busy],
+    [appendLog, busy, startSpinner, stopSpinnerWithResult, clearSpinner],
   )
 
   const onSubmit = (event: React.FormEvent) => {
@@ -218,6 +271,8 @@ export default function App() {
           <div ref={logEndRef} />
         </CardContent>
       </Card>
+
+      {statusLine && <p className="text-xs italic text-muted-foreground">{statusLine}</p>}
 
       <form onSubmit={onSubmit} className="flex gap-2">
         <Textarea
