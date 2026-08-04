@@ -12,6 +12,7 @@ from .i18n import _
 from .maturity import phase_progress, phase_snapshot
 from .mentor import continue_mentor_workflow
 from .project import MentorNotInitializedError, read_project_status, resolve_mentor_repo_root
+from .tools import is_yolo_enabled
 
 STATIC_DIR = Path(__file__).resolve().parent / "webui_dist"
 
@@ -33,6 +34,7 @@ def _status_payload(project_root: Path, repo_root: Path) -> dict:
         "current_phase": current,
         "total_phases": total,
         "phases": phase_snapshot(status),
+        "yolo": is_yolo_enabled(),
     }
 
 

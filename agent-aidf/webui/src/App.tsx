@@ -28,6 +28,7 @@ interface Status {
   current_phase: number
   total_phases: number
   phases: Phase[]
+  yolo: boolean
 }
 
 interface MentorResponse extends Status {
@@ -271,6 +272,14 @@ export default function App() {
           <Progress value={status ? (status.current_phase / status.total_phases) * 100 : 0} />
         </CardHeader>
       </Card>
+
+      {status?.yolo && (
+        <div className="rounded-md border-2 border-destructive bg-destructive px-3 py-2 text-sm font-bold text-destructive-foreground">
+          ⚠ YOLO MODE ACTIVE: safety confirmations are DISABLED. kob can write files and run
+          shell commands without asking first. This can modify or delete data, install or
+          remove software, or otherwise change your system with no confirmation step.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 lg:grid-cols-3">
         {status?.phases.map((phase) => <PhaseCard key={phase.order} phase={phase} />)}

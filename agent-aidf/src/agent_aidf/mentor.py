@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path, PurePosixPath
 
 from .instant_apps import (
     append_mentor_note,
@@ -15,29 +15,28 @@ from .instant_apps import (
     stop_instant_app,
 )
 from .repo import Document, load_documents, resolve_repo_root
+from .tools import (
+    ACTION_PROTOCOL_INSTRUCTIONS,
+    ProposedAction,
+    apply_action,
+    describe_action,
+    extract_proposed_action,
+    is_affirmative,
+    is_yolo_enabled,
+)
 
 MENTOR_STATE_FILENAME = "mentor-workflow.json"
-WORKFLOW_CATEGORY_ORDER = [
-    "manifesto",
-    "principles",
-    "best-practices",
-    "governance",
-    "implementation",
-    "maturity",
-    "training",
-    "general",
-]
 
-QUESTION_TEMPLATES = {
-    "manifesto": "What is the main outcome this project should achieve, and why does it matter?",
-    "principles": "Which principles from this framework must remain non-negotiable in this project?",
-    "best-practices": "Which operating practices should the team adopt first to reduce risk quickly?",
-    "governance": "Who will review, approve, and remain accountable for important AI-assisted decisions?",
-    "implementation": "What is the smallest useful implementation step the mentor should help create next?",
-    "maturity": "How mature is the current process today, and what evidence supports that assessment?",
-    "training": "What training or onboarding will people need before this workflow is used seriously?",
-    "general": "What is the most important unresolved point the mentor should clarify next?",
-}
+# The mentor workflow always operates on repo_root == <project_root>/.kaidf (see
+# project.resolve_mentor_repo_root). File actions sandbox to the project root, one level up,
+# so drafts can land at .kaidf/docs/... or elsewhere in the project - not just inside .kaidf/.
+# Duplicated here (rather than imported from project.py) to avoid a circular import; see the
+# deferred `from .contracts import ...` imports below for the same reason with contracts.py.
+_KAIDF_DIRNAME = ".kaidf"
+
+
+def _project_root_for(repo_root: Path) -> Path:
+    return repo_root.parent if repo_root.name == _KAIDF_DIRNAME else repo_root
 
 
 @dataclass(frozen=True)
@@ -63,6 +62,13 @@ class MentorState:
     current_app_id: str | None = None
     last_action_summary: str | None = None
     interactions: list[MentorInteraction] = field(default_factory=list)
+    # The 5 K-AIDF Basic phases (see contracts.basic_phase_definitions()) are walked strictly
+    # in order. A phase only ever enters accepted_phases once its artifact files are filled in
+    # AND the user has explicitly confirmed - never from raw step/question count.
+    pending_phase_order: int = 1
+    accepted_phases: list[int] = field(default_factory=list)
+    awaiting_acceptance: bool = False
+    pending_file_action: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -105,6 +111,14 @@ def load_mentor_state(repo_root: str | Path | None) -> MentorState:
                 )
             except (KeyError, TypeError, ValueError):
                 continue
+    accepted_phases_raw = data.get("accepted_phases", [])
+    accepted_phases = (
+        sorted({int(order) for order in accepted_phases_raw if isinstance(order, (int, float))})
+        if isinstance(accepted_phases_raw, list)
+        else []
+    )
+    pending_file_action_raw = data.get("pending_file_action")
+    pending_file_action = pending_file_action_raw if isinstance(pending_file_action_raw, dict) else None
     return MentorState(
         version=int(data.get("version", 1)),
         step_count=int(data.get("step_count", len(interactions))),
@@ -115,6 +129,10 @@ def load_mentor_state(repo_root: str | Path | None) -> MentorState:
         current_app_id=_optional_str(data.get("current_app_id")),
         last_action_summary=_optional_str(data.get("last_action_summary")),
         interactions=interactions,
+        pending_phase_order=int(data.get("pending_phase_order", 1)),
+        accepted_phases=accepted_phases,
+        awaiting_acceptance=bool(data.get("awaiting_acceptance", False)),
+        pending_file_action=pending_file_action,
     )
 
 
@@ -130,6 +148,10 @@ def save_mentor_state(repo_root: str | Path | None, state: MentorState) -> Path:
         "current_app_id": state.current_app_id,
         "last_action_summary": state.last_action_summary,
         "interactions": [asdict(item) for item in state.interactions],
+        "pending_phase_order": state.pending_phase_order,
+        "accepted_phases": state.accepted_phases,
+        "awaiting_acceptance": state.awaiting_acceptance,
+        "pending_file_action": state.pending_file_action,
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
@@ -146,9 +168,13 @@ def mentor_status_text(repo_root: str | Path | None) -> str:
     state = load_mentor_state(repo_root)
     lines = [
         f"step_count: {state.step_count}",
+        f"pending_phase: {state.pending_phase_order}/{_total_phases()}",
+        f"accepted_phases: {state.accepted_phases or 'none'}",
         f"pending_category: {state.pending_category or 'none'}",
         f"pending_document: {state.pending_document_path or 'none'}",
         f"pending_question: {state.pending_question or 'none'}",
+        f"awaiting_acceptance: {state.awaiting_acceptance}",
+        f"pending_file_action: {'yes' if state.pending_file_action else 'none'}",
         f"previous_response_id: {state.previous_response_id or 'none'}",
         f"current_app_id: {state.current_app_id or 'none'}",
         f"last_action_summary: {state.last_action_summary or 'none'}",
@@ -164,92 +190,226 @@ def continue_mentor_workflow(
     repo = resolve_repo_root(repo_root)
     state = load_mentor_state(repo)
     documents = load_documents(repo)
-    if not documents:
-        raise ValueError(f"No K-AIDF documents found in repository: {repo}")
 
-    pending_question = state.pending_question or _default_question(documents)
-    pending_category = state.pending_category or _document_category(_select_next_document(documents, state))
-    pending_document_path = state.pending_document_path or _select_next_document(documents, state).path
+    if state.pending_phase_order > _total_phases():
+        return MentorTurn(message=_all_phases_complete_message(state), state=state)
+
+    phase = _phase_by_order(state.pending_phase_order)
+    phase_dir = _phase_directory_name(phase)
 
     if not answer:
         if state.pending_question:
-            return MentorTurn(
-                message=_format_pending_question(state.pending_question, state.pending_category, state.pending_document_path),
-                state=state,
-            )
-        next_document = _select_next_document(documents, state)
-        next_question = _question_for_document(next_document)
-        next_state = MentorState(
-            version=state.version,
-            step_count=state.step_count,
-            previous_response_id=state.previous_response_id,
-            pending_question=next_question,
-            pending_category=_document_category(next_document),
-            pending_document_path=next_document.path,
-            current_app_id=state.current_app_id,
-            last_action_summary=state.last_action_summary,
-            interactions=state.interactions,
+            return MentorTurn(message=_format_pending_question(state), state=state)
+        next_state = replace(
+            state,
+            pending_question=_first_quiz_question(phase),
+            pending_category=phase["name"],
+            pending_document_path=f"docs/{phase_dir}",
         )
         save_mentor_state(repo, next_state)
-        return MentorTurn(
-            message=_format_pending_question(next_question, next_state.pending_category, next_state.pending_document_path),
-            state=next_state,
-        )
+        return MentorTurn(message=_format_pending_question(next_state), state=next_state)
 
+    if state.pending_file_action:
+        return _handle_file_action_response(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
+
+    if state.awaiting_acceptance:
+        return _handle_acceptance_response(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
+
+    return _handle_normal_answer(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
+
+
+def _handle_normal_answer(
+    repo: Path,
+    state: MentorState,
+    documents: list[Document],
+    answer: str,
+    *,
+    phase: dict,
+    phase_dir: str,
+    check_acceptance: bool = True,
+) -> MentorTurn:
+    pending_question = state.pending_question or _first_quiz_question(phase)
     mentor_reply, previous_response_id, token_usage = _build_mentor_reply(
-        repo,
-        state,
-        documents,
-        pending_question,
-        pending_category,
-        pending_document_path,
-        answer,
+        repo, state, documents, pending_question, phase, phase_dir, answer
     )
+    cleaned_reply, proposed_action = extract_proposed_action(mentor_reply)
+
     action_summary, current_app_id = _apply_answer_actions(
         repo,
         state,
-        pending_category=pending_category,
+        pending_category=phase["name"],
         pending_question=pending_question,
         answer=answer,
-        mentor_reply=mentor_reply,
+        mentor_reply=cleaned_reply,
     )
     updated_interactions = [
         *state.interactions,
         MentorInteraction(
             step=state.step_count + 1,
-            category=pending_category,
-            document_path=pending_document_path,
+            category=phase["name"],
+            document_path=f"docs/{phase_dir}",
             question=pending_question,
             answer=answer,
-            mentor_reply=mentor_reply,
+            mentor_reply=cleaned_reply,
             action_summary=action_summary,
             app_id=current_app_id,
         ),
     ]
-    next_document = _select_next_document(documents, MentorState(interactions=updated_interactions, step_count=len(updated_interactions)))
-    next_question = _choose_next_question(documents, updated_interactions, answer, next_document)
-    next_state = MentorState(
-        version=state.version,
+    base_next_state = replace(
+        state,
         step_count=len(updated_interactions),
         previous_response_id=previous_response_id,
-        pending_question=next_question,
-        pending_category=_document_category(next_document),
-        pending_document_path=next_document.path,
         current_app_id=current_app_id,
         last_action_summary=action_summary,
         interactions=updated_interactions,
+        pending_category=phase["name"],
+        pending_document_path=f"docs/{phase_dir}",
+    )
+
+    yolo_action_note: str | None = None
+    if proposed_action is not None:
+        if is_yolo_enabled():
+            yolo_action_note = f"[--yolo] {apply_action(_project_root_for(repo), proposed_action)}"
+        else:
+            next_state = replace(
+                base_next_state,
+                pending_file_action=asdict(proposed_action),
+                pending_question=describe_action(proposed_action),
+            )
+            save_mentor_state(repo, next_state)
+            message = "\n".join(
+                [
+                    cleaned_reply.strip(),
+                    "",
+                    f"Action: {action_summary}",
+                    "",
+                    describe_action(proposed_action),
+                ]
+            ).strip()
+            return MentorTurn(message=message, state=next_state, token_usage=token_usage)
+
+    documents_after = load_documents(repo)
+    message_lines = [cleaned_reply.strip(), "", f"Action: {action_summary}"]
+    if yolo_action_note:
+        message_lines.extend(["", yolo_action_note])
+
+    if (
+        check_acceptance
+        and phase["order"] not in state.accepted_phases
+        and _phase_ready_for_acceptance(documents_after, phase_dir)
+    ):
+        acceptance_question = _acceptance_question(phase, phase_dir)
+        next_state = replace(base_next_state, awaiting_acceptance=True, pending_question=acceptance_question)
+        message_lines.extend(["", acceptance_question])
+    else:
+        next_question = _next_quiz_question(phase, updated_interactions)
+        next_state = replace(base_next_state, pending_question=next_question)
+        message_lines.extend(
+            [
+                f"Next focus: {next_state.pending_category} :: {next_state.pending_document_path}",
+                f"Next question: {next_state.pending_question}",
+            ]
+        )
+
+    save_mentor_state(repo, next_state)
+    return MentorTurn(message="\n".join(message_lines).strip(), state=next_state, token_usage=token_usage)
+
+
+def _handle_file_action_response(
+    repo: Path,
+    state: MentorState,
+    documents: list[Document],
+    answer: str,
+    *,
+    phase: dict,
+    phase_dir: str,
+) -> MentorTurn:
+    assert state.pending_file_action is not None
+    action = ProposedAction(**state.pending_file_action)
+    cleared_state = replace(state, pending_file_action=None, pending_question=None)
+
+    if not is_affirmative(answer):
+        return _handle_normal_answer(
+            repo, cleared_state, documents, answer, phase=phase, phase_dir=phase_dir, check_acceptance=False
+        )
+
+    write_summary = apply_action(_project_root_for(repo), action)
+
+    documents_after = load_documents(repo)
+    if phase["order"] not in cleared_state.accepted_phases and _phase_ready_for_acceptance(documents_after, phase_dir):
+        acceptance_question = _acceptance_question(phase, phase_dir)
+        next_state = replace(
+            cleared_state,
+            awaiting_acceptance=True,
+            pending_question=acceptance_question,
+            last_action_summary=write_summary,
+        )
+        message = "\n".join([write_summary, "", acceptance_question]).strip()
+    else:
+        next_question = _next_quiz_question(phase, cleared_state.interactions)
+        next_state = replace(cleared_state, pending_question=next_question, last_action_summary=write_summary)
+        message = "\n".join(
+            [
+                write_summary,
+                "",
+                f"Next focus: {next_state.pending_category} :: {next_state.pending_document_path}",
+                f"Next question: {next_state.pending_question}",
+            ]
+        ).strip()
+
+    save_mentor_state(repo, next_state)
+    return MentorTurn(message=message, state=next_state)
+
+
+def _handle_acceptance_response(
+    repo: Path,
+    state: MentorState,
+    documents: list[Document],
+    answer: str,
+    *,
+    phase: dict,
+    phase_dir: str,
+) -> MentorTurn:
+    if not is_affirmative(answer):
+        cleared_state = replace(state, awaiting_acceptance=False, pending_question=None)
+        return _handle_normal_answer(
+            repo, cleared_state, documents, answer, phase=phase, phase_dir=phase_dir, check_acceptance=False
+        )
+
+    accepted_phases = sorted({*state.accepted_phases, phase["order"]})
+    next_order = state.pending_phase_order + 1
+    if next_order > _total_phases():
+        next_state = replace(
+            state,
+            accepted_phases=accepted_phases,
+            awaiting_acceptance=False,
+            pending_phase_order=next_order,
+            pending_question=None,
+            pending_category=phase["name"],
+        )
+        save_mentor_state(repo, next_state)
+        return MentorTurn(message=_all_phases_complete_message(next_state), state=next_state)
+
+    next_phase = _phase_by_order(next_order)
+    next_phase_dir = _phase_directory_name(next_phase)
+    next_state = replace(
+        state,
+        accepted_phases=accepted_phases,
+        awaiting_acceptance=False,
+        pending_phase_order=next_order,
+        pending_category=next_phase["name"],
+        pending_document_path=f"docs/{next_phase_dir}",
+        pending_question=_first_quiz_question(next_phase),
     )
     save_mentor_state(repo, next_state)
     message = "\n".join(
         [
-            mentor_reply.strip(),
+            f"Phase {phase['order']} ({phase['name']}) accepted.",
             "",
-            f"Action: {action_summary}",
-            f"Next focus: {next_state.pending_category} :: {next_state.pending_document_path}",
-            f"Next question: {next_state.pending_question}",
+            _format_pending_question(next_state),
         ]
     ).strip()
-    return MentorTurn(message=message, state=next_state, token_usage=token_usage)
+    return MentorTurn(message=message, state=next_state)
 
 
 def _build_mentor_reply(
@@ -257,8 +417,8 @@ def _build_mentor_reply(
     state: MentorState,
     documents: list[Document],
     pending_question: str,
-    pending_category: str,
-    pending_document_path: str,
+    phase: dict,
+    phase_dir: str,
     answer: str,
 ) -> tuple[str, str | None, dict[str, int] | None]:
     from .controller import build_controller
@@ -270,15 +430,15 @@ def _build_mentor_reply(
         documents,
         state,
         pending_question=pending_question,
-        pending_category=pending_category,
-        pending_document_path=pending_document_path,
+        phase=phase,
+        phase_dir=phase_dir,
         answer=answer,
     )
     raw_reply = controller.chat(prompt, repo_root)
     next_response_id = getattr(controller, "previous_response_id", state.previous_response_id)
     token_usage = getattr(controller, "last_usage", None)
     if raw_reply.startswith("AI chat controller is not configured yet."):
-        raw_reply = _offline_reply(documents, state, pending_question, pending_category, pending_document_path, answer)
+        raw_reply = _offline_reply(state, pending_question, phase, phase_dir, answer)
         next_response_id = state.previous_response_id
         token_usage = None
     return raw_reply, next_response_id, token_usage
@@ -289,12 +449,10 @@ def _build_mentor_prompt(
     state: MentorState,
     *,
     pending_question: str,
-    pending_category: str,
-    pending_document_path: str,
+    phase: dict,
+    phase_dir: str,
     answer: str,
 ) -> str:
-    from .controller import select_context_documents
-
     recent = state.interactions[-3:]
     history_lines = []
     if not recent:
@@ -305,33 +463,40 @@ def _build_mentor_prompt(
             history_lines.append(f"  q={item.question}")
             history_lines.append(f"  a={item.answer}")
             history_lines.append(f"  mentor={item.mentor_reply[:220]}")
-    matched = select_context_documents(documents, f"{pending_category} {answer}", limit=4)
-    doc_lines = []
-    if not matched:
-        doc_lines.append("- none")
+
+    artifacts = _phase_artifact_documents(documents, phase_dir)
+    artifact_lines = []
+    if not artifacts:
+        artifact_lines.append(f"- none found yet under docs/{phase_dir}/")
     else:
-        for doc in matched:
-            doc_lines.append(f"- {doc.path} :: {doc.title}")
-            excerpt = " ".join(doc.body.splitlines()[:3]).strip()
+        for doc in artifacts:
+            status_label = "filled in" if _is_artifact_filled_in(doc) else "still a blank scaffold"
+            artifact_lines.append(f"- {_KAIDF_DIRNAME}/{doc.path} ({status_label})")
+            excerpt = " ".join(doc.body.splitlines()[:5]).strip()
             if excerpt:
-                doc_lines.append(f"  excerpt={excerpt[:280]}")
+                artifact_lines.append(f"  current content={excerpt[:400]}")
+
     return "\n".join(
         [
-            "Continue the K-AIDF mentor workflow as a quiz-style guided process.",
-            "Use the framework documents, the existing workflow state, and the user's latest answer.",
-            "Analyze the answer, say what should be clarified, decided, or modified next, and keep the guidance pragmatic.",
-            "Do not restart the workflow. Continue from the current point.",
-            "Ask exactly one next question at the end.",
+            "Continue the K-AIDF mentor workflow as a guided, conversational process.",
+            f"You are on phase {phase['order']}/{_total_phases()}: {phase['name']}.",
+            f"Human role this phase: {phase['human_role']}",
+            f"Your role this phase: {phase['ai_role']}",
+            f"Deliverables expected this phase: {', '.join(phase['deliverables'])}",
+            "Use the workflow history and this phase's artifact files below, and the user's latest "
+            "answer, to decide what to clarify, decide, or draft next. Keep guidance pragmatic.",
+            "Do not restart the workflow. Continue from the current point. Ask exactly one next "
+            "question at the end, unless you are proposing a file action instead.",
             "",
-            f"Current pending category: {pending_category}",
-            f"Current pending document: {pending_document_path}",
+            ACTION_PROTOCOL_INSTRUCTIONS,
+            "",
             f"Current question: {pending_question}",
             "",
             "Recent workflow history:",
             *history_lines,
             "",
-            "Relevant framework excerpts:",
-            *doc_lines,
+            f"This phase's artifact files (paths relative to the project root):",
+            *artifact_lines,
             "",
             "User answer:",
             answer,
@@ -340,22 +505,17 @@ def _build_mentor_prompt(
 
 
 def _offline_reply(
-    documents: list[Document],
     state: MentorState,
     pending_question: str,
-    pending_category: str,
-    pending_document_path: str,
+    phase: dict,
+    phase_dir: str,
     answer: str,
 ) -> str:
-    from .controller import select_context_documents
-
-    matched = select_context_documents(documents, f"{pending_category} {answer}", limit=1)
-    focus = matched[0].path if matched else pending_document_path
     assessment = _classify_answer(answer)
     prior = "no prior answers yet" if not state.interactions else f"{len(state.interactions)} prior answers recorded"
     return (
         f"Mentor assessment: {assessment}. "
-        f"Current focus remains {pending_category} using {focus}. "
+        f"Current focus remains phase {phase['order']} ({phase['name']}) using docs/{phase_dir}/. "
         f"The workflow now has {prior}. "
         "The next step should refine the project direction before implementation expands."
     )
@@ -492,51 +652,88 @@ def _stop_superseded_app(repo_root: Path, previous_app_id: str | None, current_a
     return f" and stopped superseded app '{previous_app_id}'"
 
 
-def _select_next_document(documents: list[Document], state: MentorState) -> Document:
-    answered_categories = {item.category for item in state.interactions}
-    for category in WORKFLOW_CATEGORY_ORDER:
-        if category in answered_categories:
-            continue
-        for doc in documents:
-            if _document_category(doc) == category:
-                return doc
-    return documents[0]
+def _total_phases() -> int:
+    from .contracts import basic_phase_definitions
+
+    return len(basic_phase_definitions())
 
 
-def _choose_next_question(
-    documents: list[Document],
-    interactions: list[MentorInteraction],
-    answer: str,
-    fallback_document: Document,
-) -> str:
-    from .controller import select_context_documents
+def _phase_by_order(order: int) -> dict:
+    from .contracts import basic_phase_definitions
 
-    matched = select_context_documents(documents, answer, limit=1)
-    if matched and _document_category(matched[0]) not in {item.category for item in interactions}:
-        return _question_for_document(matched[0])
-    return _question_for_document(fallback_document)
+    for phase in basic_phase_definitions():
+        if phase["order"] == order:
+            return phase
+    raise ValueError(f"Unknown phase order: {order}")
 
 
-def _question_for_document(doc: Document) -> str:
-    category = _document_category(doc)
-    return QUESTION_TEMPLATES.get(category, QUESTION_TEMPLATES["general"])
+def _phase_slug(name: str) -> str:
+    return name.casefold().replace(" & ", "_").replace(" ", "_")
 
 
-def _document_category(doc: Document) -> str:
-    return doc.doctrine_category if doc.doctrine_category in QUESTION_TEMPLATES else "general"
+def _phase_directory_name(phase: dict) -> str:
+    return f"0{phase['order']}_{_phase_slug(phase['name'])}"
 
 
-def _default_question(documents: list[Document]) -> str:
-    return _question_for_document(documents[0])
+def _first_quiz_question(phase: dict) -> str:
+    prompts = phase.get("quiz_prompts") or []
+    return prompts[0] if prompts else f"What should the mentor know first about {phase['name']}?"
 
 
-def _format_pending_question(question: str, category: str | None, document_path: str | None) -> str:
+def _next_quiz_question(phase: dict, interactions: list[MentorInteraction]) -> str:
+    prompts = phase.get("quiz_prompts") or []
+    if not prompts:
+        return f"What else should the mentor know about {phase['name']}?"
+    turns_in_phase = sum(1 for item in interactions if item.category == phase["name"])
+    return prompts[turns_in_phase % len(prompts)]
+
+
+def _acceptance_question(phase: dict, phase_dir: str) -> str:
+    return (
+        f"Phase {phase['order']} ({phase['name']}) artifacts under docs/{phase_dir}/ look filled in. "
+        "Do you accept this phase as complete? (yes/no)"
+    )
+
+
+def _all_phases_complete_message(state: MentorState) -> str:
+    return (
+        f"All {_total_phases()} K-AIDF Basic phases are accepted. The mentor workflow is complete - "
+        "use kob status to review, or kob mentor --reset to start a new workflow."
+    )
+
+
+def _phase_artifact_documents(documents: list[Document], phase_dir: str) -> list[Document]:
+    return [
+        doc
+        for doc in documents
+        if doc.phase == phase_dir
+        and doc.document_class != "prompt-doc"
+        and PurePosixPath(doc.path).name not in {"README.md", "exit-criteria.md"}
+    ]
+
+
+def _is_artifact_filled_in(doc: Document) -> bool:
+    if doc.path.endswith(".csv"):
+        lines = [line for line in doc.body.splitlines() if line.strip()]
+        return len(lines) > 1
+    body_lines = [line.strip() for line in doc.body.splitlines() if line.strip()]
+    return any(not line.startswith("#") for line in body_lines)
+
+
+def _phase_ready_for_acceptance(documents: list[Document], phase_dir: str) -> bool:
+    artifacts = _phase_artifact_documents(documents, phase_dir)
+    if not artifacts:
+        return False
+    return all(_is_artifact_filled_in(doc) for doc in artifacts)
+
+
+def _format_pending_question(state: MentorState) -> str:
     lines = ["Mentor workflow is active."]
-    if category:
-        lines.append(f"Current focus: {category}")
-    if document_path:
-        lines.append(f"Reference: {document_path}")
-    lines.append(f"Question: {question}")
+    if state.pending_category:
+        lines.append(f"Current focus: {state.pending_category}")
+    if state.pending_document_path:
+        lines.append(f"Reference: {state.pending_document_path}")
+    lines.append(f"Question: {state.pending_question}")
     return "\n".join(lines)
 
 

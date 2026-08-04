@@ -266,12 +266,30 @@ def test_ollama_controller_sends_kob_identity_and_captures_usage(tmp_path: Path,
 
     reply = controller.chat("hello", tmp_path)
 
-    assert reply == "hi"
+    assert reply.startswith("hi")
     prompt_sent = captured["body"]["prompt"]
     assert "You are kob, version" in prompt_sent
-    assert "running the test-model model" in prompt_sent
+    assert "powered by the test-model model" in prompt_sent
     assert "Kobkob LLC" in prompt_sent
     assert controller.last_usage == {"prompt_tokens": 10, "completion_tokens": 5}
+
+
+def test_ollama_identity_does_not_attribute_olmo_to_kobkob(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(json.dumps({"response": "hi"}).encode("utf-8"))
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OllamaChatController(model="olmo2:7b-1124-instruct-q4_K_M")
+
+    controller.chat("who are you?", tmp_path)
+
+    prompt_sent = captured["body"]["prompt"]
+    assert "Allen Institute for AI" in prompt_sent
+    assert "does NOT make the underlying model" in prompt_sent
 
 
 def test_openai_controller_sends_kob_identity_and_captures_usage(tmp_path: Path, monkeypatch) -> None:
@@ -295,14 +313,17 @@ def test_openai_controller_sends_kob_identity_and_captures_usage(tmp_path: Path,
 
     reply = controller.chat("hello", tmp_path)
 
-    assert reply == "hi"
+    assert reply.startswith("hi")
     developer_message = captured["body"]["input"][0]["content"]
     assert "You are kob, version" in developer_message
-    assert "running the gpt-5 model" in developer_message
+    assert "powered by the gpt-5 model" in developer_message
     assert controller.last_usage == {"input_tokens": 12, "output_tokens": 3, "total_tokens": 15}
 
 
-def test_manifesto_excerpt_is_full_body_not_a_teaser(tmp_path: Path) -> None:
+def test_generic_chat_context_does_not_dump_full_manifesto_body(tmp_path: Path) -> None:
+    # Doctrine/manifesto interpretation belongs strictly to the mentor workflow's own
+    # prompt-building, not generic chat - every document, manifesto included, gets the
+    # same short teaser excerpt here, never the full body.
     repo = tmp_path / "demo"
     repo.mkdir()
     (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
@@ -325,7 +346,7 @@ def test_manifesto_excerpt_is_full_body_not_a_teaser(tmp_path: Path) -> None:
     context = controller_module._build_context_prompt(repo, "what is kaidf?")
 
     assert "docs/00-overview/manifesto.md" in context
-    assert "KAIDF principle line 49." in context
+    assert "KAIDF principle line 49." not in context
 
 
 def test_resolve_timeout_seconds_defaults_when_unset(monkeypatch) -> None:
@@ -348,3 +369,40 @@ def test_resolve_timeout_seconds_falls_back_on_garbage_value(monkeypatch) -> Non
     monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "-5")
 
     assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+
+
+def test_ollama_controller_appends_caveat_to_successful_reply(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def fake_urlopen(req, timeout=None):
+        return _FakeResponse(json.dumps({"response": "The sky is blue."}).encode("utf-8"))
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OllamaChatController()
+
+    reply = controller.chat("why is the sky blue?", tmp_path)
+
+    assert reply.startswith("The sky is blue.")
+    assert controller_module.RESPONSE_CAVEAT in reply
+
+
+def test_null_controller_reply_has_no_caveat() -> None:
+    controller = controller_module.NullChatController()
+
+    reply = controller.chat("hello")
+
+    assert controller_module.RESPONSE_CAVEAT not in reply
+
+
+def test_ollama_controller_timeout_message_has_no_caveat(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def _raise_timeout(*args, **kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _raise_timeout)
+    controller = OllamaChatController()
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert controller_module.RESPONSE_CAVEAT not in reply

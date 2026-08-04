@@ -29,6 +29,7 @@ class ProjectStatus:
     mentor_pending_category: str | None
     mentor_current_app_id: str | None
     mentor_current_app_url: str | None
+    mentor_accepted_phases: list[int]
 
 
 def resolve_project_root(project_root: str | Path | None) -> Path:
@@ -115,6 +116,7 @@ def read_project_status(
         mentor_pending_category=mentor_state.pending_category,
         mentor_current_app_id=mentor_state.current_app_id,
         mentor_current_app_url=current_app_url,
+        mentor_accepted_phases=mentor_state.accepted_phases,
     )
 
 

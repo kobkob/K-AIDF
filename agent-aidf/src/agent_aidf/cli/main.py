@@ -12,6 +12,8 @@ from functools import partial
 from importlib import metadata
 from pathlib import Path
 
+import pyperclip
+from rich.console import Console
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
@@ -53,17 +55,24 @@ LOGO = (
     " ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀"
 )
 
+YOLO_WARNING_TEXT = (
+    "YOLO MODE ACTIVE: safety confirmations are DISABLED. kob can write files and run shell "
+    "commands without asking first. This can modify or delete data, install or remove "
+    "software, or otherwise change your system with no confirmation step. Use only if you "
+    "understand and accept that risk."
+)
+
 # (command, description) pairs, kept alphabetical by command name.
+# /shell, /compile, and /gen are deliberately NOT here: they're CLI-only subcommands
+# (`kob shell`, `kob compile`, `kob gen`), not TUI slash-commands. The kob agent itself can
+# still reach shell/generator access through a confirmed run_shell tool action (see tools.py).
 COMMAND_HELP = (
-    ("/compile", lambda: _("Run the K-AIDF generator and write the scaffolded framework.")),
     ("/copy", lambda: _("Copy the last reply to your system clipboard.")),
     ("/copy-all", lambda: _("Copy the whole visible canvas transcript to your system clipboard.")),
     ("/exit", lambda: _("Stop the web UI if running, then quit kob.")),
-    ("/gen", lambda: _("Alias for /compile.")),
     ("/init", lambda: _("Create the local .kaidf/ directory using the default pattern.")),
     ("/mentor", lambda: _("Show the pending mentor question, or record an answer.")),
     ("/serve", lambda: _("Alias for /ui.")),
-    ("/shell", lambda: _("Hand off the terminal to the interactive OLMo-backed shell.")),
     ("/status", lambda: _("Show the status of the 5 K-AIDF delivery phases.")),
     (
         "/ui",
@@ -196,6 +205,17 @@ class KobAgentApp(App):
         color: #8BE9FD;
         text-style: italic;
     }
+    #yolo-banner {
+        height: auto;
+        padding: 0 1;
+        background: #FF5555;
+        color: #000000;
+        text-style: bold;
+        display: none;
+    }
+    #yolo-banner.visible {
+        display: block;
+    }
     Input {
         background: #111;
         color: #50FA7B;
@@ -204,10 +224,16 @@ class KobAgentApp(App):
     }
     """
 
-    def __init__(self, project_dir: str | None = None, repo_override: str | None = None):
+    def __init__(
+        self,
+        project_dir: str | None = None,
+        repo_override: str | None = None,
+        yolo: bool = False,
+    ):
         super().__init__()
         self.project_dir = project_dir
         self.repo_override = repo_override
+        self.yolo = yolo
         self.project_root = resolve_project_root(project_dir)
         self.repo_root = resolve_runtime_repo_root(self.project_root, repo_override)
         self._web_server: BaseWSGIServer | None = None
@@ -229,6 +255,8 @@ class KobAgentApp(App):
             with Vertical(id="commands-pane"):
                 yield Static(self._commands_text(), id="commands-list")
 
+        yield Static("", id="yolo-banner")
+
         with Vertical(classes="canvas-box"):
             yield Static("", id="canvas-status")
             with VerticalScroll(id="canvas-scroll"):
@@ -245,6 +273,10 @@ class KobAgentApp(App):
         self.query_one("#model-label").update(model_line)
         directory_line = _("Current directory:\n{path}").format(path=Path.cwd())
         self.query_one("#directory-line").update(directory_line)
+        if self.yolo:
+            banner = self.query_one("#yolo-banner", Static)
+            banner.update(f"⚠ {YOLO_WARNING_TEXT}")
+            banner.add_class("visible")
         self.query_one("#prompt").focus()
         self._refresh_status_panels()
 
@@ -304,6 +336,32 @@ class KobAgentApp(App):
         del self._log_lines[:-MAX_LOG_LINES]
         self.query_one("#canvas", Static).update("\n".join(self._log_lines))
         self.query_one("#canvas-scroll", VerticalScroll).scroll_end(animate=False)
+
+    def _copy_to_clipboard(self, text: str, label: str) -> str:
+        """Copy text to the system clipboard, trying two independent mechanisms so this
+        works both locally and over SSH.
+
+        pyperclip talks to the OS clipboard directly (xclip/xsel/wl-copy on Linux, pbcopy on
+        macOS, the Win32 API on Windows) - the most reliable path for a local session, but it
+        requires one of those backends to be installed and DISPLAY/WAYLAND_DISPLAY set on
+        Linux. Textual's copy_to_clipboard() writes an OSC52 terminal escape sequence instead -
+        no local backend needed and it works over SSH, but only if the terminal emulator (and
+        any tmux/screen in between) actually supports and forwards OSC52. Neither can reliably
+        detect success on its own, so we always try pyperclip first (and report if it failed)
+        then fire the OSC52 attempt regardless - between the two, one usually lands.
+        """
+        pyperclip_error: str | None = None
+        try:
+            pyperclip.copy(text)
+        except Exception as exc:  # noqa: BLE001 - pyperclip raises different types per platform
+            pyperclip_error = str(exc)
+        self.copy_to_clipboard(text)
+        if pyperclip_error is None:
+            return _("Copied {label} to your clipboard.").format(label=label)
+        return _(
+            "Copied {label} via your terminal's clipboard escape sequence (if your terminal "
+            "supports it) - direct clipboard access failed: {error}"
+        ).format(label=label, error=pyperclip_error)
 
     def _log_from_thread(self, text: str) -> None:
         """log_sink for run_webui(): called from the web server's background thread."""
@@ -437,16 +495,14 @@ class KobAgentApp(App):
 
                 elif command_text == "/copy":
                     if self._last_reply:
-                        self.copy_to_clipboard(self._last_reply)
-                        print(_("Copied the last reply to your clipboard."))
+                        print(self._copy_to_clipboard(self._last_reply, _("the last reply")))
                     else:
                         print(_("Nothing to copy yet."))
 
                 elif command_text == "/copy-all":
                     transcript = "\n".join(self._log_lines).strip()
                     if transcript:
-                        self.copy_to_clipboard(transcript)
-                        print(_("Copied the full canvas transcript to your clipboard."))
+                        print(self._copy_to_clipboard(transcript, _("the full canvas transcript")))
                     else:
                         print(_("Nothing to copy yet."))
 
@@ -464,17 +520,8 @@ class KobAgentApp(App):
                         group="mentor",
                     )
 
-                elif command_text == "/shell":
-                    print(_("Starting the interactive OLMo-backed shell..."))
-                    run_shell(self.repo_root, self.project_root)
-
                 elif command_text in ("/ui", "/serve"):
                     print(self._start_webui())
-
-                elif command_text.startswith("/compile") or command_text.startswith("/gen"):
-                    out_dir = "./out"
-                    _run_compile_backend(None, out_dir, False)
-                    print(_("Generated template framework inside: {out}").format(out=out_dir))
 
                 elif command_text == "/exit":
                     stopped_message = self._stop_webui()
@@ -600,9 +647,17 @@ def _run_cli(argv: list[str]) -> int:
 
 def main() -> int:
     argv = sys.argv[1:]
+    yolo = "--yolo" in argv
+    if yolo:
+        argv = [arg for arg in argv if arg != "--yolo"]
+        os.environ["KOB_YOLO"] = "1"
+
     if not argv:
-        KobAgentApp().run()
+        KobAgentApp(yolo=yolo).run()
         return 0
+
+    if yolo:
+        Console().print(f"\n⚠  [bold white on red]{YOLO_WARNING_TEXT}[/bold white on red]\n")
     return _run_cli(argv)
 
 

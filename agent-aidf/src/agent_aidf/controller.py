@@ -40,15 +40,27 @@ _HTTP_TIMEOUT_SECONDS = _resolve_timeout_seconds()
 # Shared behavior contract for every controller: kob converses openly, but has no
 # file/shell tool access of its own in this mode - mutating actions always go through
 # the mentor workflow's deterministic action layer, never through raw chat output.
+# Doctrine/manifesto interpretation is deliberately NOT part of this general prompt - that
+# belongs strictly to the mentor workflow's own prompt-building (see mentor.py), so kob doesn't
+# reinterpret KAIDF doctrine on every ordinary chat turn.
 DEFAULT_CHAT_INSTRUCTIONS = (
-    "You are having an open, helpful conversation and may discuss any topic freely. "
-    "When asked about KAIDF (the Knowledge and AI Development Framework), explain its concepts "
-    "and process by drawing on the K-AIDF manifesto excerpt provided in your context - its "
-    "principles, operational best practices, and implementation phases - rather than speaking "
-    "generically. You cannot read or write files or run shell commands yourself right now; if the "
-    "user asks you to create files, scaffold something, or take an action, tell them to continue "
-    "with the mentor workflow so the change can be applied safely."
+    "You are having an open, helpful conversation and may discuss any topic freely, using your "
+    "own general knowledge and reasoning. You cannot read or write files or run shell commands "
+    "yourself right now; if the user asks you to create files, scaffold something, or take an "
+    "action, tell them to continue with the mentor workflow so the change can be applied safely."
 )
+
+# Appended to every successful reply in code, not left to the model to remember to say -
+# a small local model can't be trusted to comply with a "always add this" instruction on
+# every single turn, so the guarantee lives here instead of in the prompt.
+RESPONSE_CAVEAT = (
+    "Please review this answer yourself: check it, decide whether it's right for your "
+    "situation, and accept or reject it accordingly."
+)
+
+
+def _with_caveat(text: str) -> str:
+    return f"{text}\n\n{RESPONSE_CAVEAT}"
 
 
 def _package_version() -> str:
@@ -59,10 +71,15 @@ def _package_version() -> str:
 
 
 def _kob_identity_line(model: str) -> str:
+    version = _package_version()
     return (
-        f"You are kob, version {_package_version()}, running the {model} model. "
-        "You are an ethical and humanized agent made by Kobkob LLC. If asked who or what you "
-        "are, state exactly that identity."
+        f"You are kob, version {version} - the K-AIDF agent framework built by Kobkob LLC. "
+        f"You are currently powered by the {model} model, a separate underlying language model. "
+        "Kobkob LLC makes kob, but does NOT make the underlying model - do not attribute the model "
+        "itself to Kobkob LLC (for example, OLMo models are created by the Allen Institute for AI "
+        "and the open-source community, not by Kobkob LLC). If asked who or what you are, say "
+        f"exactly: you are kob, version {version}, powered by {model}; kob is Kobkob LLC's agent "
+        "framework, while the underlying model is a separate, independently-developed model."
     )
 
 
@@ -127,7 +144,7 @@ class OpenAIResponsesController:
         usage = data.get("usage")
         self.last_usage = usage if isinstance(usage, dict) else None
         text = self._extract_output_text(data)
-        return text if text else "OpenAI API returned no text output."
+        return _with_caveat(text) if text else "OpenAI API returned no text output."
 
     def _build_payload(self, prompt: str, repo_root: Path) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -224,7 +241,7 @@ class OllamaChatController:
         else:
             self.last_usage = None
         text = data.get("response", "")
-        return text.strip() if text else "Ollama returned no text output."
+        return _with_caveat(text.strip()) if text else "Ollama returned no text output."
 
 
 def build_controller() -> ChatController:
@@ -292,23 +309,13 @@ def _build_context_prompt(repo_root: Path, prompt: str) -> str:
                 lines.append(f"  assessment_type={doc.assessment_type}")
             if doc.risk_type:
                 lines.append(f"  risk_type={doc.risk_type}")
-            excerpt = _excerpt_for(doc)
+            # Deliberately a short teaser, not the full document - doctrine/manifesto
+            # interpretation belongs to the mentor workflow's own prompt, not generic chat.
+            excerpt = " ".join(doc.body.splitlines()[:3]).strip()[:280]
             if excerpt:
                 lines.append(f"  excerpt={excerpt}")
     lines.extend(["", "User prompt:", prompt])
     return "\n".join(lines)
-
-
-_MANIFESTO_EXCERPT_CHARS = 6000
-
-
-def _excerpt_for(doc: Document) -> str:
-    # The manifesto is the one document kob must actually reason from, not skim, when
-    # explaining KAIDF - a 3-line teaser isn't enough to cover its principles, best
-    # practices, and implementation phases, so give it the full body (bounded).
-    if doc.doctrine_category == "manifesto":
-        return doc.body.strip()[:_MANIFESTO_EXCERPT_CHARS]
-    return " ".join(doc.body.splitlines()[:3]).strip()[:280]
 
 
 def select_context_documents(documents: list[Document], prompt: str, limit: int = 5) -> list[Document]:
@@ -364,8 +371,6 @@ def _score_document(doc: Document, prompt_norm: str, terms: list[str]) -> int:
         score += 180
     if doc.canonical_doctrine:
         score += 40
-    if doc.doctrine_category == "manifesto" and ("kaidf" in terms or prompt_norm == "kaidf"):
-        score += 200
     if doc.pack == "ethical-model":
         score += _ethical_pack_bias(doc, prompt_norm, terms)
     if doc.pack == "maturity-model":

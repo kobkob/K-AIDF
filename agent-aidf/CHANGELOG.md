@@ -6,6 +6,25 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-04
+
+### Added
+
+- kob can now propose and apply real actions during the mentor workflow, via a new prompt-engineered action protocol (`agent_aidf.tools`, since local Ollama has no native tool-calling): `write_file` drafts or updates a project file, `run_shell` runs a one-shot shell command from the project root (captured output, timeout). Both are sandboxed to the project root and, by default, always paused for explicit user confirmation before anything happens - the user sees the exact proposed content/command first
+- `kob --yolo`: disables the write_file/run_shell confirmation pause for the session (both CLI and TUI, and `kob --yolo ui`), applying proposed actions immediately instead. A bold warning is shown immediately in every interface - a persistent red banner in the TUI, a `rich`-rendered warning before CLI output, and a red banner in the web UI (new `yolo` field on `/api/status`). Deliberately does NOT bypass phase-acceptance confirmation, which is a methodology quality gate, not a tool-safety guardrail
+- the mentor workflow's question order is now driven by the real 5 K-AIDF Basic phases (`contracts.basic_phase_definitions()`) instead of 8 unrelated doctrine categories, and a phase only reaches "done" once its artifact files under `docs/0N_.../` are actually filled in (not the generator's blank scaffold) AND the user explicitly accepts it - never from raw question/step count. `maturity.phase_progress`/`phase_snapshot` and `ProjectStatus.mentor_accepted_phases` reflect this
+- kob now states a clear identity ("kob, version X, built by Kobkob LLC") and explicitly disclaims that the underlying model (e.g. OLMo) is a separate, independently-developed model, not a Kobkob LLC product - fixing a prior ambiguity that could read as attributing the model itself to Kobkob LLC
+- every real chat/mentor reply now carries a short, deterministic reminder to review, verify, and decide whether to accept it - appended in code (not left to the model to remember)
+
+### Changed
+
+- `/shell`, `/compile`, and `/gen` are no longer TUI slash-commands (the web UI never had them). `kob shell`, `kob compile`, and `kob gen` remain fully intact as CLI subcommands; the agent's own access to that capability now goes through the confirmed `run_shell` action instead
+- generic chat/`/shell` no longer draws on the K-AIDF manifesto or gets told to interpret KAIDF doctrine - that's back to being the mentor workflow's job alone, reversing an overreach from 0.5.2
+
+### Fixed
+
+- `/copy` and `/copy-all` in the TUI now actually reach the system clipboard: they try `pyperclip` first (xclip/xsel/wl-copy/pbcopy/Win32, reliable for local sessions) and always also fire the OSC52 terminal escape sequence as a second attempt (works over SSH). A failed `pyperclip` attempt is reported honestly instead of silently doing nothing
+
 ## [0.5.3] - 2026-07-31
 
 ### Added
