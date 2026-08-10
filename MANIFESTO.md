@@ -1,238 +1,242 @@
-KAIDF Manifesto
-Framework for the Ethical, Responsible, and Humane Use of Artificial Intelligence
+# KAIDF Manifesto
+### Framework for the Ethical, Responsible, and Humane Use of Artificial Intelligence
 
-Artificial intelligence is profoundly transforming the way we produce knowledge, make decisions, and organize institutions.
+- Artificial intelligence is profoundly transforming the way we produce knowledge, make decisions, and organize institutions.
 
-It enhances human analytical capacity, accelerates processes, and creates new possibilities for addressing complex challenges. However, no technology can replace the values ​​that guide human responsibility.
+- It enhances human analytical capacity, accelerates processes, and creates new possibilities for addressing complex challenges. However, no technology can replace the values ​​that guide human responsibility.
 
-The true challenge of artificial intelligence is not merely technical; it is ethical, institutional, and human.
+- The true challenge of artificial intelligence is not merely technical; it is ethical, institutional, and human.
 
-This manifesto establishes the foundations of the KAIDF—Knowledge and Artificial Intelligence Development Framework—a structure focused on the governance, application, and continuous improvement of the use of artificial intelligence.
+- This manifesto establishes the foundations of the KAIDF—Knowledge and Artificial Intelligence Development Framework—a structure focused on the governance, application, and continuous improvement of the use of artificial intelligence.
 
-We are committed to ensuring that AI is used in a manner that is:
+- We are committed to ensuring that AI is used in a manner that is:
 
-ethical
+    . ethical
 
-responsible
+    . responsible
 
-transparent
+    . transparent
 
-secure
+    . secure
 
-auditable
+    . auditable
 
-human-centric
+    . human-centric
 
-1. Artificial intelligence must serve humanity
+## 1. Artificial intelligence must serve humanity
 
 AI must enhance human capabilities, never replace ethical judgment, institutional responsibility, or human conscience.
 
-2. Responsibility is always human
+## 2. Responsibility is always human
 
 Responsibility for the outcomes of any AI-assisted system is non-transferable.
 
-3. Ethics is the foundation of AI use
+## 3. Ethics is the foundation of AI use
 
 The use of artificial intelligence must respect human dignity, equity, justice, institutional integrity, and a commitment to the public good.
 
-4. Transparency is a prerequisite for trust
+## 4. Transparency is a prerequisite for trust
 
 The use of AI must be clear, understandable, and communicable whenever relevant.
 
-5. AI must operate within defined limits
+## 5. AI must operate within defined limits
 
 Every AI application must take place within previously established and approved boundaries.
 
-6. Human validation is mandatory
+## 6. Human validation is mandatory
 
 AI-generated results must be evaluated, verified, and approved by responsible individuals prior to institutional use.
 
-7. Quality precedes efficiency
+## 7. Quality precedes efficiency
 
 Speed does not replace rigor.
 
-8. Data must be protected and respected
+## 8. Data must be protected and respected
 
-The use of data in AI systems must respect privacy, security, data minimization, the right to be forgotten, and applicable laws, such as the LGPD. 9. Responsible AI use requires continuous training
+The use of data in AI systems must respect privacy, security, data minimization, the right to be forgotten, and applicable laws, such as the LGPD. 
+
+## 9. Responsible AI use requires continuous training
 
 AI governance relies on a skilled workforce.
 
-10. The KAIDF is a living framework
+## 10. The KAIDF is a living framework
 
 Policies, practices, and guidelines must be continuously evaluated, reviewed, and improved.
 
-4. The 10 Principles of the KAIDF
+# The 10 Principles of the KAIDF
 
-Human-Centricity — AI augments human capabilities but does not replace ethical and institutional responsibility.
+- Human-Centricity — AI augments human capabilities but does not replace ethical and institutional responsibility.
 
-Non-transferable Responsibility — Organizations and professionals are accountable for outcomes, even when using AI.
+- Non-transferable Responsibility — Organizations and professionals are accountable for outcomes, even when using AI.
 
-Ethics as a Foundation — Every application must respect dignity, equity, justice, and the common good.
+- Ethics as a Foundation — Every application must respect dignity, equity, justice, and the common good.
 
-Transparency — AI usage must be clear, understandable, and communicable.
+- Transparency — AI usage must be clear, understandable, and communicable.
 
-Automation Limits — Automation must respect predefined boundaries.
+- Automation Limits — Automation must respect predefined boundaries.
 
-Human Validation — All significant AI outputs require human verification.
+- Human Validation — All significant AI outputs require human verification.
 
-Quality — Accuracy, reliability, and consistency take precedence over speed.
+- Quality — Accuracy, reliability, and consistency take precedence over speed.
 
-Data Protection — Data usage must respect privacy, security, and legal compliance.
+- Data Protection — Data usage must respect privacy, security, and legal compliance.
 
-Continuous Learning — AI maturity relies on ongoing training.
+- Continuous Learning — AI maturity relies on ongoing training.
 
-Continuous Improvement — The framework must evolve based on practice, review, and learning.
+- Continuous Improvement — The framework must evolve based on practice, review, and learning.
 
-5. Operational Best Practices
+# Operational Best Practices
 
-Define the purpose before using AI.
+- Define the purpose before using AI.
 
-Assess risks prior to implementation.
+- Assess risks prior to implementation.
 
-Establish automation limits.
+- Establish automation limits.
 
-Ensure human oversight.
+- Ensure human oversight.
 
-Validate outputs before publication.
+- Validate outputs before publication.
 
-Avoid blind reliance on systems.
+- Avoid blind reliance on systems.
 
-Protect sensitive data.
+- Protect sensitive data.
 
-Document relevant processes.
+- Document relevant processes.
 
-Record lessons learned and errors.
+- Record lessons learned and errors.
 
-Train teams regularly.
+- Train teams regularly.
 
-Explain decisions when necessary.
+- Explain decisions when necessary.
 
-Monitor output quality.
+- Monitor output quality.
 
-Avoid replicating biases.
+- Avoid replicating biases.
 
-Periodically review AI policies.
+- Periodically review AI policies.
 
-Prioritize positive social impact.
+- Prioritize positive social impact.
 
-6. Implementation Framework
-KAIDF operational workflow
+# Implementation Framework
 
-Intent — define purpose, objectives, scope, and context.
+### KAIDF operational workflow
 
-Defining Limits — establish what can and cannot be automated. AI-Assisted Use — using AI as a support tool within approved boundaries.
+1. Intent — define purpose, objectives, scope, and context.
 
-Human Validation — reviewing and approving relevant outputs.
+2. Defining Limits — establish what can and cannot be automated. AI-Assisted Use — using AI as a support tool within approved boundaries.
 
-Documentation and Record-Keeping — logging decisions, usage, risks, and evidence.
+3. Human Validation — reviewing and approving relevant outputs.
 
-Organizational Learning — consolidating failures, successes, and lessons learned.
+4. Documentation and Record-Keeping — logging decisions, usage, risks, and evidence.
 
-Continuous Improvement — reviewing policies, controls, and practices.
+5. Organizational Learning — consolidating failures, successes, and lessons learned.
 
-7. KAIDF-AMM Maturity Model
-Level 1 — Experimental
+6. Continuous Improvement — reviewing policies, controls, and practices.
+
+# KAIDF-AMM Maturity Model
+
+## Level 1 — Experimental
 
 Informal, unstructured use; no governance.
 
-Level 2 — Aware
+## Level 2 — Aware
 
 Institutional recognition of AI use and initial guidelines.
 
-Level 3 — Structured
+## Level 3 — Structured
 
 Formal policies, defined oversight, and established human validation.
 
-Level 4 — Integrated
+## Level 4 — Integrated
 
 AI embedded in processes with governance, risk assessment, and auditing.
 
-Level 5 — Transformative
+## Level 5 — Transformative
 
 Responsible AI as an institutional culture, with continuous improvement and external contribution.
 
-Assessment Dimensions
+# Assessment Dimensions
 
-Governance
+- Governance
 
-AI Usage
+- AI Usage
 
-Responsibility and Ethics
+- Responsibility and Ethics
 
-Quality and Validation
+- Quality and Validation
 
-Protection of Data
+- Protection of Data
 
-Capacity Building
+- Capacity Building
 
-8. Governance Model to be developed
+# Governance Model to be developed
 Suggested structure
 
-AI Governance Committee
+- AI Governance Committee
 
-AI Governance Lead
+- AI Governance Lead
 
-Data and Privacy Lead
+- Data and Privacy Lead
 
-Process owners / AI use case owners
+# Process owners / AI use case owners
 
-Periodic internal audit
+- Periodic internal audit
 
-Expected functions
+- Expected functions
 
-approve policies and revisions
+    - approve policies and revisions
 
-classify risks
+    - classify risks
 
-define automation limits
+    - define automation limits
 
-oversee audits and incidents
+    - oversee audits and incidents
 
-approve training paths
+    - approve training paths
 
-monitor institutional maturity
+    - monitor institutional maturity
 
-9. Certification and Training
+# Certification and Training
 Objective
 
-Transform the KAIDF into a foundation for:
+- Transform the KAIDF into a foundation for:
 
-organizational certification
+    - organizational certification
 
-team capacity building
+    - team capacity building
 
-training of auditors and implementers
+    - training of auditors and implementers
 
-practical adoption by companies and institutions
+    - practical adoption by companies and institutions
 
-Planned path
+- Planned path
 
-awareness-raising
+    - awareness-raising
 
-responsible AI fundamentals
+    - responsible AI fundamentals
 
-framework implementation
+    - framework implementation
 
-governance and risk assessment
+    - governance and risk assessment
 
-audit and continuous improvement
+    - audit and continuous improvement
 
-10. Applications and Ecosystem
+# Applications and Ecosystem
 
-The planned KAIDF ecosystem includes:
+- The planned KAIDF ecosystem includes:
 
-1. Framework generator by contract or project type
+### 1. Framework generator by contract or project type
 
 Examples: maintenance, development, SEO, customer service, content, research, operations.
 
-2. MCP Server
+### 2. MCP Server
 
 Integration layer between models, AI engines, and rules derived from the generated framework.
 
-3. Operational agent
+### 3. Operational agent
 
 Agent that handles contact, research, assessment, and project operations with users based on the MCP Server and the generated framework.
 
-4. Licensable applications
+### 4. Licensable applications
 
 Framework implementation apps, potentially compatible with open licenses aligned with the OSI ecosystem.
