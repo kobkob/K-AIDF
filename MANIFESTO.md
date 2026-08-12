@@ -63,6 +63,16 @@ AI governance relies on a skilled workforce.
 
 Policies, practices, and guidelines must be continuously evaluated, reviewed, and improved.
 
+# Official Infographic
+
+### **The 5 Steps:**
+
+1. Intent and Constraints
+2. Discovery and Mapping
+3. Design and Simulation
+4. Execution and Instrumentation
+5. Verification and Handover
+
 # The 10 Principles of the KAIDF
 
 - Human-Centricity — AI augments human capabilities but does not replace ethical and institutional responsibility.
