@@ -3,6 +3,10 @@
 K-AIDF (Knowledge and Artificial Intelligence Development Framework) is a governance framework for the ethical, responsible, and human-centered use of AI, paired with the tooling that implements it. This repository — **kaidf core** — is the single source tree for that tooling. See `MANIFESTO.md` for the framework's founding principles.
 
 K-AIDF uses itself as its own creation tool: the generator scaffolds a K-AIDF repository, the agent (`kob`) guides a creator through it, and the MCP server exposes it to AI clients.
+### Infographic - 5 Steps
+
+<img width="1536" height="1024" alt="5 Steps" src="https://github.com/kobkob/K-AIDF/blob/main/K-AIDF%20Kobkob%20AI%20framework%20overview.png" />
+
 ### The Terminal UI
 <img width="1470" height="768" alt="TUI_0 4 2" src="https://github.com/user-attachments/assets/196cd777-fd48-48b8-ac28-4dadb7d011b8" />
 
