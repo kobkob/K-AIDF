@@ -13,6 +13,7 @@ K-AIDF uses itself as its own creation tool: the generator scaffolds a K-AIDF re
 <img width="1701" height="924" alt="achitecture_0 4 2" src="https://github.com/user-attachments/assets/598eb2fa-967a-4836-bae5-405ec44e9681" />
 
 ## Logo
+```
  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
  █  ▄▄▄    ▄▄▄  █
  █  █ █    █ █  █
@@ -21,7 +22,7 @@ K-AIDF uses itself as its own creation tool: the generator scaffolds a K-AIDF re
  █   █▀▀▀▀▀▀█   █
  █   ▀▀▀▀▀▀▀▀   █
  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-
+```
 
 ## Repository Layout
 
