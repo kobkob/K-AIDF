@@ -1,0 +1,10 @@
+server:
+  port: 8080
+  manifest_path: "/opt/kobkob/manifest.json"
+
+signing:
+  key_path: "/opt/kobkob/mcp-server/keys/private.key"
+  cert_path: "/opt/kobkob/mcp-server/keys/public.cert"
+
+logging:
+  level: "info"
