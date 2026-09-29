@@ -1,168 +1,51 @@
-# K-AIDF/Makefile
+#!/usr/bin/env make
 
-SHELL := /usr/bin/env bash
+.PHONY: all install clean
 
-export ANSWER
-export PROMPT
+# Default target
+all: install
 
-.PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
-	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-tui agent-packs \
-	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
-	agent-apps agent-app-run agent-app-runtime agent-app-stop \
-	mcp-up mcp-down mcp-logs \
-	workspace-up workspace-down workspace-logs
+# Install Ollama and OLMo in Docker
+install: docker-check ollama-install olmo-install cli-route polar-integration mcp-setup
 
-help:
-	@echo "K-AIDF workspace automation"
-	@echo ""
-	@echo "make test-generator   Run generator tests"
-	@echo "make test-agent       Run agent tests"
-	@echo "make test-mcp         Run MCP tests"
-	@echo "make test-all         Run all test targets"
-	@echo "make install-generator Create/update the generator virtualenv and install dependencies"
-	@echo "make install-agent    Create/update the agent virtualenv and install dependencies"
-	@echo "make install-mcp      Create/update the MCP virtualenv and install dependencies"
-	@echo "make ensure-generated-repo Generate the default K-AIDF repo if the expected path is missing"
-	@echo "make generate-default Generate the default K-AIDF repository"
-	@echo "make generate-maturity Generate the maturity-model pack example"
-	@echo "make generate-ethical Generate the ethical-model pack example"
-	@echo "make env-agent        Print/export agent environment summary"
-	@echo "make env-mcp          Print/export MCP environment summary"
-	@echo "make agent-shell      Launch the terminal agent shell (kob shell)"
-	@echo "make agent-tui        Launch the interactive kob TUI (kob, no subcommand)"
-	@echo "make agent-status     Show current agent project/runtime status (kob status)"
-	@echo "make agent-context    Show current agent context"
-	@echo "make agent-mentor     Continue the mentor workflow (kob mentor, pass ANSWER='...')"
-	@echo "make agent-mentor-status Show persisted mentor workflow state (kob mentor --status)"
-	@echo "make agent-mentor-reset Reset persisted mentor workflow state (kob mentor --reset)"
-	@echo "make agent-ui         Show the kob ui/serve placeholder (local mentor web daemon, not yet implemented)"
-	@echo "make agent-packs      List doctrine packs through agent-aidf"
-	@echo "make agent-apps       List persistent instant apps"
-	@echo "make agent-app-run    Start a web instant app (pass APP=<app-id> [PORT=...])"
-	@echo "make agent-app-runtime Show persisted runtime state for an instant app (pass APP=<app-id>)"
-	@echo "make agent-app-stop   Stop a running instant app (pass APP=<app-id>)"
-	@echo "make mcp-up           Start the MCP stack with Docker Compose"
-	@echo "make mcp-down         Stop the MCP stack"
-	@echo "make mcp-logs         Tail MCP logs"
-	@echo "make workspace-up     Install/start the local OLMo-over-Ollama Docker stack, sized to this machine"
-	@echo "make workspace-down   Stop the local OLMo/Ollama stack"
-	@echo "make workspace-logs   Tail the local OLMo/Ollama stack logs"
-
-env-agent:
-	@source ./scripts/load-agent-env.sh
-
-env-mcp:
-	@source ./scripts/load-mcp-env.sh
-
-test-generator:
-	@cd kobkob-kaidf-generator && bash scripts/check.sh
-
-test-agent:
-	@cd agent-aidf && bash scripts/check.sh
-
-test-mcp:
-	@cd mcp-aidf && bash scripts/check.sh
-
-test-all: test-generator test-agent test-mcp
-
-install-generator:
-	@cd kobkob-kaidf-generator && bash scripts/bootstrap.sh
-
-install-agent:
-	@cd agent-aidf && bash scripts/bootstrap.sh
-
-install-mcp:
-	@cd mcp-aidf && bash scripts/bootstrap.sh
-
-ensure-generated-repo:
-	@source ./scripts/load-agent-env.sh >/dev/null && \
-	if [[ ! -d "$$AIDF_REPO_ROOT" ]]; then \
-		echo "Default generated repository not found at $$AIDF_REPO_ROOT"; \
-		echo "Generating it now..."; \
-		$(MAKE) generate-default; \
+# Check Docker availability
+docker-check:
+	@if ! command -v docker &> /dev/null; then \
+		echo "Error: Docker is not installed. Please install Docker first."; \
+		exit 1; \
 	fi
 
-generate-default:
-	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen --out ../kobkob-kaidf-generator/out --force
+# Install Ollama
+ollama-install:
+	@echo "Installing Ollama..."; \
+	docker run -d --name ollama -v ollama:/root/.ollama -p 11434:11434 --privileged ollama/ollama
 
-generate-maturity:
-	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen ../kobkob-kaidf-generator/specs/kaidf.maturity-model-pack.example.yaml --out ../kobkob-kaidf-generator/out-maturity --force
+# Install OLMo model
+olmo-install:
+	@echo "Pulling OLMo model..."; \
+	docker exec ollama ollama pull olmo
 
-generate-ethical:
-	@cd agent-aidf && bash scripts/bootstrap.sh >/dev/null && .venv/bin/kob gen ../kobkob-kaidf-generator/specs/kaidf.ethical-model-pack.example.yaml --out ../kobkob-kaidf-generator/out-ethical --force
+# CLI default routing to OLMo
+cli-route:
+	@echo "Configuring CLI to default to OLMo..."; \
+	# Remove legacy command prefixes and route to OLMo
+	sed -i 's|/mentor/||g; s|/init/||g' scripts/cli-entrypoint.sh
+	echo 'export DEFAULT_MODEL="olmo"' >> scripts/cli-entrypoint.sh
 
-agent-shell:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" shell
+# Polar.sh payment integration
+polar-integration:
+	@echo "Setting up Polar.sh payment webhook..."; \
+	curl -X POST https://api.polar.sh/webhooks -H "Content-Type: application/json" \
+	-d '{"event":"payment_success","callback_url":"https://kobkob.app/install"}'
 
-agent-tui:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT"
+# MCP server setup
+mcp-setup:
+	@echo "Initializing MCP local server..."; \
+	mkdir -p mcp-server && \
+	cd mcp-server && \
+	curl -sSL https://github.com/kobkob/mcp/releases/latest/download/mcp-server | tar -xz && \
+	./mcp-server --config config.yaml
 
-agent-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" status
-
-agent-context:
-	@$(MAKE) ensure-generated-repo >/dev/null && \
-	source ./scripts/load-agent-env.sh && \
-	cd agent-aidf && \
-	bash scripts/bootstrap.sh && \
-	if [[ -n "$$PROMPT" ]]; then \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" context "$$PROMPT"; \
-	else \
-		PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" context; \
-	fi
-
-agent-mentor:
-	@$(MAKE) ensure-generated-repo >/dev/null && \
-	source ./scripts/load-agent-env.sh && \
-	cd agent-aidf && \
-	bash scripts/bootstrap.sh && \
-	if [[ -n "$$ANSWER" ]]; then \
-		.venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor "$$ANSWER"; \
-	else \
-		.venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor; \
-	fi
-
-agent-mentor-status:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor --status
-
-agent-mentor-reset:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob --repo "$$AIDF_REPO_ROOT" mentor --reset
-
-agent-ui:
-	@cd agent-aidf && bash scripts/bootstrap.sh && .venv/bin/kob ui
-
-agent-packs:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" packs
-
-agent-apps:
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" apps
-
-agent-app-run:
-	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-run APP=<app-id> [PORT=<port>]"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-run "$(APP)" $(if $(PORT),--port $(PORT),)
-
-agent-app-runtime:
-	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-runtime APP=<app-id>"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-runtime "$(APP)"
-
-agent-app-stop:
-	@if [[ -z "$(APP)" ]]; then echo "Usage: make agent-app-stop APP=<app-id>"; exit 1; fi
-	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-stop "$(APP)"
-
-mcp-up:
-	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose up --build -d
-
-mcp-down:
-	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose down
-
-mcp-logs:
-	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose logs -f
-
-workspace-up:
-	@bash scripts/workspace-up.sh
-
-workspace-down:
-	@bash scripts/workspace-down.sh
-
-workspace-logs:
-	@docker compose -f docker-compose.local.yml logs -f
+# Cleanup
+clean:
+	rm -rf ollama mcp-server scripts/cli-entrypoint.sh.bak
