@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Changed
+
+- removed obsolete `src/agent_aidf/cli/main.py.old` (legacy Click-based CLI with Portuguese strings), which was superseded by the current Textual+argparse architecture
+
 ## [0.5.4] - 2026-08-04
 
 ### Added
