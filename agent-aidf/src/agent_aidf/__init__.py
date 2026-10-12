@@ -1,3 +1,8 @@
+from importlib.metadata import PackageNotFoundError, version
+
 __all__ = ["__version__"]
 
-__version__ = "0.4.2"
+try:
+    __version__ = version("agent-aidf")
+except PackageNotFoundError:
+    __version__ = "unknown"

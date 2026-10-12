@@ -24,6 +24,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Fixed
 
 - `/copy` and `/copy-all` in the TUI now actually reach the system clipboard: they try `pyperclip` first (xclip/xsel/wl-copy/pbcopy/Win32, reliable for local sessions) and always also fire the OSC52 terminal escape sequence as a second attempt (works over SSH). A failed `pyperclip` attempt is reported honestly instead of silently doing nothing
+- `agent_aidf.__version__` now reads dynamically from package metadata (using `importlib.metadata.version()`) instead of maintaining a separate hardcoded constant, eliminating version drift where `__version__` could disagree with `pyproject.toml`
 
 ## [0.5.3] - 2026-07-31
 
