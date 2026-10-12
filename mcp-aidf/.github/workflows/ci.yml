@@ -40,3 +40,6 @@ jobs:
 
       - name: Import app module
         run: python -c "import app"
+
+      - name: Run tests
+        run: python -m pytest -q
