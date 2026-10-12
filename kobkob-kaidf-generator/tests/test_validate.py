@@ -39,7 +39,8 @@ def test_validate_spec_rejects_unknown_front_matter_fields() -> None:
     spec = load_yaml("specs/kaidf.default.yaml")
     spec["repo"]["files"][0]["front_matter"] = {"unknown": "value"}
 
-    with pytest.raises(SpecValidationError, match=r"repo.files.0.front_matter: Additional properties are not allowed"):
+    error_msg = r"repo.files.0.front_matter: Additional properties are not allowed"
+    with pytest.raises(SpecValidationError, match=error_msg):
         validate_spec(spec)
 
 

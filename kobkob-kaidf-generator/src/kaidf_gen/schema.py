@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import json
 import importlib.resources as pkgres
+import json
 from typing import Any
 
 import jsonschema
 from jsonschema import validators
 
 from .errors import SpecValidationError
-
 
 SCHEMA_PKG = "kaidf_gen.schemas"
 SCHEMA_FILE = "kaidf-spec.schema.json"

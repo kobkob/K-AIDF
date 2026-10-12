@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 from .errors import KaidfGenError
+from .generator import GenerateOptions, generate
 from .loader import load_yaml
 from .schema import validate_spec
-from .generator import generate, GenerateOptions
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -26,7 +26,10 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="kaidf-gen", description="Generate a K-AIDF repo from a YAML spec.")
+    parser = argparse.ArgumentParser(
+        prog="kaidf-gen",
+        description="Generate a K-AIDF repo from a YAML spec.",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     pval = sub.add_parser("validate", help="Validate a spec file.")
@@ -36,7 +39,11 @@ def main(argv: list[str] | None = None) -> None:
     pgen = sub.add_parser("generate", help="Generate a repo from a spec.")
     pgen.add_argument("spec", help="Path to YAML spec.")
     pgen.add_argument("--out", required=True, help="Output directory to generate into.")
-    pgen.add_argument("--force", action="store_true", help="Allow writing into a non-empty directory.")
+    pgen.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow writing into a non-empty directory.",
+    )
     pgen.set_defaults(func=cmd_generate)
 
     args = parser.parse_args(argv)

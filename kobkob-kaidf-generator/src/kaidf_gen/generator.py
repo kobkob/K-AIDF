@@ -26,7 +26,8 @@ def _ensure_empty_or_force(out_dir: Path, force: bool) -> None:
             raise GenerationError(f"Output path exists and is not a directory: {out_dir}")
         # If non-empty and not forced -> error
         if any(out_dir.iterdir()) and not force:
-            raise GenerationError(f"Output directory is not empty: {out_dir} (use --force to overwrite)")
+            msg = f"Output directory is not empty: {out_dir} (use --force to overwrite)"
+            raise GenerationError(msg)
     else:
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -86,7 +87,9 @@ def _write_file(
 ) -> None:
     rel_path = file_spec["path"]
     out_path = safe_join(out_dir, rel_path)
-    front_matter = _resolve_front_matter(rel_path, repo_metadata_defaults, section_metadata_defaults, file_spec)
+    front_matter = _resolve_front_matter(
+        rel_path, repo_metadata_defaults, section_metadata_defaults, file_spec
+    )
     content = _resolve_content(file_spec)
     if front_matter and content.startswith("---\n"):
         raise GenerationError(f"Content already contains front matter: {rel_path}")

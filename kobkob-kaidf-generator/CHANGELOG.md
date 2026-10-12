@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Fixed
+
+- resolved all `ruff` linting errors in CI: import organization and line-length violations in `src/kaidf_gen/cli.py`, `src/kaidf_gen/generator.py`, and test files
+
 ## [0.1.5] - 2026-07-30
 
 ### Changed

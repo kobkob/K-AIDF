@@ -46,9 +46,9 @@ def test_generate_default_spec_writes_expected_files(tmp_path: Path) -> None:
         "status: active\n"
         "---\n\n"
     )
-    assert (target / "docs/01_intent_constraints/exit-criteria.md").read_text(encoding="utf-8").startswith(
-        "# Exit Criteria"
-    )
+    file_path = target / "docs/01_intent_constraints/exit-criteria.md"
+    content = file_path.read_text(encoding="utf-8")
+    assert content.startswith("# Exit Criteria")
 
 
 def test_generate_rejects_non_empty_output_without_force(tmp_path: Path) -> None:
@@ -154,7 +154,11 @@ def test_generate_preserves_pack_specific_front_matter_fields(tmp_path: Path) ->
         "version": "1.0",
         "repo": {
             "name": "demo",
-            "metadata_defaults": {"visibility": "internal", "status": "active", "pack": "maturity-model"},
+            "metadata_defaults": {
+                "visibility": "internal",
+                "status": "active",
+                "pack": "maturity-model",
+            },
             "files": [],
         },
         "sections": [
@@ -177,7 +181,8 @@ def test_generate_preserves_pack_specific_front_matter_fields(tmp_path: Path) ->
     }
 
     target = generate(spec, tmp_path, GenerateOptions(force=False))
-    content = (target / "docs/10-maturity-model/levels/01-experimental.md").read_text(encoding="utf-8")
+    file_path = target / "docs/10-maturity-model/levels/01-experimental.md"
+    content = file_path.read_text(encoding="utf-8")
 
     assert content.startswith(
         "---\n"
