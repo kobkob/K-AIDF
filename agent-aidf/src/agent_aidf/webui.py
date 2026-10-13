@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import hmac
+import html
+import secrets
 import threading
 import time
+from functools import wraps
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request
 from werkzeug.serving import BaseWSGIServer, make_server
 
 from .i18n import _
@@ -16,8 +21,25 @@ from .tools import is_yolo_enabled
 
 STATIC_DIR = Path(__file__).resolve().parent / "webui_dist"
 
+API_TOKEN_HEADER = "X-KAIDF-Token"
+API_TOKEN_PLACEHOLDER = "__KAIDF_API_TOKEN__"
+LOCAL_HOSTNAMES = frozenset({"127.0.0.1", "localhost"})
+
 LogSink = Callable[[str], None]
 ServerReadyCallback = Callable[[BaseWSGIServer], None]
+
+
+def _host_allowed(host_header: str, port: int | None) -> bool:
+    """Accept only loopback hostnames (DNS-rebinding guard), on this server's port when known."""
+    name, sep, host_port = host_header.partition(":")
+    if name not in LOCAL_HOSTNAMES:
+        return False
+    return port is None or (bool(sep) and host_port == str(port))
+
+
+def _origin_allowed(origin: str, port: int | None) -> bool:
+    parts = urlsplit(origin)
+    return parts.scheme == "http" and _host_allowed(parts.netloc, port)
 
 
 def _status_payload(project_root: Path, repo_root: Path) -> dict:
@@ -38,7 +60,12 @@ def _status_payload(project_root: Path, repo_root: Path) -> dict:
     }
 
 
-def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = None) -> Flask:
+def create_app(
+    project_root: Path,
+    repo_root: Path,
+    log_sink: LogSink | None = None,
+    port: int | None = None,
+) -> Flask:
     if not STATIC_DIR.is_dir():
         raise RuntimeError(
             f"Web UI static assets not found at {STATIC_DIR}. "
@@ -47,10 +74,36 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
 
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
     app.config["_server"] = None
+    # Per-process secret: the served page embeds it, and every state-changing
+    # request must echo it back in API_TOKEN_HEADER. Never persisted.
+    api_token = secrets.token_hex(32)
+    app.config["API_TOKEN"] = api_token
 
     def log(line: str) -> None:
         if log_sink is not None:
             log_sink(line)
+
+    @app.before_request
+    def _check_host_and_origin():
+        # Host must be loopback: a DNS-rebinding page resolves to 127.0.0.1 but keeps its own Host.
+        if not _host_allowed(request.host, port):
+            return jsonify({"error": "forbidden_host"}), 403
+        origin = request.headers.get("Origin")
+        if origin is not None and not _origin_allowed(origin, port):
+            return jsonify({"error": "forbidden_origin"}), 403
+        return None
+
+    def require_api_token(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            provided = request.headers.get(API_TOKEN_HEADER)
+            if provided is None:
+                return jsonify({"error": "authentication_required"}), 401
+            if not hmac.compare_digest(provided.encode("utf-8"), api_token.encode("utf-8")):
+                return jsonify({"error": "invalid_token"}), 403
+            return view(*args, **kwargs)
+
+        return wrapper
 
     @app.after_request
     def _log_request(response):
@@ -63,6 +116,7 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
         return jsonify(_status_payload(project_root, repo_root))
 
     @app.post("/api/mentor")
+    @require_api_token
     def api_mentor():
         payload = request.get_json(silent=True) or {}
         answer = payload.get("answer") or None
@@ -84,6 +138,7 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
         )
 
     @app.post("/api/exit")
+    @require_api_token
     def api_exit():
         server = app.config.get("_server")
         if server is not None:
@@ -93,7 +148,11 @@ def create_app(project_root: Path, repo_root: Path, log_sink: LogSink | None = N
 
     @app.get("/")
     def index():
-        return send_from_directory(STATIC_DIR, "index.html")
+        page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        page = page.replace(API_TOKEN_PLACEHOLDER, html.escape(api_token, quote=True))
+        response = Response(page, mimetype="text/html")
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     return app
 
@@ -107,7 +166,7 @@ def run_webui(
     on_server_ready: ServerReadyCallback | None = None,
 ) -> None:
     """Serve the kob web UI until stopped via /api/exit, Ctrl+C, or an external shutdown() call."""
-    app = create_app(project_root, repo_root, log_sink=log_sink)
+    app = create_app(project_root, repo_root, log_sink=log_sink, port=port)
     server = make_server(host, port, app)
     app.config["_server"] = server
     if on_server_ready is not None:
