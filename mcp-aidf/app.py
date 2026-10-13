@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -9,7 +10,9 @@ import yaml
 from flask import Flask, jsonify, make_response, redirect, request
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-in-prod")
+# No hardcoded fallback: without SECRET_KEY a random per-process secret is used
+# (fine for local runs). Containers require SECRET_KEY via docker-compose.yml.
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(32)
 
 SERVER_VERSION = "0.1.2"
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"

@@ -25,4 +25,5 @@ export AIDF_REPO_ROOT="${AIDF_REPO_ROOT:-${KAIDF_GENERATED_REPO}}"
 export AIDF_REPO_HOST_PATH="${AIDF_REPO_HOST_PATH:-${AIDF_REPO_ROOT}}"
 export OPENAI_MODEL="${OPENAI_MODEL:-gpt-5}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
-export SECRET_KEY="${SECRET_KEY:-change-me}"
+# No default: docker-compose.yml fails fast when SECRET_KEY is empty.
+export SECRET_KEY="${SECRET_KEY:-}"

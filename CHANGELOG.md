@@ -17,6 +17,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `make workspace-up` now installs and starts a local OLMo-over-Ollama Docker stack sized to the host: `scripts/detect-ollama-model.sh` picks a model tag from detected RAM/disk/GPU (falling back between `olmo2:7b-1124-instruct-q4_K_M` and `olmo2:13b-1124-instruct-q4_K_M`, or erroring clearly if the machine can't run either), `scripts/workspace-up.sh` starts `docker-compose.local.yml` (now with a healthcheck and `restart: unless-stopped`, plus an optional `docker-compose.gpu.yml` NVIDIA overlay), pulls the model, and persists `AIDF_MODEL`/`OLLAMA_HOST`/`KAIDF_LOCAL_INFERENCE` into the workspace `.env`; `make workspace-down`/`workspace-logs` and a new `make agent-tui` round it out
 - `.env.example` documents `AIDF_CHAT_PROVIDER`, `OLLAMA_HOST`, `AIDF_MODEL`, and `AIDF_OLLAMA_MODEL` for the new local-inference path (see `agent-aidf`'s own changelog for the `kob`-side wiring)
 
+### Security
+
+- `mcp-aidf` (#29): the Docker image now runs as an unprivileged `appuser` and serves the app with `gunicorn` instead of the Flask development server; `requirements.txt` pins every runtime dependency (Flask `3.1.3`, Werkzeug, PyYAML, gunicorn, and transitive packages) instead of `Flask==3.0.0` plus an unpinned `PyYAML`; the hardcoded `SECRET_KEY` placeholders are gone (`docker-compose.yml` now requires `SECRET_KEY` from the environment, `.env.example` and `scripts/env-common.sh` no longer default to `change-me`, and `scripts/load-mcp-env.sh` no longer prints the secret); without `SECRET_KEY`, direct runs of `app.py` use a random per-process secret instead of `dev-key-change-in-prod` (see `mcp-aidf`'s own changelog)
+
 ## [0.1.3] - 2026-03-20
 
 ### Added

@@ -98,7 +98,7 @@ docker compose logs -f
 ## Configuration
 
 Environment variables in `docker-compose.yml`:
-- `SECRET_KEY` - Flask session secret
+- `SECRET_KEY` - Flask session secret. Required by `docker-compose.yml` (no default; `docker compose` fails if it is unset or empty). Set it in the root `.env` (see `.env.example`).
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
 
 Docker Compose also expects:
