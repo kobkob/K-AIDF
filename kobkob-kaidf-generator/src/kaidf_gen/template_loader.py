@@ -4,6 +4,7 @@ import importlib.resources as pkgres
 from pathlib import Path
 
 from .errors import TemplateNotFoundError
+from .utils import safe_join
 
 LIB_ROOT = "kaidf_gen.templates.library"
 
@@ -21,9 +22,13 @@ def list_library_keys() -> list[str]:
 
 
 def load_template_by_key(key: str) -> str:
-    """Load a template from the packaged library by relative path key."""
+    """Load a template from the packaged library by relative path key.
+
+    Raises UnsafePathError when the key resolves outside the library (e.g. ``../`` segments).
+    """
     key = key.lstrip("/").replace("\\", "/")
-    with pkgres.as_file(pkgres.files(LIB_ROOT) / key) as p:
-        if not p.exists() or not p.is_file():
+    with pkgres.as_file(pkgres.files(LIB_ROOT)) as libdir:
+        path = safe_join(Path(libdir), key)
+        if not path.is_file():
             raise TemplateNotFoundError(f"Template key not found in library: {key}")
-        return p.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
