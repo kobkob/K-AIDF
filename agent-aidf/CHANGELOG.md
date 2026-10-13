@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- web UI `POST /api/mentor` and `POST /api/exit` now require a per-process token (`X-KAIDF-Token`, embedded in the served page as a meta tag and compared with `hmac.compare_digest`): missing token returns 401, wrong token returns 403
+- web UI rejects requests whose `Host` is not `127.0.0.1`/`localhost` on the server's port (DNS-rebinding guard) and cross-origin `Origin` headers, on every route, with 403
+
 ### Changed
 
 - removed obsolete `src/agent_aidf/cli/main.py.old` (legacy Click-based CLI with Portuguese strings), which was superseded by the current Textual+argparse architecture

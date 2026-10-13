@@ -66,10 +66,15 @@ async function getStatus(): Promise<Status> {
   return response.json()
 }
 
+// Per-process token injected by the server into the served page (see webui.py).
+function apiToken(): string {
+  return document.querySelector<HTMLMetaElement>('meta[name="kaidf-api-token"]')?.content ?? ""
+}
+
 async function postMentor(answer: string | null): Promise<MentorResponse> {
   const response = await fetch("/api/mentor", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-KAIDF-Token": apiToken() },
     body: JSON.stringify({ answer }),
   })
   if (!response.ok) {
@@ -80,7 +85,7 @@ async function postMentor(answer: string | null): Promise<MentorResponse> {
 }
 
 async function postExit(): Promise<void> {
-  await fetch("/api/exit", { method: "POST" })
+  await fetch("/api/exit", { method: "POST", headers: { "X-KAIDF-Token": apiToken() } })
 }
 
 function PhaseCard({ phase }: { phase: Phase }) {

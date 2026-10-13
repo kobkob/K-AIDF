@@ -20,6 +20,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 ### Security
 
 - `mcp-aidf` (#29): the Docker image now runs as an unprivileged `appuser` and serves the app with `gunicorn` instead of the Flask development server; `requirements.txt` pins every runtime dependency (Flask `3.1.3`, Werkzeug, PyYAML, gunicorn, and transitive packages) instead of `Flask==3.0.0` plus an unpinned `PyYAML`; the hardcoded `SECRET_KEY` placeholders are gone (`docker-compose.yml` now requires `SECRET_KEY` from the environment, `.env.example` and `scripts/env-common.sh` no longer default to `change-me`, and `scripts/load-mcp-env.sh` no longer prints the secret); without `SECRET_KEY`, direct runs of `app.py` use a random per-process secret instead of `dev-key-change-in-prod` (see `mcp-aidf`'s own changelog)
+- `agent-aidf` (#30): the web UI's `POST /api/mentor` and `POST /api/exit` require a per-process token (`X-KAIDF-Token`, 401 when missing, 403 when wrong), and every route rejects non-loopback `Host` and cross-origin `Origin` headers with 403 (see `agent-aidf`'s own changelog)
 
 ## [0.1.3] - 2026-03-20
 
