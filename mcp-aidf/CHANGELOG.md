@@ -10,6 +10,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - pytest test suite is now automatically run in CI/CD pipeline (`.github/workflows/ci.yml`)
 
+### Security
+
+- Dockerfile runs as a non-root `appuser` and serves the app with `gunicorn` (`app:app`, port 7777) instead of the Flask development server (`python app.py`)
+- `requirements.txt` pins all runtime dependencies, including transitive ones: `Flask==3.1.3` (was `3.0.0`), `Werkzeug==3.1.9`, `PyYAML==6.0.3` (was `>=6.0.1`), `gunicorn==26.2.0`
+- removed the `SECRET_KEY` placeholders: `docker-compose.yml` requires `SECRET_KEY` from the environment (`${SECRET_KEY:?...}`, no default), and `app.py` no longer falls back to the hardcoded `dev-key-change-in-prod`, using a random per-process secret when unset
+
 ## [0.1.2] - 2026-03-20
 
 ## [0.1.1] - 2026-03-20

@@ -13,4 +13,8 @@ echo "mcp-aidf environment loaded"
 echo "KAIDF_WORKSPACE_ROOT=${KAIDF_WORKSPACE_ROOT}"
 echo "AIDF_REPO_ROOT=${AIDF_REPO_ROOT}"
 echo "AIDF_REPO_HOST_PATH=${AIDF_REPO_HOST_PATH}"
-echo "SECRET_KEY=${SECRET_KEY}"
+if [[ -n "${SECRET_KEY:-}" ]]; then
+  echo "SECRET_KEY=<set>"
+else
+  echo "SECRET_KEY=<unset> (required by mcp-aidf; see .env.example)"
+fi
