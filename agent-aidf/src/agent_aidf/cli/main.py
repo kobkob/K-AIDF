@@ -120,7 +120,12 @@ def ui_port() -> int:
 def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
     generator_repo = locate_generator_repo()
     generator_python = resolve_generator_python(generator_repo)
-    spec_path = Path(spec).expanduser() if spec else generator_repo / "specs/kaidf.default.yaml"
+    # Resolve against the caller's cwd before switching to the generator repo below,
+    # otherwise relative paths would land inside the generator checkout.
+    spec_path = (
+        Path(spec).expanduser().resolve() if spec else generator_repo / "specs/kaidf.default.yaml"
+    )
+    out_path = Path(out).expanduser().resolve()
     command = [
         str(generator_python),
         "-m",
@@ -128,7 +133,7 @@ def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
         "generate",
         str(spec_path),
         "--out",
-        str(Path(out).expanduser()),
+        str(out_path),
     ]
     if force:
         command.append("--force")
