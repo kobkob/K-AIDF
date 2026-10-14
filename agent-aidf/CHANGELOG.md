@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Fixed
 
 - `kob gen`/`kob compile` now resolve relative `--out` and `spec` paths against the directory you ran the command from (#39). Previously the generator subprocess ran with `cwd` set to the generator repository, so `kob gen --out ./out` wrote into the generator checkout instead of your project
+- front matter parsing (`repo.py`) accepts CRLF line endings, so documents saved with Windows line endings keep their metadata (title, phase, pack, ...) instead of silently losing it (#32)
 
 ## [0.5.4] - 2026-08-04
 
