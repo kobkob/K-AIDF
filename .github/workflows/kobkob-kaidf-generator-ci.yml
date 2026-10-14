@@ -22,9 +22,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Known backlog: existing Markdown does not pass markdownlint yet. Reported but not blocking.
       - name: Lint Markdown
-        continue-on-error: true
         run: npx --yes markdownlint-cli2 "**/*.md" "!**/node_modules/**"
 
       - name: Set up Python
@@ -38,9 +36,7 @@ jobs:
       - name: Lint Python
         run: python -m ruff check .
 
-      # Known backlog: three files are not ruff-formatted yet. Reported but not blocking.
       - name: Check Python formatting
-        continue-on-error: true
         run: python -m ruff format --check .
 
       - name: Run tests

@@ -10,24 +10,28 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 ## Key Implementation Details
 
 ### OAuth Flow
+
 - Implements full OAuth 2.1 with PKCE
 - Supports dynamic client registration (DCR)
 - Handles `resource` parameter binding as required by OpenAI
 - Returns proper `token_endpoint_auth_method` in registration
 
 ### MCP Protocol
+
 - JSON-RPC 2.0 over HTTP POST
 - Protocol version negotiation (echoes client's requested version)
 - Proper error handling with `_meta["mcp/www_authenticate"]` for OAuth triggers
 - WWW-Authenticate headers on 401 responses
 
 ### ChatGPT Connector Requirements
+
 - Must expose `search` and `fetch` tools (OpenAI requirement)
 - Tools return content as `[{"type": "text", "text": "..."}]` format
 - Handles both form-encoded and JSON token requests
 - Includes `issuer` field in OAuth metadata
 
 ## Current Status
+
 - ✅ Successfully creates ChatGPT connectors
 - ✅ OAuth linking flow works
 - ✅ Basic local repository-backed search/fetch implementation
@@ -40,5 +44,6 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - 🔄 Uses a single configured local K-AIDF repository root as the first content model
 
 ## Next Steps for Enhancement
+
 1. Add proper logging and monitoring
 2. Support more than one repository root if needed

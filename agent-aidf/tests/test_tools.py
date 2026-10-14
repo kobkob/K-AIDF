@@ -74,7 +74,9 @@ def test_resolve_safe_path_rejects_escaping_paths(tmp_path: Path, escaping_path:
 
 
 def test_apply_write_action_writes_file_and_creates_parents(tmp_path: Path) -> None:
-    action = ProposedAction(kind="write_file", path="docs/01_intent_constraints/templates/ICB.md", content="hello")
+    action = ProposedAction(
+        kind="write_file", path="docs/01_intent_constraints/templates/ICB.md", content="hello"
+    )
 
     summary = apply_write_action(tmp_path, action)
 

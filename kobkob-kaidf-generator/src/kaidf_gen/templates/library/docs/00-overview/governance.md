@@ -26,4 +26,3 @@ AI use must be governed explicitly through roles, limits, review, and accountabi
 ## Governance Rule
 
 AI systems may support decisions and operations, but responsibility for their use and outcomes remains human and institutional.
-

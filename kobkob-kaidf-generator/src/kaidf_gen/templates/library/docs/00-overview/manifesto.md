@@ -20,4 +20,3 @@ KAIDF treats AI as an amplifier of human capability, not as a substitute for hum
 ## Intent
 
 This manifesto anchors the doctrine of KAIDF and should be read together with the canonical principles, best practices, governance, maturity, and implementation documents.
-

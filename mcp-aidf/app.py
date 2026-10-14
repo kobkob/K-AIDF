@@ -131,7 +131,12 @@ def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
         return "maturity"
     if "implementação" in text or "implementation" in text:
         return "implementation"
-    if "treinamento" in text or "training" in text or "certificação" in text or "certification" in text:
+    if (
+        "treinamento" in text
+        or "training" in text
+        or "certificação" in text
+        or "certification" in text
+    ):
         return "training"
     return "general"
 
@@ -213,7 +218,9 @@ def _infer_phase(rel_path: str) -> str:
 def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     rel_path = file_path.relative_to(root).as_posix()
     raw_text = file_path.read_text(encoding="utf-8")
-    front_matter, body = _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
+    front_matter, body = (
+        _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
+    )
     title = front_matter.get("title") or _first_heading(body) or file_path.stem
     doctrine_category = _infer_doctrine_category(rel_path, title, body)
     variant_domain = _variant_domain(rel_path)
@@ -460,8 +467,11 @@ def mcp_endpoint():
                 "data": {
                     "_meta": {
                         "mcp/www_authenticate": (
-                            'Bearer resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", '
-                            'scope="mcp", error="authorization_required", error_description="Link your account"'
+                            "Bearer "
+                            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/'
+                            'oauth-protected-resource", '
+                            'scope="mcp", error="authorization_required", error_description="Link '
+                            'your account"'
                         )
                     }
                 },
@@ -469,7 +479,9 @@ def mcp_endpoint():
         }
         resp = make_response(jsonify(body), 401)
         resp.headers["WWW-Authenticate"] = (
-            'Bearer resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", scope="mcp"'
+            "Bearer "
+            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", '
+            'scope="mcp"'
         )
         return resp
 
@@ -499,7 +511,8 @@ def mcp_endpoint():
                     "tools": [
                         {
                             "name": "search",
-                            "description": "Search indexed documents in a configured local K-AIDF repository.",
+                            "description": "Search indexed documents in a configured local K-AIDF "
+                            "repository.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -511,7 +524,8 @@ def mcp_endpoint():
                         },
                         {
                             "name": "fetch",
-                            "description": "Fetch a document by metadata id or repository-relative path.",
+                            "description": "Fetch a document by metadata id or repository-relative "
+                            "path.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {"id": {"type": "string"}},
@@ -586,7 +600,11 @@ def oauth_config():
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "client_credentials"],
             "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
+            "token_endpoint_auth_methods_supported": [
+                "client_secret_basic",
+                "client_secret_post",
+                "none",
+            ],
         }
     )
 
@@ -640,7 +658,8 @@ def root():
         response = jsonify({"error": "authorization_required"})
         response.status_code = 401
         response.headers["WWW-Authenticate"] = (
-            'Bearer resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource"'
+            "Bearer "
+            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource"'
         )
         return response
     return "MCP Server Running"

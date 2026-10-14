@@ -32,4 +32,3 @@ Responsible AI becomes part of institutional culture and continuous improvement.
 - Quality and Validation
 - Data Protection
 - Training
-

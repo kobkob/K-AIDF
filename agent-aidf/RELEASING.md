@@ -15,4 +15,3 @@ This project uses SemVer during `0.y.z` development:
 3. Commit the release notes.
 4. Create and push a tag like `v0.1.1`.
 5. Let GitHub Actions publish the release from the tag.
-

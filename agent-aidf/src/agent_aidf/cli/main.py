@@ -104,7 +104,10 @@ def package_version() -> str:
 
 
 def active_model_label() -> str:
-    """The model actually driving chat, /mentor, and /shell, resolved like build_controller() does."""
+    """The model actually driving chat, /mentor, and /shell.
+
+    Resolved the same way build_controller() does.
+    """
     controller = build_controller()
     if isinstance(controller, OllamaChatController):
         # Show the friendly local label until `make workspace-up` has picked and
@@ -397,9 +400,15 @@ class KobAgentApp(App):
             self._status_timer = None
         tokens = None
         if usage:
-            tokens = usage.get("completion_tokens") or usage.get("output_tokens") or usage.get("total_tokens")
+            tokens = (
+                usage.get("completion_tokens")
+                or usage.get("output_tokens")
+                or usage.get("total_tokens")
+            )
         if tokens:
-            text = _("Replied in {elapsed:.1f}s ({tokens} tokens)").format(elapsed=elapsed, tokens=tokens)
+            text = _("Replied in {elapsed:.1f}s ({tokens} tokens)").format(
+                elapsed=elapsed, tokens=tokens
+            )
         else:
             text = _("Replied in {elapsed:.1f}s").format(elapsed=elapsed)
         self.query_one("#llm-status", Static).update(text)

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import socket
 import json
-from urllib import request
+import socket
 from pathlib import Path
+from urllib import request
 
 from agent_aidf.instant_apps import (
     append_mentor_note,
@@ -73,7 +73,9 @@ def test_append_mentor_note_writes_to_app_directory(tmp_path: Path) -> None:
     repo.mkdir()
     create_instant_app(repo, app_id="mentor-shell", mode="persistent", kind="shell")
 
-    notes_path = append_mentor_note(repo, "mentor-shell", heading="Step 1", body="Question: q\nAnswer: a")
+    notes_path = append_mentor_note(
+        repo, "mentor-shell", heading="Step 1", body="Question: q\nAnswer: a"
+    )
 
     assert notes_path.is_file()
     content = notes_path.read_text(encoding="utf-8")
@@ -100,7 +102,9 @@ def test_apply_mentor_update_refreshes_web_app_files(tmp_path: Path) -> None:
     assert brief_path.is_file()
     index_html = (repo / "apps" / "mentor-web-app" / "index.html").read_text(encoding="utf-8")
     main_py = (repo / "apps" / "mentor-web-app" / "main.py").read_text(encoding="utf-8")
-    brief_payload = json.loads((repo / "apps" / "mentor-web-app" / "mentor-brief.json").read_text(encoding="utf-8"))
+    brief_payload = json.loads(
+        (repo / "apps" / "mentor-web-app" / "mentor-brief.json").read_text(encoding="utf-8")
+    )
     readme = (repo / "apps" / "mentor-web-app" / "README.md").read_text(encoding="utf-8")
     assert "localhost review page" in index_html
     assert "Current mentor question" in index_html
@@ -146,7 +150,9 @@ def test_run_and_stop_web_instant_app_runtime(tmp_path: Path) -> None:
     )
     saved = json.loads(request.urlopen(post).read().decode("utf-8"))
     assert saved["text"] == "We need approval notes and doc links."
-    refreshed = json.loads(request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8"))
+    refreshed = json.loads(
+        request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8")
+    )
     assert refreshed["answers"][-1]["text"] == "We need approval notes and doc links."
 
     stopped = stop_instant_app(repo, "mentor-web-app")

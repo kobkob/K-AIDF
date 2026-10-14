@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
-import re
 from typing import Protocol
 from urllib import error, request
 
@@ -150,7 +150,10 @@ class OpenAIResponsesController:
         payload: dict[str, object] = {
             "model": self.model,
             "input": [
-                {"role": "developer", "content": f"{_kob_identity_line(self.model)}\n\n{self.instructions}"},
+                {
+                    "role": "developer",
+                    "content": f"{_kob_identity_line(self.model)}\n\n{self.instructions}",
+                },
                 {"role": "user", "content": _build_context_prompt(repo_root, prompt)},
             ],
         }
@@ -192,7 +195,10 @@ class OllamaChatController:
 
     def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
         repo = resolve_repo_root(repo_root)
-        full_prompt = f"{_kob_identity_line(self.model)}\n\n{self.instructions}\n\n{_build_context_prompt(repo, prompt)}"
+        full_prompt = (
+            f"{_kob_identity_line(self.model)}\n\n{self.instructions}\n\n"
+            f"{_build_context_prompt(repo, prompt)}"
+        )
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -225,7 +231,8 @@ class OllamaChatController:
             self.last_usage = None
             return (
                 f"Local Ollama at {self.base_url} did not respond within {_HTTP_TIMEOUT_SECONDS}s. "
-                f"The model ({self.model}) may still be loading, or the prompt may be too long - try again."
+                f"The model ({self.model}) may still be loading, or the prompt may be too long - "
+                f"try again."
             )
         except json.JSONDecodeError as exc:
             self.last_usage = None
@@ -237,7 +244,10 @@ class OllamaChatController:
         prompt_tokens = data.get("prompt_eval_count")
         completion_tokens = data.get("eval_count")
         if isinstance(prompt_tokens, int) or isinstance(completion_tokens, int):
-            self.last_usage = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
+            self.last_usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+            }
         else:
             self.last_usage = None
         text = data.get("response", "")
@@ -274,7 +284,11 @@ def _build_context_prompt(repo_root: Path, prompt: str) -> str:
     packs = ", ".join(list_packs(documents)) or "none"
     instant_apps = list_instant_apps(repo_root)
     mentor_state = load_mentor_state(repo_root)
-    current_runtime = load_instant_app_runtime(repo_root, mentor_state.current_app_id) if mentor_state.current_app_id else None
+    current_runtime = (
+        load_instant_app_runtime(repo_root, mentor_state.current_app_id)
+        if mentor_state.current_app_id
+        else None
+    )
     matches = select_context_documents(documents, prompt, limit=5)
     lines = [
         f"Repository root: {repo_root}",
@@ -318,7 +332,9 @@ def _build_context_prompt(repo_root: Path, prompt: str) -> str:
     return "\n".join(lines)
 
 
-def select_context_documents(documents: list[Document], prompt: str, limit: int = 5) -> list[Document]:
+def select_context_documents(
+    documents: list[Document], prompt: str, limit: int = 5
+) -> list[Document]:
     prompt_norm = prompt.strip().casefold()
     if not prompt_norm:
         return []
@@ -333,7 +349,9 @@ def select_context_documents(documents: list[Document], prompt: str, limit: int 
 
 
 def _prompt_terms(prompt_norm: str) -> list[str]:
-    return [term for term in re.split(r"[^a-z0-9]+", prompt_norm.replace("-", " ")) if len(term) >= 3]
+    return [
+        term for term in re.split(r"[^a-z0-9]+", prompt_norm.replace("-", " ")) if len(term) >= 3
+    ]
 
 
 def _score_document(doc: Document, prompt_norm: str, terms: list[str]) -> int:
@@ -384,7 +402,9 @@ def _ethical_pack_bias(doc: Document, prompt_norm: str, terms: list[str]) -> int
         score += 180 if doc.path == "docs/20-ethical-model/README.md" else 40
     if "transparency" in terms and doc.ethical_domain == "transparency":
         score += 220
-    if "privacy" in terms and (doc.ethical_domain == "data-protection" or doc.control_type == "checklist"):
+    if "privacy" in terms and (
+        doc.ethical_domain == "data-protection" or doc.control_type == "checklist"
+    ):
         score += 180
     if "validation" in terms and doc.ethical_domain == "human-validation":
         score += 180

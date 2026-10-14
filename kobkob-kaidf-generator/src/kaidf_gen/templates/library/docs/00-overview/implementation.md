@@ -22,4 +22,3 @@ This document defines the canonical implementation flow for KAIDF.
 ## Implementation Rule
 
 No operational gain justifies bypassing validation, limits, documentation, or accountability.
-

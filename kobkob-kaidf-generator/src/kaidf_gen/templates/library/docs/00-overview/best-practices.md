@@ -22,4 +22,3 @@ This document defines the generic operational best practices for KAIDF.
 ## Extension Model
 
 This is the generic best-practices document. Sector-specific or contract-specific variants should be added later as separate supporting documents without replacing this canonical file.
-

@@ -60,7 +60,8 @@ def resolve_mentor_repo_root(project_root: str | Path | None = None) -> Path:
     repo = project_repo_root(project)
     if not repo.exists():
         raise MentorNotInitializedError(
-            f"No {KAIDF_DIRNAME}/ found at {project}. Run `kob init` first to start the mentor workflow."
+            f"No {KAIDF_DIRNAME}/ found at {project}. Run `kob init` first to start the mentor "
+            f"workflow."
         )
     return repo
 

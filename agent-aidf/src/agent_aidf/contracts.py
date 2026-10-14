@@ -30,25 +30,30 @@ _BASIC_PHASES = (
     {
         "order": 2,
         "name": "Discovery & Mapping",
-        "human_role": "Provide operational context, current flows, dependencies, and source material.",
+        "human_role": "Provide operational context, current flows, dependencies, and source "
+        "material.",
         "ai_role": "Map systems, user flows, MCP/tooling touchpoints, and unresolved requirements.",
         "deliverables": ["System map", "Context inventory", "Requirements list"],
-        "exit_criteria": "Relevant systems, actors, and requirements are mapped clearly enough to design against.",
+        "exit_criteria": "Relevant systems, actors, and requirements are mapped clearly enough to "
+        "design against.",
         "quiz_prompts": [
             "Which systems, data sources, MCP servers, or repos does this workflow need to touch?",
-            "What is unclear in the current process that the mentor should map before design starts?",
+            "What is unclear in the current process that the mentor should map before design "
+            "starts?",
         ],
     },
     {
         "order": 3,
         "name": "Design & Simulation",
         "human_role": "Approve direction and reject unsafe or low-value options.",
-        "ai_role": "Generate blueprints, simulate flows, and shape instant-app prototypes for review.",
+        "ai_role": "Generate blueprints, simulate flows, and shape instant-app prototypes for "
+        "review.",
         "deliverables": ["Blueprint", "Prototype plan", "Review checklist"],
         "exit_criteria": "The chosen concept is understandable, reviewable, and safe to execute.",
         "quiz_prompts": [
             "What is the smallest prototype, quiz flow, or instant app that proves the direction?",
-            "Which design assumptions need simulation or human review before implementation continues?",
+            "Which design assumptions need simulation or human review before implementation "
+            "continues?",
         ],
     },
     {
@@ -59,7 +64,8 @@ _BASIC_PHASES = (
         "deliverables": ["Working system", "Instrumentation plan", "Runtime notes"],
         "exit_criteria": "The system runs, is observable, and is moving toward target metrics.",
         "quiz_prompts": [
-            "What should the mentor implement or update first in the active instant app or workflow?",
+            "What should the mentor implement or update first in the active instant app or "
+            "workflow?",
             "Which metrics, logs, or checkpoints are required to know execution is healthy?",
         ],
     },
@@ -69,7 +75,8 @@ _BASIC_PHASES = (
         "human_role": "Review the result, accept or reject it, and prepare ownership transfer.",
         "ai_role": "Audit the outcome, summarize evidence, and package handover material.",
         "deliverables": ["Verification report", "Handover notes", "Next-step backlog"],
-        "exit_criteria": "Acceptance is explicit and ownership is transferred with enough context to continue.",
+        "exit_criteria": "Acceptance is explicit and ownership is transferred with enough context "
+        "to continue.",
         "quiz_prompts": [
             "What evidence must exist before this work is considered verified and transferable?",
             "Who owns the result after handover, and what documentation or training do they need?",
@@ -180,7 +187,9 @@ def create_basic_contract(
 ) -> BasicContract:
     repo = resolve_repo_root(repo_root)
     mentor_state = load_mentor_state(repo)
-    current_app = get_instant_app(repo, mentor_state.current_app_id) if mentor_state.current_app_id else None
+    current_app = (
+        get_instant_app(repo, mentor_state.current_app_id) if mentor_state.current_app_id else None
+    )
     current_runtime = (
         load_instant_app_runtime(repo, mentor_state.current_app_id)
         if mentor_state.current_app_id
@@ -301,7 +310,9 @@ def _write_contract_files(contract: BasicContract) -> None:
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (contract.root / CONTRACT_MARKDOWN_FILENAME).write_text(_contract_markdown(contract), encoding="utf-8")
+    (contract.root / CONTRACT_MARKDOWN_FILENAME).write_text(
+        _contract_markdown(contract), encoding="utf-8"
+    )
     (contract.root / QUIZ_FILENAME).write_text(_quiz_markdown(contract), encoding="utf-8")
 
 

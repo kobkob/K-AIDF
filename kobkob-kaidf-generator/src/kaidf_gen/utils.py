@@ -13,7 +13,7 @@ def normalize_rel_path(rel: str) -> str:
 def safe_join(root: Path, rel: str) -> Path:
     """Join root + rel and prevent path traversal."""
     # Normalize separators
-    rel = rel.replace('\\', '/')
+    rel = rel.replace("\\", "/")
     candidate = (root / rel).resolve()
     root_resolved = root.resolve()
     try:
@@ -29,7 +29,7 @@ def ensure_parent(path: Path) -> None:
 
 def write_text(path: Path, content: str) -> None:
     ensure_parent(path)
-    path.write_text(content, encoding='utf-8')
+    path.write_text(content, encoding="utf-8")
 
 
 def write_bytes(path: Path, content: bytes) -> None:

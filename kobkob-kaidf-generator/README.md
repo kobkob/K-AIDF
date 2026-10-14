@@ -3,6 +3,7 @@
 A small Python CLI to generate a K-AIDF methodology repository scaffold from a declarative YAML spec.
 
 ## What it does
+
 - Validates a YAML spec (JSON Schema)
 - Creates folders/files deterministically
 - Writes files from:
@@ -122,9 +123,11 @@ This is the current source of truth for:
 - agent editing expectations
 
 ## Spec design principles
+
 - **Methodology-as-Code**: your K-AIDF variant is expressed as data.
 - **Composable**: you can create multiple specs for different project types.
 - **Deterministic**: same input spec => same output tree.
 
 ## License
+
 MIT

@@ -118,7 +118,9 @@ def load_mentor_state(repo_root: str | Path | None) -> MentorState:
         else []
     )
     pending_file_action_raw = data.get("pending_file_action")
-    pending_file_action = pending_file_action_raw if isinstance(pending_file_action_raw, dict) else None
+    pending_file_action = (
+        pending_file_action_raw if isinstance(pending_file_action_raw, dict) else None
+    )
     return MentorState(
         version=int(data.get("version", 1)),
         step_count=int(data.get("step_count", len(interactions))),
@@ -210,10 +212,14 @@ def continue_mentor_workflow(
         return MentorTurn(message=_format_pending_question(next_state), state=next_state)
 
     if state.pending_file_action:
-        return _handle_file_action_response(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
+        return _handle_file_action_response(
+            repo, state, documents, answer, phase=phase, phase_dir=phase_dir
+        )
 
     if state.awaiting_acceptance:
-        return _handle_acceptance_response(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
+        return _handle_acceptance_response(
+            repo, state, documents, answer, phase=phase, phase_dir=phase_dir
+        )
 
     return _handle_normal_answer(repo, state, documents, answer, phase=phase, phase_dir=phase_dir)
 
@@ -299,7 +305,9 @@ def _handle_normal_answer(
         and _phase_ready_for_acceptance(documents_after, phase_dir)
     ):
         acceptance_question = _acceptance_question(phase, phase_dir)
-        next_state = replace(base_next_state, awaiting_acceptance=True, pending_question=acceptance_question)
+        next_state = replace(
+            base_next_state, awaiting_acceptance=True, pending_question=acceptance_question
+        )
         message_lines.extend(["", acceptance_question])
     else:
         next_question = _next_quiz_question(phase, updated_interactions)
@@ -312,7 +320,9 @@ def _handle_normal_answer(
         )
 
     save_mentor_state(repo, next_state)
-    return MentorTurn(message="\n".join(message_lines).strip(), state=next_state, token_usage=token_usage)
+    return MentorTurn(
+        message="\n".join(message_lines).strip(), state=next_state, token_usage=token_usage
+    )
 
 
 def _handle_file_action_response(
@@ -330,13 +340,21 @@ def _handle_file_action_response(
 
     if not is_affirmative(answer):
         return _handle_normal_answer(
-            repo, cleared_state, documents, answer, phase=phase, phase_dir=phase_dir, check_acceptance=False
+            repo,
+            cleared_state,
+            documents,
+            answer,
+            phase=phase,
+            phase_dir=phase_dir,
+            check_acceptance=False,
         )
 
     write_summary = apply_action(_project_root_for(repo), action)
 
     documents_after = load_documents(repo)
-    if phase["order"] not in cleared_state.accepted_phases and _phase_ready_for_acceptance(documents_after, phase_dir):
+    if phase["order"] not in cleared_state.accepted_phases and _phase_ready_for_acceptance(
+        documents_after, phase_dir
+    ):
         acceptance_question = _acceptance_question(phase, phase_dir)
         next_state = replace(
             cleared_state,
@@ -347,7 +365,9 @@ def _handle_file_action_response(
         message = "\n".join([write_summary, "", acceptance_question]).strip()
     else:
         next_question = _next_quiz_question(phase, cleared_state.interactions)
-        next_state = replace(cleared_state, pending_question=next_question, last_action_summary=write_summary)
+        next_state = replace(
+            cleared_state, pending_question=next_question, last_action_summary=write_summary
+        )
         message = "\n".join(
             [
                 write_summary,
@@ -373,7 +393,13 @@ def _handle_acceptance_response(
     if not is_affirmative(answer):
         cleared_state = replace(state, awaiting_acceptance=False, pending_question=None)
         return _handle_normal_answer(
-            repo, cleared_state, documents, answer, phase=phase, phase_dir=phase_dir, check_acceptance=False
+            repo,
+            cleared_state,
+            documents,
+            answer,
+            phase=phase,
+            phase_dir=phase_dir,
+            check_acceptance=False,
         )
 
     accepted_phases = sorted({*state.accepted_phases, phase["order"]})
@@ -495,7 +521,7 @@ def _build_mentor_prompt(
             "Recent workflow history:",
             *history_lines,
             "",
-            f"This phase's artifact files (paths relative to the project root):",
+            "This phase's artifact files (paths relative to the project root):",
             *artifact_lines,
             "",
             "User answer:",
@@ -512,7 +538,11 @@ def _offline_reply(
     answer: str,
 ) -> str:
     assessment = _classify_answer(answer)
-    prior = "no prior answers yet" if not state.interactions else f"{len(state.interactions)} prior answers recorded"
+    prior = (
+        "no prior answers yet"
+        if not state.interactions
+        else f"{len(state.interactions)} prior answers recorded"
+    )
     return (
         f"Mentor assessment: {assessment}. "
         f"Current focus remains phase {phase['order']} ({phase['name']}) using docs/{phase_dir}/. "
@@ -527,9 +557,14 @@ def _classify_answer(answer: str) -> str:
         return "the answer is empty and the workflow cannot advance cleanly"
     if len(answer_norm.split()) < 6:
         return "the answer is still too short and needs more operational detail"
-    if any(term in answer_norm.casefold() for term in ["risk", "privacy", "transparent", "validation", "human"]):
+    if any(
+        term in answer_norm.casefold()
+        for term in ["risk", "privacy", "transparent", "validation", "human"]
+    ):
         return "the answer already includes governance or safety signals worth preserving"
-    if any(term in answer_norm.casefold() for term in ["web", "shell", "app", "prototype", "localhost"]):
+    if any(
+        term in answer_norm.casefold() for term in ["web", "shell", "app", "prototype", "localhost"]
+    ):
         return "the answer points toward a concrete instant-app implementation path"
     return "the answer is directionally useful but still needs tighter scope and accountability"
 
@@ -584,12 +619,14 @@ def _apply_answer_actions(
     previous_runtime_summary = _stop_superseded_app(repo_root, previous_app_id, app.app_id)
     if created:
         return (
-            f"{spawn_mode} persistent {app.kind} instant app '{app.app_id}', wrote mentor notes to {notes_path}, "
+            f"{spawn_mode} persistent {app.kind} instant app '{app.app_id}', wrote mentor notes to "
+            f"{notes_path}, "
             f"and refreshed app files from {brief_path}{runtime_summary}{previous_runtime_summary}",
             app.app_id,
         )
     return (
-        f"{spawn_mode} persistent {app.kind} instant app '{app.app_id}', appended mentor notes to {notes_path}, "
+        f"{spawn_mode} persistent {app.kind} instant app '{app.app_id}', appended mentor notes to "
+        f"{notes_path}, "
         f"and refreshed app files from {brief_path}{runtime_summary}{previous_runtime_summary}",
         app.app_id,
     )
@@ -597,9 +634,14 @@ def _apply_answer_actions(
 
 def _infer_app_action(answer: str) -> str | None:
     answer_norm = answer.casefold()
-    if not any(term in answer_norm for term in ["app", "prototype", "localhost", "interface", "workflow", "screen"]):
+    if not any(
+        term in answer_norm
+        for term in ["app", "prototype", "localhost", "interface", "workflow", "screen"]
+    ):
         return None
-    if any(term in answer_norm for term in ["web", "browser", "page", "site", "server", "http", "ui"]):
+    if any(
+        term in answer_norm for term in ["web", "browser", "page", "site", "server", "http", "ui"]
+    ):
         return "web"
     if any(term in answer_norm for term in ["shell", "terminal", "cli", "console"]):
         return "shell"
@@ -625,7 +667,10 @@ def _should_spawn_new_app(current_kind: str, *, action: str, answer: str) -> boo
     if current_kind != action:
         return True
     answer_norm = answer.casefold()
-    return any(term in answer_norm for term in ["separate", "another", "second", "new app", "new interface"])
+    return any(
+        term in answer_norm
+        for term in ["separate", "another", "second", "new app", "new interface"]
+    )
 
 
 def _next_app_id(repo_root: Path, action: str) -> str:
@@ -690,14 +735,16 @@ def _next_quiz_question(phase: dict, interactions: list[MentorInteraction]) -> s
 
 def _acceptance_question(phase: dict, phase_dir: str) -> str:
     return (
-        f"Phase {phase['order']} ({phase['name']}) artifacts under docs/{phase_dir}/ look filled in. "
+        f"Phase {phase['order']} ({phase['name']}) artifacts under docs/{phase_dir}/ look filled "
+        f"in. "
         "Do you accept this phase as complete? (yes/no)"
     )
 
 
 def _all_phases_complete_message(state: MentorState) -> str:
     return (
-        f"All {_total_phases()} K-AIDF Basic phases are accepted. The mentor workflow is complete - "
+        f"All {_total_phases()} K-AIDF Basic phases are accepted. The mentor workflow is complete "
+        f"- "
         "use kob status to review, or kob mentor --reset to start a new workflow."
     )
 
