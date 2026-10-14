@@ -16,5 +16,5 @@ jobs:
         with:
           path-to-signatures: 'signatures/cla.json'
           path-to-document: 'https://github.com/kobkob/K-AIDF/blob/main/CONTRIBUTOR_LICENSE_AGREEMENT.md' # Link para o CLA
-          branch: 'master'
+          branch: 'main'
           allowlist: 'bot-kobkob,monsenhor'

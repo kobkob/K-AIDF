@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -286,15 +288,48 @@ def test_app_run_runtime_and_stop_commands(tmp_path: Path) -> None:
     assert "status: stopped" in stopped.stdout
 
 
-def test_init_command_creates_dot_kaidf_in_current_project(tmp_path: Path) -> None:
+def test_init_command_creates_dot_kaidf_in_current_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Runs in-process so the generator bootstrap (venv creation, pip install) and the generator
+    # subprocess can be replaced. The test checks the .kaidf layout init produces, without
+    # touching the network, a real .venv, or the generator checkout.
+    from agent_aidf import legacy_cli
+    from agent_aidf import project as project_module
+
     project = tmp_path / "fresh-project"
     project.mkdir()
+    fake_generator = tmp_path / "fake-generator"
+    bootstrap_calls: list[Path] = []
+    generator_commands: list[list[str]] = []
 
-    result = _run_project("init", project=project)
+    def fake_bootstrap(generator_repo: Path) -> Path:
+        bootstrap_calls.append(generator_repo)
+        return Path(sys.executable)
 
-    assert result.returncode == 0, result.stderr
+    def fake_generator_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        generator_commands.append(list(command))
+        out_dir = Path(command[command.index("--out") + 1])
+        repo_dir = out_dir / "kobkob-kaidf"
+        _write(repo_dir / "README.md", "# kobkob-kaidf\n")
+        _write(repo_dir / "docs/00-overview/kaidf.md", "---\nid: docs/00-overview/kaidf.md\n---\n")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(project_module, "locate_generator_repo", lambda: fake_generator)
+    monkeypatch.setattr(project_module, "resolve_generator_python", fake_bootstrap)
+    monkeypatch.setattr(project_module.subprocess, "run", fake_generator_run)
+    monkeypatch.setattr(sys, "argv", ["legacy_cli", "--project", str(project), "init"])
+
+    assert legacy_cli.main() == 0
+
+    assert len(bootstrap_calls) == 1
+    assert len(generator_commands) == 1
+    assert "kaidf_gen.cli" in generator_commands[0]
     assert (project / ".kaidf").is_dir()
     assert (project / ".kaidf" / "README.md").is_file()
+    assert (project / ".kaidf" / "docs" / "00-overview" / "kaidf.md").is_file()
+    assert not list(project.glob("agent-aidf-init-*"))
+    assert "Initialized .kaidf at" in capsys.readouterr().out
 
 
 def _free_port() -> int:

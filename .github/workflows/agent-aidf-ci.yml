@@ -1,0 +1,41 @@
+name: agent-aidf CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "agent-aidf/**"
+      - ".github/workflows/agent-aidf-ci.yml"
+  pull_request:
+    paths:
+      - "agent-aidf/**"
+      - ".github/workflows/agent-aidf-ci.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-aidf
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      # Known backlog: existing Markdown does not pass markdownlint yet. Reported but not blocking.
+      - name: Lint Markdown
+        continue-on-error: true
+        run: npx --yes markdownlint-cli2 "**/*.md" "!**/node_modules/**"
+
+      - name: Run tests
+        run: PYTHONPATH=src python -m pytest -q
