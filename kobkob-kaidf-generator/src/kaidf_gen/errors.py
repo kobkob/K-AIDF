@@ -2,6 +2,10 @@ class KaidfGenError(Exception):
     """Base error for kaidf_gen."""
 
 
+class SpecParsingError(KaidfGenError):
+    """Raised when the spec file cannot be read or parsed as YAML."""
+
+
 class SpecValidationError(KaidfGenError):
     """Raised when the spec does not validate."""
 
