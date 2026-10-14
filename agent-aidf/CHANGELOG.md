@@ -15,6 +15,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - removed obsolete `src/agent_aidf/cli/main.py.old` (legacy Click-based CLI with Portuguese strings), which was superseded by the current Textual+argparse architecture
 
+### Fixed
+
+- `kob gen`/`kob compile` now resolve relative `--out` and `spec` paths against the directory you ran the command from (#39). Previously the generator subprocess ran with `cwd` set to the generator repository, so `kob gen --out ./out` wrote into the generator checkout instead of your project
+
 ## [0.5.4] - 2026-08-04
 
 ### Added
