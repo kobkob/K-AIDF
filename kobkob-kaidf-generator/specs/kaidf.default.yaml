@@ -3,12 +3,26 @@ repo:
   name: "kobkob-kaidf"
   files:
     - path: "README.md"
+      front_matter:
+        id: "README.md"
+        title: "kobkob-kaidf"
+        document_class: "core-doc"
+        phase: "root"
+        visibility: "internal"
+        status: "active"
       content: "library:root/README.md"
     - path: "LICENSE"
       content: "library:root/LICENSE"
     - path: "CODEOWNERS"
       content: "library:root/CODEOWNERS"
     - path: "SECURITY.md"
+      front_matter:
+        id: "SECURITY.md"
+        title: "Security"
+        document_class: "governance-doc"
+        phase: "root"
+        visibility: "internal"
+        status: "active"
       content: "library:root/SECURITY.md"
 
 sections:
@@ -24,8 +38,22 @@ sections:
           visibility: "internal"
           status: "active"
       - path: "kaidf.md"
+        front_matter:
+          id: "docs/00-overview/kaidf.md"
+          title: "K-AIDF"
+          document_class: "core-doc"
+          phase: "00-overview"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/00-overview/kaidf.md"
       - path: "glossary.md"
+        front_matter:
+          id: "docs/00-overview/glossary.md"
+          title: "Glossary"
+          document_class: "core-doc"
+          phase: "00-overview"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/00-overview/glossary.md"
       - path: "principles.md"
         content: "library:docs/00-overview/principles.md"
@@ -100,6 +128,13 @@ sections:
           visibility: "internal"
           status: "active"
       - path: "decision-rights.md"
+        front_matter:
+          id: "docs/00-overview/decision-rights.md"
+          title: "Decision Rights"
+          document_class: "core-doc"
+          phase: "00-overview"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/00-overview/decision-rights.md"
 
   # The 5 K-AIDF Basic delivery phases (see agent-aidf's contracts.py::_BASIC_PHASES,
@@ -107,16 +142,51 @@ sections:
   - path: "docs/01_intent_constraints"
     files:
       - path: "README.md"
+        front_matter:
+          id: "docs/01_intent_constraints/README.md"
+          title: "Phase 1 — Intent & Constraints"
+          document_class: "core-doc"
+          phase: "01_intent_constraints"
+          visibility: "internal"
+          status: "active"
         inline: "# Phase 1 — Intent & Constraints\n\nDeliverable: Intent & Constraint Brief (ICB)\n"
       - path: "templates/ICB.md"
+        front_matter:
+          id: "docs/01_intent_constraints/templates/ICB.md"
+          title: "Intent & Constraint Brief (ICB)"
+          document_class: "template-doc"
+          phase: "01_intent_constraints"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/01_intent_constraints/templates/ICB.md"
       - path: "templates/constraint-matrix.csv"
         content: "library:docs/01_intent_constraints/templates/constraint-matrix.csv"
       - path: "data-provenance.md"
+        front_matter:
+          id: "docs/01_intent_constraints/data-provenance.md"
+          title: "Data Provenance"
+          document_class: "core-doc"
+          phase: "01_intent_constraints"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/01_intent_constraints/data-provenance.md"
       - path: "prompts/framing.prompt.md"
+        front_matter:
+          id: "docs/01_intent_constraints/prompts/framing.prompt.md"
+          title: "Framing Prompt"
+          document_class: "prompt-doc"
+          phase: "01_intent_constraints"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/01_intent_constraints/prompts/framing.prompt.md"
       - path: "exit-criteria.md"
+        front_matter:
+          id: "docs/01_intent_constraints/exit-criteria.md"
+          title: "Exit Criteria (Phase 1)"
+          document_class: "core-doc"
+          phase: "01_intent_constraints"
+          visibility: "internal"
+          status: "active"
         inline: |
           # Exit Criteria (Phase 1)
           - ICB completed
@@ -127,14 +197,42 @@ sections:
   - path: "docs/02_discovery_mapping"
     files:
       - path: "README.md"
+        front_matter:
+          id: "docs/02_discovery_mapping/README.md"
+          title: "Phase 2 — Discovery & Mapping"
+          document_class: "core-doc"
+          phase: "02_discovery_mapping"
+          visibility: "internal"
+          status: "active"
         inline: "# Phase 2 — Discovery & Mapping\n\nDeliverable: System Map, Context Inventory, Requirements List\n"
       - path: "templates/system-map.md"
+        front_matter:
+          id: "docs/02_discovery_mapping/templates/system-map.md"
+          title: "System Map"
+          document_class: "template-doc"
+          phase: "02_discovery_mapping"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/02_discovery_mapping/templates/system-map.md"
       - path: "templates/requirements-matrix.csv"
         content: "library:docs/02_discovery_mapping/templates/requirements-matrix.csv"
       - path: "prompts/mapping.prompt.md"
+        front_matter:
+          id: "docs/02_discovery_mapping/prompts/mapping.prompt.md"
+          title: "Mapping Prompt"
+          document_class: "prompt-doc"
+          phase: "02_discovery_mapping"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/02_discovery_mapping/prompts/mapping.prompt.md"
       - path: "exit-criteria.md"
+        front_matter:
+          id: "docs/02_discovery_mapping/exit-criteria.md"
+          title: "Exit Criteria (Phase 2)"
+          document_class: "core-doc"
+          phase: "02_discovery_mapping"
+          visibility: "internal"
+          status: "active"
         inline: |
           # Exit Criteria (Phase 2)
           - Systems, actors, and requirements are mapped
@@ -144,14 +242,49 @@ sections:
   - path: "docs/03_design_simulation"
     files:
       - path: "README.md"
+        front_matter:
+          id: "docs/03_design_simulation/README.md"
+          title: "Phase 3 — Design & Simulation"
+          document_class: "core-doc"
+          phase: "03_design_simulation"
+          visibility: "internal"
+          status: "active"
         inline: "# Phase 3 — Design & Simulation\n\nDeliverable: Blueprint, Prototype Plan, Review Checklist\n"
       - path: "templates/blueprint.md"
+        front_matter:
+          id: "docs/03_design_simulation/templates/blueprint.md"
+          title: "Blueprint"
+          document_class: "template-doc"
+          phase: "03_design_simulation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/03_design_simulation/templates/blueprint.md"
       - path: "templates/review-checklist.md"
+        front_matter:
+          id: "docs/03_design_simulation/templates/review-checklist.md"
+          title: "Review Checklist"
+          document_class: "template-doc"
+          phase: "03_design_simulation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/03_design_simulation/templates/review-checklist.md"
       - path: "prompts/simulation.prompt.md"
+        front_matter:
+          id: "docs/03_design_simulation/prompts/simulation.prompt.md"
+          title: "Simulation Prompt"
+          document_class: "prompt-doc"
+          phase: "03_design_simulation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/03_design_simulation/prompts/simulation.prompt.md"
       - path: "exit-criteria.md"
+        front_matter:
+          id: "docs/03_design_simulation/exit-criteria.md"
+          title: "Exit Criteria (Phase 3)"
+          document_class: "core-doc"
+          phase: "03_design_simulation"
+          visibility: "internal"
+          status: "active"
         inline: |
           # Exit Criteria (Phase 3)
           - Chosen concept is documented and reviewable
@@ -161,14 +294,49 @@ sections:
   - path: "docs/04_execution_instrumentation"
     files:
       - path: "README.md"
+        front_matter:
+          id: "docs/04_execution_instrumentation/README.md"
+          title: "Phase 4 — Execution & Instrumentation"
+          document_class: "core-doc"
+          phase: "04_execution_instrumentation"
+          visibility: "internal"
+          status: "active"
         inline: "# Phase 4 — Execution & Instrumentation\n\nDeliverable: Working System, Instrumentation Plan, Runtime Notes\n"
       - path: "templates/instrumentation-plan.md"
+        front_matter:
+          id: "docs/04_execution_instrumentation/templates/instrumentation-plan.md"
+          title: "Instrumentation Plan"
+          document_class: "template-doc"
+          phase: "04_execution_instrumentation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/04_execution_instrumentation/templates/instrumentation-plan.md"
       - path: "templates/runtime-notes.md"
+        front_matter:
+          id: "docs/04_execution_instrumentation/templates/runtime-notes.md"
+          title: "Runtime Notes"
+          document_class: "template-doc"
+          phase: "04_execution_instrumentation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/04_execution_instrumentation/templates/runtime-notes.md"
       - path: "prompts/execution.prompt.md"
+        front_matter:
+          id: "docs/04_execution_instrumentation/prompts/execution.prompt.md"
+          title: "Execution Prompt"
+          document_class: "prompt-doc"
+          phase: "04_execution_instrumentation"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/04_execution_instrumentation/prompts/execution.prompt.md"
       - path: "exit-criteria.md"
+        front_matter:
+          id: "docs/04_execution_instrumentation/exit-criteria.md"
+          title: "Exit Criteria (Phase 4)"
+          document_class: "core-doc"
+          phase: "04_execution_instrumentation"
+          visibility: "internal"
+          status: "active"
         inline: |
           # Exit Criteria (Phase 4)
           - System runs and is observable
@@ -178,16 +346,51 @@ sections:
   - path: "docs/05_verification_transfer"
     files:
       - path: "README.md"
+        front_matter:
+          id: "docs/05_verification_transfer/README.md"
+          title: "Phase 5 — Verification & Transfer"
+          document_class: "core-doc"
+          phase: "05_verification_transfer"
+          visibility: "internal"
+          status: "active"
         inline: "# Phase 5 — Verification & Transfer\n\nDeliverable: Verification Report, Handover Notes, Next-Step Backlog\n"
       - path: "templates/verification-report.md"
+        front_matter:
+          id: "docs/05_verification_transfer/templates/verification-report.md"
+          title: "Verification Report"
+          document_class: "template-doc"
+          phase: "05_verification_transfer"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/05_verification_transfer/templates/verification-report.md"
       - path: "templates/handover-notes.md"
+        front_matter:
+          id: "docs/05_verification_transfer/templates/handover-notes.md"
+          title: "Handover Notes"
+          document_class: "template-doc"
+          phase: "05_verification_transfer"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/05_verification_transfer/templates/handover-notes.md"
       - path: "templates/backlog.csv"
         content: "library:docs/05_verification_transfer/templates/backlog.csv"
       - path: "prompts/verification.prompt.md"
+        front_matter:
+          id: "docs/05_verification_transfer/prompts/verification.prompt.md"
+          title: "Verification Prompt"
+          document_class: "prompt-doc"
+          phase: "05_verification_transfer"
+          visibility: "internal"
+          status: "active"
         content: "library:docs/05_verification_transfer/prompts/verification.prompt.md"
       - path: "exit-criteria.md"
+        front_matter:
+          id: "docs/05_verification_transfer/exit-criteria.md"
+          title: "Exit Criteria (Phase 5)"
+          document_class: "core-doc"
+          phase: "05_verification_transfer"
+          visibility: "internal"
+          status: "active"
         inline: |
           # Exit Criteria (Phase 5)
           - Acceptance is explicit

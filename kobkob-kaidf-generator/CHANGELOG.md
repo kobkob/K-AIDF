@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - resolved all `ruff` linting errors in CI: import organization and line-length violations in `src/kaidf_gen/cli.py`, `src/kaidf_gen/generator.py`, and test files
 - generated front matter keeps Portuguese accents readable: YAML is dumped with `allow_unicode=True`, so titles like `Automação` are written as-is instead of escaped sequences such as `Automa\xE7\xE3o` (#32)
+- `specs/kaidf.default.yaml` now gives every generated Markdown document the complete Front Matter v2 block (`id`, `title`, `document_class`, `phase`, `visibility`, `status`). Previously 29 of 62 documents (the Basic phase docs under `docs/01`-`docs/05`, `docs/00-overview/decision-rights.md`, and the root `README.md`/`SECURITY.md`) were emitted without any front matter (#13)
 
 ## [0.1.5] - 2026-07-30
 
