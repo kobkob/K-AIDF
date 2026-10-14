@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from kaidf_gen.errors import GenerationError, TemplateNotFoundError, UnsafePathError
 from kaidf_gen.generator import GenerateOptions, generate
@@ -48,7 +49,8 @@ def test_generate_default_spec_writes_expected_files(tmp_path: Path) -> None:
     )
     file_path = target / "docs/01_intent_constraints/exit-criteria.md"
     content = file_path.read_text(encoding="utf-8")
-    assert content.startswith("# Exit Criteria")
+    assert content.startswith("---\nid: docs/01_intent_constraints/exit-criteria.md\n")
+    assert "\n---\n\n# Exit Criteria (Phase 1)\n" in content
 
 
 def test_generate_rejects_non_empty_output_without_force(tmp_path: Path) -> None:
@@ -316,3 +318,22 @@ def test_generate_keeps_portuguese_accents_readable_in_front_matter(tmp_path: Pa
 
     assert "title: Automação e Maturidade Ética\n" in content
     assert "\\x" not in content
+
+
+def test_default_spec_gives_every_markdown_file_front_matter_v2(tmp_path: Path) -> None:
+    spec = load_yaml("specs/kaidf.default.yaml")
+
+    target = generate(spec, tmp_path / "out", GenerateOptions(force=False))
+
+    required = {"id", "title", "document_class", "phase", "visibility", "status"}
+    markdown_files = sorted(target.rglob("*.md"))
+    assert markdown_files
+
+    for path in markdown_files:
+        content = path.read_text(encoding="utf-8")
+        assert content.startswith("---\n"), f"no front matter block: {path.relative_to(target)}"
+        block, sep, _ = content[4:].partition("\n---\n")
+        assert sep, f"unterminated front matter: {path.relative_to(target)}"
+        front_matter = yaml.safe_load(block)
+        missing = sorted(field for field in required if not front_matter.get(field))
+        assert not missing, f"{path.relative_to(target)} missing {missing}"
