@@ -82,6 +82,8 @@ def _iter_indexable_paths(root: Path) -> list[Path]:
 
 
 def _parse_front_matter(text: str) -> tuple[dict[str, Any], str]:
+    # Windows checkouts can keep CRLF line endings; normalize so the "---" markers still match.
+    text = text.replace("\r\n", "\n")
     if not text.startswith("---\n"):
         return {}, text
     marker = "\n---\n"

@@ -75,7 +75,7 @@ def _resolve_front_matter(
 def _render_front_matter(front_matter: dict[str, Any]) -> str:
     if not front_matter:
         return ""
-    body = yaml.safe_dump(front_matter, sort_keys=False, allow_unicode=False).strip()
+    body = yaml.safe_dump(front_matter, sort_keys=False, allow_unicode=True).strip()
     return f"---\n{body}\n---\n\n"
 
 

@@ -383,3 +383,21 @@ class McpAidfIndexingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class McpAidfFrontMatterTests(unittest.TestCase):
+    def test_parse_front_matter_accepts_crlf_and_keeps_utf8_titles(self) -> None:
+        text = (
+            "---\r\n"
+            "id: docs/20-ethical-model/principles/transparencia.md\r\n"
+            "title: Automação e Maturidade Ética\r\n"
+            "---\r\n"
+            "\r\n"
+            "# Corpo\r\n"
+        )
+
+        front_matter, body = app._parse_front_matter(text)
+
+        self.assertEqual(front_matter["title"], "Automação e Maturidade Ética")
+        self.assertEqual(front_matter["id"], "docs/20-ethical-model/principles/transparencia.md")
+        self.assertEqual(body, "\n# Corpo\n")

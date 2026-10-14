@@ -282,3 +282,37 @@ def test_template_library_exposes_expected_key() -> None:
 
     assert "root/README.md" in keys
     assert load_template_by_key("root/README.md")
+
+
+def test_generate_keeps_portuguese_accents_readable_in_front_matter(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "metadata_defaults": {"visibility": "internal", "status": "active"},
+            "files": [],
+        },
+        "sections": [
+            {
+                "path": "docs/20-ethical-model",
+                "metadata_defaults": {"phase": "20-ethical-model"},
+                "files": [
+                    {
+                        "path": "automacao.md",
+                        "inline": "# Automação\n",
+                        "front_matter": {
+                            "id": "docs/20-ethical-model/automacao.md",
+                            "title": "Automação e Maturidade Ética",
+                            "document_class": "core-doc",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+    content = (target / "docs/20-ethical-model/automacao.md").read_text(encoding="utf-8")
+
+    assert "title: Automação e Maturidade Ética\n" in content
+    assert "\\x" not in content

@@ -13,6 +13,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Fixed
 
 - resolved all `ruff` linting errors in CI: import organization and line-length violations in `src/kaidf_gen/cli.py`, `src/kaidf_gen/generator.py`, and test files
+- generated front matter keeps Portuguese accents readable: YAML is dumped with `allow_unicode=True`, so titles like `Automação` are written as-is instead of escaped sequences such as `Automa\xE7\xE3o` (#32)
 
 ## [0.1.5] - 2026-07-30
 
