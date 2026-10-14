@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .errors import UnsafePathError
+
+
+def normalize_rel_path(rel: str) -> str:
+    """Canonical spec path: forward slashes, no '.' segments or doubled separators."""
+    return PurePosixPath(rel.replace("\\", "/")).as_posix()
 
 
 def safe_join(root: Path, rel: str) -> Path:
