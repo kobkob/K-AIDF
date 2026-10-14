@@ -22,10 +22,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Known backlog: existing Markdown and Python do not pass the lint/format checks yet.
-      # Those steps are reported but not blocking until the backlog is cleared.
       - name: Lint Markdown
-        continue-on-error: true
         run: npx --yes markdownlint-cli2 "**/*.md" "!**/node_modules/**"
 
       - name: Set up Python
@@ -39,11 +36,9 @@ jobs:
           pip install pytest ruff
 
       - name: Lint Python
-        continue-on-error: true
         run: python -m ruff check .
 
       - name: Check Python formatting
-        continue-on-error: true
         run: python -m ruff format --check .
 
       - name: Syntax check

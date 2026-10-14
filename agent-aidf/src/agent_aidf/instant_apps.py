@@ -76,7 +76,10 @@ def load_instant_app(ref: str | Path) -> InstantApp | None:
     title = data.get("title")
     description = data.get("description")
     entrypoint = data.get("entrypoint")
-    if not all(isinstance(value, str) and value for value in [app_id, mode, kind, title, description, entrypoint]):
+    if not all(
+        isinstance(value, str) and value
+        for value in [app_id, mode, kind, title, description, entrypoint]
+    ):
         return None
     url = data.get("url")
     if url is not None and not isinstance(url, str):
@@ -161,7 +164,11 @@ def append_mentor_note(
     if app is None:
         raise ValueError(f"Instant app not found: {app_id}")
     notes_path = app.root / MENTOR_NOTES_FILENAME
-    existing = notes_path.read_text(encoding="utf-8") if notes_path.is_file() else f"# Mentor Notes for {app.app_id}\n"
+    existing = (
+        notes_path.read_text(encoding="utf-8")
+        if notes_path.is_file()
+        else f"# Mentor Notes for {app.app_id}\n"
+    )
     entry = f"\n## {heading}\n\n{body.strip()}\n"
     notes_path.write_text(existing.rstrip() + entry + "\n", encoding="utf-8")
     return notes_path
@@ -205,7 +212,9 @@ def run_instant_app(
     if app is None:
         raise ValueError(f"Instant app not found: {app_id}")
     if app.kind != "web":
-        raise ValueError(f"Background runtime is currently supported only for web instant apps: {app_id}")
+        raise ValueError(
+            f"Background runtime is currently supported only for web instant apps: {app_id}"
+        )
     existing = load_instant_app_runtime(repo_root, app_id)
     if existing and existing.pid and _process_is_running(existing.pid):
         return existing
@@ -321,7 +330,10 @@ def apply_mentor_update(
         ),
     )
     if app.kind == "web":
-        _write(app.root / MENTOR_ANSWERS_FILENAME, json.dumps({"answers": []}, indent=2, sort_keys=True) + "\n")
+        _write(
+            app.root / MENTOR_ANSWERS_FILENAME,
+            json.dumps({"answers": []}, indent=2, sort_keys=True) + "\n",
+        )
         _write(app.root / "index.html", _render_web_index(app, brief))
         _write(app.root / "main.py", _render_web_main(app, brief))
     else:
@@ -340,10 +352,10 @@ def _scaffold_instant_app(root: Path, *, app_id: str, mode: str, kind: str) -> N
             root / "index.html",
             (
                 "<!doctype html>\n"
-                "<html lang=\"en\">\n"
+                '<html lang="en">\n'
                 "<head>\n"
-                "  <meta charset=\"utf-8\">\n"
-                "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                '  <meta charset="utf-8">\n'
+                '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
                 f"  <title>{app_id}</title>\n"
                 "  <style>\n"
                 "    body { font-family: Georgia, serif; margin: 2rem; line-height: 1.5; }\n"
@@ -368,11 +380,11 @@ def _scaffold_instant_app(root: Path, *, app_id: str, mode: str, kind: str) -> N
                 "from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler\n"
                 "from pathlib import Path\n\n"
                 "ROOT = Path(__file__).resolve().parent\n"
-                "PORT = int(os.environ.get(\"INSTANT_APP_PORT\", \"8765\"))\n\n"
-                "if __name__ == \"__main__\":\n"
-                "    server = ThreadingHTTPServer((\"127.0.0.1\", PORT), SimpleHTTPRequestHandler)\n"
+                'PORT = int(os.environ.get("INSTANT_APP_PORT", "8765"))\n\n'
+                'if __name__ == "__main__":\n'
+                '    server = ThreadingHTTPServer(("127.0.0.1", PORT), SimpleHTTPRequestHandler)\n'
                 "    os.chdir(ROOT)\n"
-                "    print(f\"Serving instant app at http://127.0.0.1:{PORT}\")\n"
+                '    print(f"Serving instant app at http://127.0.0.1:{PORT}")\n'
                 "    server.serve_forever()\n"
             ),
         )
@@ -385,16 +397,16 @@ def _scaffold_instant_app(root: Path, *, app_id: str, mode: str, kind: str) -> N
             (
                 "from __future__ import annotations\n\n"
                 "def main() -> None:\n"
-                "    print(\"instant shell app\")\n"
+                '    print("instant shell app")\n'
                 "    print(\"type 'quit' to exit\")\n"
                 "    while True:\n"
-                "        raw = input(\"instant-app> \").strip()\n"
-                "        if raw in {\"quit\", \"exit\"}:\n"
+                '        raw = input("instant-app> ").strip()\n'
+                '        if raw in {"quit", "exit"}:\n'
                 "            return\n"
                 "        if not raw:\n"
                 "            continue\n"
-                "        print(f\"echo: {raw}\")\n\n"
-                "if __name__ == \"__main__\":\n"
+                '        print(f"echo: {raw}")\n\n'
+                'if __name__ == "__main__":\n'
                 "    main()\n"
             ),
         )
@@ -494,65 +506,80 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
     category = str(brief["category"])
     step = int(brief["step"])
     doc_links = list(brief.get("doc_links", []))
-    docs_markup = "\n".join(
-        f"        <li><a href=\"{_escape_html(str(item['href']))}\" target=\"_blank\" rel=\"noreferrer\">{_escape_html(str(item['label']))}</a></li>"
-        for item in doc_links
-    ) or "        <li>No linked documents available yet.</li>"
+    docs_markup = (
+        "\n".join(
+            f'        <li><a href="{_escape_html(str(item["href"]))}" target="_blank" '
+            f'rel="noreferrer">{_escape_html(str(item["label"]))}</a></li>'
+            for item in doc_links
+        )
+        or "        <li>No linked documents available yet.</li>"
+    )
     return (
         "<!doctype html>\n"
-        "<html lang=\"en\">\n"
+        '<html lang="en">\n'
         "<head>\n"
-        "  <meta charset=\"utf-8\">\n"
-        "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        '  <meta charset="utf-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  <title>{app.app_id}</title>\n"
         "  <style>\n"
         "    :root { color-scheme: light; }\n"
-        "    body { font-family: Georgia, serif; margin: 0; background: linear-gradient(180deg, #f6f0e8, #ffffff); color: #1f1a17; }\n"
+        "    body { font-family: Georgia, serif; margin: 0; background: linear-gradient(180deg, "
+        "#f6f0e8, #ffffff); color: #1f1a17; }\n"
         "    main { max-width: 52rem; margin: 0 auto; padding: 3rem 1.5rem 4rem; }\n"
-        "    .card { background: rgba(255,255,255,0.9); border: 1px solid #d6c6b6; border-radius: 16px; padding: 1.25rem; margin-top: 1rem; box-shadow: 0 8px 24px rgba(60,40,20,0.08); }\n"
-        "    .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: #8b5e34; }\n"
+        "    .card { background: rgba(255,255,255,0.9); border: 1px solid #d6c6b6; border-radius: "
+        "16px; padding: 1.25rem; margin-top: 1rem; box-shadow: 0 8px 24px rgba(60,40,20,0.08); }\n"
+        "    .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; "
+        "color: #8b5e34; }\n"
         "    h1 { font-size: 2.5rem; margin: 0.3rem 0 0.75rem; }\n"
         "    p { line-height: 1.6; }\n"
         "    code { background: #f2e7da; padding: 0.1rem 0.3rem; border-radius: 4px; }\n"
-        "    textarea { width: 100%; min-height: 9rem; border: 1px solid #c8b5a3; border-radius: 12px; padding: 0.9rem; font: inherit; resize: vertical; background: #fffdf9; }\n"
-        "    button { border: 0; border-radius: 999px; padding: 0.8rem 1.2rem; background: #8b5e34; color: white; font: inherit; cursor: pointer; }\n"
+        "    textarea { width: 100%; min-height: 9rem; border: 1px solid #c8b5a3; border-radius: "
+        "12px; padding: 0.9rem; font: inherit; resize: vertical; background: #fffdf9; }\n"
+        "    button { border: 0; border-radius: 999px; padding: 0.8rem 1.2rem; background: "
+        "#8b5e34; "
+        "color: white; font: inherit; cursor: pointer; }\n"
         "    ul { margin: 0.6rem 0 0; padding-left: 1.2rem; }\n"
         "    .status { color: #6b4f33; font-size: 0.95rem; }\n"
-        "    .answer-item { border-top: 1px solid #e8dacb; padding-top: 0.8rem; margin-top: 0.8rem; }\n"
+        "    .answer-item { border-top: 1px solid #e8dacb; padding-top: 0.8rem; margin-top: "
+        "0.8rem; "
+        "}\n"
         "  </style>\n"
         "</head>\n"
         "<body>\n"
         "  <main>\n"
-        f"    <div class=\"eyebrow\">Mentor-driven instant app · Step {step}</div>\n"
+        f'    <div class="eyebrow">Mentor-driven instant app · Step {step}</div>\n'
         f"    <h1>{app.app_id}</h1>\n"
         f"    <p>{focus}.</p>\n"
-        "    <div class=\"card\">\n"
+        '    <div class="card">\n'
         f"      <strong>Framework focus</strong><p>{category}</p>\n"
         "    </div>\n"
-        "    <div class=\"card\">\n"
+        '    <div class="card">\n'
         "      <strong>Current mentor question</strong>\n"
         f"      <p>{_escape_html(question)}</p>\n"
         "    </div>\n"
-        "    <div class=\"card\">\n"
+        '    <div class="card">\n'
         "      <strong>Current intent</strong>\n"
         f"      <p>{_escape_html(answer_summary)}</p>\n"
         "    </div>\n"
-        "    <div class=\"card\">\n"
+        '    <div class="card">\n'
         "      <strong>Answer capture</strong>\n"
-        "      <p>Use this local form to capture review answers while the mentor workflow is running.</p>\n"
-        "      <textarea id=\"answer-input\" placeholder=\"Write the next answer or review note here.\"></textarea>\n"
-        "      <p><button id=\"answer-save\" type=\"button\">Save Answer</button></p>\n"
-        "      <p class=\"status\" id=\"answer-status\">No local answer saved in this session.</p>\n"
-        "      <div id=\"answer-list\"></div>\n"
+        "      <p>Use this local form to capture review answers while the mentor workflow is "
+        "running.</p>\n"
+        '      <textarea id="answer-input" placeholder="Write the next answer or review note '
+        'here."></textarea>\n'
+        '      <p><button id="answer-save" type="button">Save Answer</button></p>\n'
+        '      <p class="status" id="answer-status">No local answer saved in this session.</p>\n'
+        '      <div id="answer-list"></div>\n'
         "    </div>\n"
-        "    <div class=\"card\">\n"
+        '    <div class="card">\n'
         "      <strong>Framework and runtime links</strong>\n"
         "      <ul>\n"
         f"{docs_markup}\n"
         "      </ul>\n"
         "    </div>\n"
-        "    <div class=\"card\">\n"
-        f"      <strong>Run</strong><p><code>python main.py</code> then open <code>{app.url or 'http://127.0.0.1:8765'}</code></p>\n"
+        '    <div class="card">\n'
+        f"      <strong>Run</strong><p><code>python main.py</code> then open "
+        f"<code>{app.url or 'http://127.0.0.1:8765'}</code></p>\n"
         "    </div>\n"
         "    <script>\n"
         "      async function loadState() {\n"
@@ -570,8 +597,10 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
         "        }\n"
         "        container.innerHTML = answers.map((item) => {\n"
         "          const created = item.created_at || 'unknown time';\n"
-        "          const text = String(item.text || '').replace(/[&<>]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[char]));\n"
-        "          return `<div class=\"answer-item\"><strong>${created}</strong><p>${text}</p></div>`;\n"
+        "          const text = String(item.text || '').replace(/[&<>]/g, (char) => "
+        "({'&':'&amp;','<':'&lt;','>':'&gt;'}[char]));\n"
+        "          return `<div "
+        'class="answer-item"><strong>${created}</strong><p>${text}</p></div>`;\n'
         "        }).join('');\n"
         "      }\n"
         "      async function refresh() {\n"
@@ -601,7 +630,8 @@ def _render_web_index(app: InstantApp, brief: dict[str, object]) -> str:
         "        await refresh();\n"
         "      });\n"
         "      refresh().catch(() => {\n"
-        "        document.getElementById('answer-status').textContent = 'Unable to load local answer state.';\n"
+        "        document.getElementById('answer-status').textContent = 'Unable to load local "
+        "answer state.';\n"
         "      });\n"
         "    </script>\n"
         "  </main>\n"
@@ -629,7 +659,7 @@ def _render_web_main(app: InstantApp, brief: dict[str, object]) -> str:
         f"ANSWER = {answer!r}\n"
         "ANSWERS_PATH = ROOT / 'mentor-answers.json'\n"
         "BRIEF_PATH = ROOT / 'mentor-brief.json'\n"
-        "PORT = int(os.environ.get(\"INSTANT_APP_PORT\", \"8765\"))\n\n"
+        'PORT = int(os.environ.get("INSTANT_APP_PORT", "8765"))\n\n'
         "def load_answers() -> dict[str, object]:\n"
         "    if not ANSWERS_PATH.is_file():\n"
         "        return {'answers': []}\n"
@@ -646,7 +676,8 @@ def _render_web_main(app: InstantApp, brief: dict[str, object]) -> str:
         "    }\n"
         "    answers.append(item)\n"
         "    payload['answers'] = answers\n"
-        "    ANSWERS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\\n', encoding='utf-8')\n"
+        "    ANSWERS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\\n', "
+        "encoding='utf-8')\n"
         "    return item\n\n"
         "def load_brief() -> dict[str, object]:\n"
         "    if not BRIEF_PATH.is_file():\n"
@@ -686,11 +717,11 @@ def _render_web_main(app: InstantApp, brief: dict[str, object]) -> str:
         "        self.send_header('Content-Length', str(len(body)))\n"
         "        self.end_headers()\n"
         "        self.wfile.write(body)\n\n"
-        "if __name__ == \"__main__\":\n"
-        "    server = ThreadingHTTPServer((\"127.0.0.1\", PORT), MentorAppHandler)\n"
+        'if __name__ == "__main__":\n'
+        '    server = ThreadingHTTPServer(("127.0.0.1", PORT), MentorAppHandler)\n'
         "    os.chdir(ROOT)\n"
-        "    print(f\"Serving {APP_ID} at http://127.0.0.1:{PORT}\")\n"
-        "    print(f\"Focus: {IMPLEMENTATION_FOCUS}\")\n"
+        '    print(f"Serving {APP_ID} at http://127.0.0.1:{PORT}")\n'
+        '    print(f"Focus: {IMPLEMENTATION_FOCUS}")\n'
         "    server.serve_forever()\n"
     )
 
@@ -704,18 +735,18 @@ def _render_shell_main(app: InstantApp, brief: dict[str, object]) -> str:
         f"IMPLEMENTATION_FOCUS = {focus!r}\n"
         f"ANSWER_SUMMARY = {answer_summary!r}\n\n"
         "def main() -> None:\n"
-        "    print(f\"instant shell app: {APP_ID}\")\n"
-        "    print(f\"focus: {IMPLEMENTATION_FOCUS}\")\n"
-        "    print(f\"intent: {ANSWER_SUMMARY}\")\n"
+        '    print(f"instant shell app: {APP_ID}")\n'
+        '    print(f"focus: {IMPLEMENTATION_FOCUS}")\n'
+        '    print(f"intent: {ANSWER_SUMMARY}")\n'
         "    print(\"type 'quit' to exit\")\n"
         "    while True:\n"
-        "        raw = input(\"instant-app> \").strip()\n"
-        "        if raw in {\"quit\", \"exit\"}:\n"
+        '        raw = input("instant-app> ").strip()\n'
+        '        if raw in {"quit", "exit"}:\n'
         "            return\n"
         "        if not raw:\n"
         "            continue\n"
-        "        print(f\"{APP_ID} captured: {raw}\")\n\n"
-        "if __name__ == \"__main__\":\n"
+        '        print(f"{APP_ID} captured: {raw}")\n\n'
+        'if __name__ == "__main__":\n'
         "    main()\n"
     )
 
@@ -737,8 +768,5 @@ def _doc_links(repo_root: Path) -> list[dict[str, str]]:
 
 def _escape_html(value: str) -> str:
     return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
     )

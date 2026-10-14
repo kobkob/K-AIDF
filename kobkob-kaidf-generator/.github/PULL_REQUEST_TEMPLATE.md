@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 ## Summary
 
 - describe the generator, schema, or template change
@@ -9,4 +10,3 @@
 ## Compatibility Notes
 
 - call out any generated output contract changes
-

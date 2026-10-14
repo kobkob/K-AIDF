@@ -188,13 +188,17 @@ def test_select_context_documents_prefers_ethical_domain_documents(tmp_path: Pat
         encoding="utf-8",
     )
 
-    selected = select_context_documents(load_documents(repo), "how should we handle transparency?", limit=3)
+    selected = select_context_documents(
+        load_documents(repo), "how should we handle transparency?", limit=3
+    )
 
     assert selected
     assert selected[0].path == "docs/20-ethical-model/principles/transparency.md"
 
 
-def test_select_context_documents_prefers_maturity_checklist_for_checklist_prompt(tmp_path: Path) -> None:
+def test_select_context_documents_prefers_maturity_checklist_for_checklist_prompt(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "demo"
     repo.mkdir()
     (repo / "README.md").write_text("# Demo\n", encoding="utf-8")
@@ -231,7 +235,9 @@ def test_select_context_documents_prefers_maturity_checklist_for_checklist_promp
         encoding="utf-8",
     )
 
-    selected = select_context_documents(load_documents(repo), "show the maturity checklist", limit=3)
+    selected = select_context_documents(
+        load_documents(repo), "show the maturity checklist", limit=3
+    )
 
     assert selected
     assert selected[0].path == "docs/10-maturity-model/assessment/checklist.md"
@@ -251,7 +257,9 @@ class _FakeResponse:
         return self._body
 
 
-def test_ollama_controller_sends_kob_identity_and_captures_usage(tmp_path: Path, monkeypatch) -> None:
+def test_ollama_controller_sends_kob_identity_and_captures_usage(
+    tmp_path: Path, monkeypatch
+) -> None:
     (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
     captured: dict[str, object] = {}
 
@@ -292,7 +300,9 @@ def test_ollama_identity_does_not_attribute_olmo_to_kobkob(tmp_path: Path, monke
     assert "does NOT make the underlying model" in prompt_sent
 
 
-def test_openai_controller_sends_kob_identity_and_captures_usage(tmp_path: Path, monkeypatch) -> None:
+def test_openai_controller_sends_kob_identity_and_captures_usage(
+    tmp_path: Path, monkeypatch
+) -> None:
     (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
     captured: dict[str, object] = {}
 
@@ -302,7 +312,9 @@ def test_openai_controller_sends_kob_identity_and_captures_usage(tmp_path: Path,
             json.dumps(
                 {
                     "id": "resp_1",
-                    "output": [{"type": "message", "content": [{"type": "output_text", "text": "hi"}]}],
+                    "output": [
+                        {"type": "message", "content": [{"type": "output_text", "text": "hi"}]}
+                    ],
                     "usage": {"input_tokens": 12, "output_tokens": 3, "total_tokens": 15},
                 }
             ).encode("utf-8")
@@ -352,7 +364,10 @@ def test_generic_chat_context_does_not_dump_full_manifesto_body(tmp_path: Path) 
 def test_resolve_timeout_seconds_defaults_when_unset(monkeypatch) -> None:
     monkeypatch.delenv("AIDF_CHAT_TIMEOUT_SECONDS", raising=False)
 
-    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    assert (
+        controller_module._resolve_timeout_seconds()
+        == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    )
 
 
 def test_resolve_timeout_seconds_honors_valid_override(monkeypatch) -> None:
@@ -364,11 +379,17 @@ def test_resolve_timeout_seconds_honors_valid_override(monkeypatch) -> None:
 def test_resolve_timeout_seconds_falls_back_on_garbage_value(monkeypatch) -> None:
     monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "not-a-number")
 
-    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    assert (
+        controller_module._resolve_timeout_seconds()
+        == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    )
 
     monkeypatch.setenv("AIDF_CHAT_TIMEOUT_SECONDS", "-5")
 
-    assert controller_module._resolve_timeout_seconds() == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    assert (
+        controller_module._resolve_timeout_seconds()
+        == controller_module._DEFAULT_HTTP_TIMEOUT_SECONDS
+    )
 
 
 def test_ollama_controller_appends_caveat_to_successful_reply(tmp_path: Path, monkeypatch) -> None:

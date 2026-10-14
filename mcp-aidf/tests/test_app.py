@@ -105,8 +105,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         )
         _write(
             self.repo_root / "docs/00-overview/decision-rights.md",
-            "# Decision Rights\n\n"
-            "Who decides what.\n",
+            "# Decision Rights\n\nWho decides what.\n",
         )
         _write(
             self.repo_root / "docs/01-intent-constraints/prompts/framing.prompt.md",

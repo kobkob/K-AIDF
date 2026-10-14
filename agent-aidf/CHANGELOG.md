@@ -78,7 +78,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Changed
 
 - `kob init` now generates the maturity-model and ethical-model packs by default (`kobkob-kaidf-generator`'s `kaidf.default.yaml` bundles them), so every fresh `.kaidf/` project ships with `docs/10-maturity-model/` and `docs/20-ethical-model/` without a separate `generate` call
-- deprecated `agent-aidf` as a shell command name, now that only `kob` is installed as a console script: `python -m agent_aidf.legacy_cli --help` no longer shows `usage: agent-aidf ...`, and `kob shell`'s banner/prompt now read `kob shell` / `kob> ` instead of `agent-aidf shell` / `agent-aidf> `. The `agent-aidf` name is unaffected as the directory, distribution, and `agent_aidf` module name
+- deprecated `agent-aidf` as a shell command name, now that only `kob` is installed as a console script: `python -m agent_aidf.legacy_cli --help` no longer shows `usage: agent-aidf ...`, and `kob shell`'s banner/prompt now read `kob shell` / `kob>` instead of `agent-aidf shell` / `agent-aidf>`. The `agent-aidf` name is unaffected as the directory, distribution, and `agent_aidf` module name
 
 ## [0.5.0] - 2026-07-27
 

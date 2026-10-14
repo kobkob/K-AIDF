@@ -38,12 +38,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--repo",
         default=None,
-        help="Path to a K-AIDF repository override. Defaults to .kaidf in the project, then AIDF_REPO_ROOT.",
+        help="Path to a K-AIDF repository override. Defaults to .kaidf in the project, then "
+        "AIDF_REPO_ROOT.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser("init", help="Create .kaidf in the current project.")
-    init_parser.add_argument("--force", action="store_true", help="Replace an existing .kaidf directory.")
+    init_parser.add_argument(
+        "--force", action="store_true", help="Replace an existing .kaidf directory."
+    )
 
     subparsers.add_parser("status", help="Show current project and .kaidf runtime status.")
 
@@ -51,15 +54,23 @@ def build_parser() -> argparse.ArgumentParser:
         "context",
         help="Inspect the current project runtime context, optionally for a prompt.",
     )
-    context_parser.add_argument("prompt", nargs="?", help="Optional prompt to score relevant documents.")
+    context_parser.add_argument(
+        "prompt", nargs="?", help="Optional prompt to score relevant documents."
+    )
 
     mentor_parser = subparsers.add_parser(
         "mentor",
         help="Continue the persisted mentor workflow against the project runtime.",
     )
-    mentor_parser.add_argument("answer", nargs="?", help="Optional answer for the current mentor question.")
-    mentor_parser.add_argument("--status", action="store_true", help="Show persisted mentor workflow state.")
-    mentor_parser.add_argument("--reset", action="store_true", help="Reset the persisted mentor workflow state.")
+    mentor_parser.add_argument(
+        "answer", nargs="?", help="Optional answer for the current mentor question."
+    )
+    mentor_parser.add_argument(
+        "--status", action="store_true", help="Show persisted mentor workflow state."
+    )
+    mentor_parser.add_argument(
+        "--reset", action="store_true", help="Reset the persisted mentor workflow state."
+    )
     subparsers.add_parser("packs", help="List doctrine packs discovered in the repository.")
     subparsers.add_parser("apps", help="List persistent instant apps in .kaidf/apps.")
     subparsers.add_parser("contracts", help="List generated basic contracts in .kaidf/contracts.")
@@ -69,14 +80,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Create a mentor-aware basic contract scaffold under .kaidf/contracts.",
     )
     contract_create_parser.add_argument("contract_id", nargs="?")
-    contract_create_parser.add_argument("--brief", help="Optional project brief to seed the contract.")
-    contract_create_parser.add_argument("--force", action="store_true", help="Replace an existing contract directory.")
+    contract_create_parser.add_argument(
+        "--brief", help="Optional project brief to seed the contract."
+    )
+    contract_create_parser.add_argument(
+        "--force", action="store_true", help="Replace an existing contract directory."
+    )
 
-    contract_open_parser = subparsers.add_parser("contract-open", help="Print contract metadata by id or path.")
+    contract_open_parser = subparsers.add_parser(
+        "contract-open", help="Print contract metadata by id or path."
+    )
     contract_open_parser.add_argument("ref")
 
     app_create_parser = subparsers.add_parser("app-create", help="Create an instant app scaffold.")
-    app_create_parser.add_argument("app_id", help="App id used as the persistent folder name or ephemeral label.")
+    app_create_parser.add_argument(
+        "app_id", help="App id used as the persistent folder name or ephemeral label."
+    )
     app_create_parser.add_argument(
         "--mode",
         choices=["persistent", "ephemeral"],
@@ -90,14 +109,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Initial app scaffold kind.",
     )
 
-    app_open_parser = subparsers.add_parser("app-open", help="Print instant app metadata by id or path.")
+    app_open_parser = subparsers.add_parser(
+        "app-open", help="Print instant app metadata by id or path."
+    )
     app_open_parser.add_argument("ref")
-    app_run_parser = subparsers.add_parser("app-run", help="Start a background runtime for a web instant app.")
+    app_run_parser = subparsers.add_parser(
+        "app-run", help="Start a background runtime for a web instant app."
+    )
     app_run_parser.add_argument("ref")
     app_run_parser.add_argument("--port", type=int)
-    app_runtime_parser = subparsers.add_parser("app-runtime", help="Show stored runtime state for an instant app.")
+    app_runtime_parser = subparsers.add_parser(
+        "app-runtime", help="Show stored runtime state for an instant app."
+    )
     app_runtime_parser.add_argument("ref")
-    app_stop_parser = subparsers.add_parser("app-stop", help="Stop a background runtime for an instant app.")
+    app_stop_parser = subparsers.add_parser(
+        "app-stop", help="Stop a background runtime for an instant app."
+    )
     app_stop_parser.add_argument("ref")
 
     docs_parser = subparsers.add_parser("docs", help="List documents filtered by metadata.")
@@ -114,7 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
     open_parser = subparsers.add_parser("open", help="Open a document by id or path.")
     open_parser.add_argument("ref")
 
-    chat_parser = subparsers.add_parser("chat", help="Send a prompt to the configured chat controller.")
+    chat_parser = subparsers.add_parser(
+        "chat", help="Send a prompt to the configured chat controller."
+    )
     chat_parser.add_argument("prompt")
 
     subparsers.add_parser("shell", help="Start the interactive shell.")
@@ -196,7 +225,9 @@ def _cmd_contracts(repo_root: Path) -> int:
     return 0
 
 
-def _cmd_contract_create(repo_root: Path, contract_id: str | None, brief: str | None, force: bool) -> int:
+def _cmd_contract_create(
+    repo_root: Path, contract_id: str | None, brief: str | None, force: bool
+) -> int:
     contract = create_basic_contract(repo_root, contract_id=contract_id, brief=brief, force=force)
     print(f"contract_id: {contract.contract_id}")
     print(f"title: {contract.title}")

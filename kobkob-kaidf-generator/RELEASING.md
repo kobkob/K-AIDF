@@ -19,7 +19,6 @@ PYTHONPATH=src python -m pytest -q
 python -m kaidf_gen.cli validate specs/kaidf.default.yaml
 ```
 
-4. Commit the release changes.
-5. Create and push a tag like `v0.1.1`.
-6. Let GitHub Actions publish the release from the tag.
-
+1. Commit the release changes.
+2. Create and push a tag like `v0.1.1`.
+3. Let GitHub Actions publish the release from the tag.

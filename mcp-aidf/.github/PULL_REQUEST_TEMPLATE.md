@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 ## Summary
 
 - describe the connector-facing or server-facing change
@@ -9,4 +10,3 @@
 ## Protocol Notes
 
 - document any MCP, OAuth, or deployment impact
-

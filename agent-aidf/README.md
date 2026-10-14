@@ -7,6 +7,7 @@ Terminal-first mentor and architect agent for K-AIDF-compatible projects.
 This is a terminal-first CLI and interactive shell connected to a project-local `.kaidf/` repository, plus a small optional local web UI (`kob ui`) for the same mentor workflow.
 
 It does three things:
+
 - initializes and maintains `.kaidf/` in the current project
 - loads doctrine and pack metadata from the local K-AIDF repository
 - exposes doctrine-pack metadata through commands and scripts
@@ -24,7 +25,7 @@ It does three things:
 
 ### Interactive TUI
 
-```
+```bash
 kob
 ```
 
@@ -88,6 +89,7 @@ The remaining commands are still served by the legacy CLI, which stays a plain o
 - `python -m agent_aidf.legacy_cli chat <prompt>`
 
 The CLI resolves runtime context in this order:
+
 - `--repo` when you need an explicit override
 - `.kaidf/` inside `--project` or the current directory
 - `AIDF_REPO_ROOT` if no local `.kaidf/` exists
@@ -98,6 +100,7 @@ The CLI resolves runtime context in this order:
 ## AI Controller
 
 The shell and `chat` command use:
+
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (default: `gpt-5`)
 - `OPENAI_BASE_URL` (default: `https://api.openai.com/v1`)

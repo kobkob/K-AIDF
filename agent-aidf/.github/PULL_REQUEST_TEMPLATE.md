@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 ## Summary
 
 - describe the user-visible or repository-visible change
@@ -9,4 +10,3 @@
 ## Notes
 
 - note any follow-up work, assumptions, or open questions
-

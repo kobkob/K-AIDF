@@ -34,8 +34,14 @@ def _build_repo_with_phase_one_scaffold(tmp_path: Path) -> Path:
         repo / "docs/01_intent_constraints/templates/constraint-matrix.csv",
         "constraint_type,description,owner,severity\n",
     )
-    _write(repo / "docs/01_intent_constraints/data-provenance.md", "# Data Provenance\n\n## Data Sources\n")
-    _write(repo / "docs/01_intent_constraints/exit-criteria.md", "# Exit Criteria (Phase 1)\n- ICB completed\n")
+    _write(
+        repo / "docs/01_intent_constraints/data-provenance.md",
+        "# Data Provenance\n\n## Data Sources\n",
+    )
+    _write(
+        repo / "docs/01_intent_constraints/exit-criteria.md",
+        "# Exit Criteria (Phase 1)\n- ICB completed\n",
+    )
     return repo
 
 
@@ -105,7 +111,8 @@ def test_mentor_answer_advances_workflow_and_records_interaction(tmp_path: Path)
 
     turn = continue_mentor_workflow(
         repo,
-        answer="We need a transparent localhost web app with human validation and clear accountability.",
+        answer="We need a transparent localhost web app with human validation and clear "
+        "accountability.",
     )
     state = load_mentor_state(repo)
 
@@ -132,7 +139,8 @@ def test_mentor_reuses_current_app_for_later_relevant_answers(tmp_path: Path) ->
     continue_mentor_workflow(repo)
     continue_mentor_workflow(
         repo,
-        answer="We need a transparent localhost web app with human validation and clear accountability.",
+        answer="We need a transparent localhost web app with human validation and clear "
+        "accountability.",
     )
     first_runtime = load_instant_app_runtime(repo, "mentor-web-app")
     assert first_runtime is not None
@@ -163,12 +171,14 @@ def test_mentor_spawns_new_app_when_modality_changes(tmp_path: Path) -> None:
     continue_mentor_workflow(repo)
     continue_mentor_workflow(
         repo,
-        answer="We need a transparent localhost web app with human validation and clear accountability.",
+        answer="We need a transparent localhost web app with human validation and clear "
+        "accountability.",
     )
 
     turn = continue_mentor_workflow(
         repo,
-        answer="We also need a separate terminal shell app for internal reviewers to capture checklist notes.",
+        answer="We also need a separate terminal shell app for internal reviewers to capture "
+        "checklist notes.",
     )
     state = load_mentor_state(repo)
 
@@ -187,12 +197,14 @@ def test_mentor_spawns_second_app_when_answer_explicitly_requests_new_one(tmp_pa
     continue_mentor_workflow(repo)
     continue_mentor_workflow(
         repo,
-        answer="We need a transparent localhost web app with human validation and clear accountability.",
+        answer="We need a transparent localhost web app with human validation and clear "
+        "accountability.",
     )
 
     turn = continue_mentor_workflow(
         repo,
-        answer="Create another new app: a separate browser workflow for approval leaders on localhost.",
+        answer="Create another new app: a separate browser workflow for approval leaders on "
+        "localhost.",
     )
     state = load_mentor_state(repo)
 
@@ -258,13 +270,16 @@ def test_five_answers_without_artifacts_never_marks_a_phase_done(tmp_path: Path)
     assert all(phase["state"] != "done" for phase in snapshot)
 
 
-def test_mentor_proposes_file_action_and_pauses_for_confirmation(tmp_path: Path, monkeypatch) -> None:
+def test_mentor_proposes_file_action_and_pauses_for_confirmation(
+    tmp_path: Path, monkeypatch
+) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
     action_block = (
         "Here is a draft ICB for you.\n"
         "<<<KOB_ACTION\n"
         '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need X.\\n"}\n'
+        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need '
+        'X.\\n"}\n'
         "KOB_ACTION>>>"
     )
     fake = _FakeController([action_block])
@@ -283,13 +298,16 @@ def test_mentor_proposes_file_action_and_pauses_for_confirmation(tmp_path: Path,
     assert "We need X." not in icb_path.read_text(encoding="utf-8")
 
 
-def test_confirming_file_action_writes_it_and_can_lead_to_acceptance(tmp_path: Path, monkeypatch) -> None:
+def test_confirming_file_action_writes_it_and_can_lead_to_acceptance(
+    tmp_path: Path, monkeypatch
+) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
     action_block = (
         "Here is a draft ICB for you.\n"
         "<<<KOB_ACTION\n"
         '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need X.\\n"}\n'
+        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need '
+        'X.\\n"}\n'
         "KOB_ACTION>>>"
     )
     fake = _FakeController([action_block])
@@ -427,7 +445,8 @@ def test_yolo_applies_write_action_immediately_without_pausing(tmp_path: Path, m
         "Drafting now.\n"
         "<<<KOB_ACTION\n"
         '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nAuto-drafted.\\n"}\n'
+        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem '
+        'Statement\\nAuto-drafted.\\n"}\n'
         "KOB_ACTION>>>"
     )
     fake = _FakeController([action_block])

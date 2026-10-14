@@ -59,7 +59,9 @@ def test_create_basic_contract_writes_standard_files_and_phases(tmp_path: Path) 
     assert (repo / "contracts" / "basic-mentor-contract" / "contract.md").is_file()
     assert (repo / "contracts" / "basic-mentor-contract" / "quiz.md").is_file()
 
-    payload = json.loads((repo / "contracts" / "basic-mentor-contract" / "contract.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (repo / "contracts" / "basic-mentor-contract" / "contract.json").read_text(encoding="utf-8")
+    )
     assert payload["contract_id"] == "basic-mentor-contract"
     assert payload["brief"] == "Create a mentor-led contract for a quiz-driven localhost workflow."
     assert len(payload["phases"]) == 5
@@ -77,7 +79,8 @@ def test_create_basic_contract_uses_mentor_state_and_current_app_context(tmp_pat
     continue_mentor_workflow(repo)
     continue_mentor_workflow(
         repo,
-        answer="We need a transparent localhost web app with human validation and clear accountability.",
+        answer="We need a transparent localhost web app with human validation and clear "
+        "accountability.",
     )
 
     contract = create_basic_contract(repo)

@@ -146,7 +146,9 @@ def load_documents(repo_root: str | Path | None = None) -> list[Document]:
     for file_path in _iter_indexable_paths(root):
         rel_path = file_path.relative_to(root).as_posix()
         raw_text = file_path.read_text(encoding="utf-8")
-        front_matter, body = _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
+        front_matter, body = (
+            _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
+        )
         title = front_matter.get("title") or _first_heading(body) or file_path.stem
         documents.append(
             Document(

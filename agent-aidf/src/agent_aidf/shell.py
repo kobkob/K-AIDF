@@ -173,9 +173,11 @@ def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
             return 0
         if raw == "help":
             print(
-                "commands: packs | contracts | contract-create [id] [--brief ...] [--force] | contract-open <id-or-path> | "
+                "commands: packs | contracts | contract-create [id] [--brief ...] [--force] | "
+                "contract-open <id-or-path> | "
                 "apps | app-create <id> [--mode ...] [--kind ...] | "
-                "app-open <id-or-path> | app-run <id> [--port ...] | app-runtime <id> | app-stop <id> | "
+                "app-open <id-or-path> | app-run <id> [--port ...] | app-runtime <id> | app-stop "
+                "<id> | "
                 "mentor [answer] | mentor-status | mentor-reset | "
                 "docs [filters] | find <query> | open <id-or-path> | chat <prompt> | quit"
             )
@@ -284,7 +286,9 @@ def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
                 print(f"Unknown contract-create argument: {parts[index]}")
                 break
             else:
-                contract = create_basic_contract(repo_root, contract_id=contract_id, brief=brief, force=force)
+                contract = create_basic_contract(
+                    repo_root, contract_id=contract_id, brief=brief, force=force
+                )
                 print(f"Created contract {contract.contract_id} at {contract.root}")
                 continue
         if command == "docs":

@@ -259,7 +259,8 @@ def test_mentor_status_tracks_new_current_app_after_spawn(tmp_path: Path) -> Non
     )
     second = _run_project(
         "mentor",
-        "We also need a separate terminal shell app for internal reviewers to capture checklist notes.",
+        "We also need a separate terminal shell app for internal reviewers to capture checklist "
+        "notes.",
         project=project,
     )
     status = _run_project("mentor", "--status", project=project)

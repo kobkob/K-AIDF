@@ -18,6 +18,7 @@ _YOLO_ENV_VAR = "KOB_YOLO"
 def is_yolo_enabled() -> bool:
     return os.environ.get(_YOLO_ENV_VAR, "").strip().lower() in {"1", "true", "yes", "on"}
 
+
 # Local Ollama has no native tool-calling (only the plain text-completion endpoint is wired
 # up in controller.py), so this is a prompt-engineered action protocol: the model proposes an
 # action as a strictly-formatted block, kob parses it defensively (anything malformed or

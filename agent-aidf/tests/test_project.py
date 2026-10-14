@@ -69,7 +69,9 @@ def test_init_project_repo_uses_generator_output(tmp_path: Path, monkeypatch) ->
     project.mkdir()
     generator_repo = tmp_path / "generator"
     (generator_repo / "specs").mkdir(parents=True)
-    (generator_repo / "specs/kaidf.default.yaml").write_text("repo:\n  name: demo\n", encoding="utf-8")
+    (generator_repo / "specs/kaidf.default.yaml").write_text(
+        "repo:\n  name: demo\n", encoding="utf-8"
+    )
 
     monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
 
