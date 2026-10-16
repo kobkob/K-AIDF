@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-16
+
 ### Security
 
 - web UI `POST /api/mentor` and `POST /api/exit` now require a per-process token (`X-KAIDF-Token`, embedded in the served page as a meta tag and compared with `hmac.compare_digest`): missing token returns 401, wrong token returns 403

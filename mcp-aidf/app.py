@@ -16,7 +16,7 @@ app = Flask(__name__)
 # (fine for local runs). Containers require SECRET_KEY via docker-compose.yml.
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(32)
 
-SERVER_VERSION = "0.1.2"
+SERVER_VERSION = "0.5.5"
 # Protocol revisions this server implements, oldest first. A client asking for any other
 # revision gets the newest one back, as the MCP version negotiation rules describe.
 SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05",)

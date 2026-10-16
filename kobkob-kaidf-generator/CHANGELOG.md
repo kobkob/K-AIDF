@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-16
+
 ### Security
 
 - `load_template_by_key` (#22) no longer reads files outside the packaged template library: keys with `../` segments (or any path that resolves outside the library) raise `UnsafePathError` instead of reading arbitrary files; the check reuses `utils.safe_join`
