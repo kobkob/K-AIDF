@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-16
+
 ### Added
 
 - pytest test suite is now automatically run in CI/CD pipeline (`.github/workflows/ci.yml`)
