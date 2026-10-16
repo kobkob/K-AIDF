@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import app
@@ -400,3 +401,136 @@ class McpAidfFrontMatterTests(unittest.TestCase):
         self.assertEqual(front_matter["title"], "Automação e Maturidade Ética")
         self.assertEqual(front_matter["id"], "docs/20-ethical-model/principles/transparencia.md")
         self.assertEqual(body, "\n# Corpo\n")
+
+
+class McpAidfProtocolAndErrorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = app.app.test_client()
+        self.headers = {"Authorization": "Bearer test"}
+
+    def _post(self, body: object = None, **kwargs):
+        return self.client.post("/mcp", headers=self.headers, json=body, **kwargs)
+
+    def test_initialize_echoes_supported_protocol_version(self) -> None:
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2024-11-05"},
+            }
+        )
+
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+
+    def test_initialize_negotiates_unknown_protocol_version_to_supported_one(self) -> None:
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "initialize",
+                "params": {"protocolVersion": "1999-01-01"},
+            }
+        )
+
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+
+    def test_initialize_without_protocol_version_returns_supported_one(self) -> None:
+        response = self._post({"jsonrpc": "2.0", "id": 3, "method": "initialize", "params": {}})
+
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+
+    def test_initialize_ignores_non_string_protocol_version(self) -> None:
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "initialize",
+                "params": {"protocolVersion": ["2024-11-05"]},
+            }
+        )
+
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+
+    def test_unexpected_exception_returns_sanitized_json_rpc_error(self) -> None:
+        secret = "/srv/secret/internal-path leaked-detail"
+        with unittest.mock.patch.object(app, "_search_documents", side_effect=RuntimeError(secret)):
+            response = self._post(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 5,
+                    "method": "tools/call",
+                    "params": {"name": "search", "arguments": {"query": "governance"}},
+                }
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.mimetype, "application/json")
+        payload = response.get_json()
+        self.assertEqual(payload["id"], 5)
+        self.assertEqual(payload["error"], {"code": -32603, "message": "Internal error."})
+        body = response.get_data(as_text=True)
+        self.assertNotIn("Traceback", body)
+        self.assertNotIn("leaked-detail", body)
+        self.assertNotIn("/srv/secret", body)
+
+    def test_configuration_error_does_not_expose_server_path(self) -> None:
+        previous = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = "/nonexistent/private-kaidf-root"
+        try:
+            response = self._post(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 6,
+                    "method": "tools/call",
+                    "params": {"name": "search", "arguments": {"query": "governance"}},
+                }
+            )
+        finally:
+            if previous is None:
+                os.environ.pop("AIDF_REPO_ROOT", None)
+            else:
+                os.environ["AIDF_REPO_ROOT"] = previous
+
+        payload = response.get_json()
+        self.assertEqual(payload["error"]["code"], -32603)
+        self.assertEqual(payload["error"]["message"], "Internal error.")
+        self.assertNotIn("private-kaidf-root", response.get_data(as_text=True))
+
+    def test_invalid_limit_is_a_client_error(self) -> None:
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {"name": "search", "arguments": {"query": "x", "limit": "many"}},
+            }
+        )
+
+        payload = response.get_json()
+        self.assertEqual(payload["error"]["code"], -32602)
+        self.assertEqual(payload["error"]["message"], "Invalid params: limit must be an integer.")
+
+    def test_invalid_json_body_returns_parse_error(self) -> None:
+        response = self.client.post(
+            "/mcp",
+            headers={**self.headers, "Content-Type": "application/json"},
+            data="{not json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.get_json()["error"]["code"], -32700)
+
+    def test_non_object_body_returns_invalid_request(self) -> None:
+        response = self._post([1, 2, 3])
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"]["code"], -32600)
+
+    def test_non_object_params_returns_invalid_params(self) -> None:
+        response = self._post(
+            {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": ["search"]}
+        )
+
+        self.assertEqual(response.get_json()["error"]["code"], -32602)

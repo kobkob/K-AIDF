@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 from flask import Flask, jsonify, make_response, redirect, request
+from werkzeug.exceptions import BadRequest
 
 app = Flask(__name__)
 # No hardcoded fallback: without SECRET_KEY a random per-process secret is used
@@ -15,6 +16,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(32)
 
 SERVER_VERSION = "0.1.2"
+# Protocol revisions this server implements, oldest first. A client asking for any other
+# revision gets the newest one back, as the MCP version negotiation rules describe.
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05",)
+INTERNAL_ERROR_MESSAGE = "Internal error."
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
@@ -451,11 +456,31 @@ def _json_error(req_id: Any, code: int, message: str, status_code: int = 400) ->
     )
 
 
+def _negotiate_protocol_version(requested: Any) -> str:
+    if isinstance(requested, str) and requested in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested
+    return SUPPORTED_PROTOCOL_VERSIONS[-1]
+
+
 @app.route("/mcp", methods=["POST"])
 def mcp_endpoint():
-    data = request.get_json(force=True) or {}
-    req_id = data.get("id")
+    try:
+        data = request.get_json(force=True)
+    except BadRequest:
+        return _json_error(None, -32700, "Parse error: request body is not valid JSON.")
+    if not isinstance(data, dict):
+        return _json_error(None, -32600, "Invalid Request: expected a JSON-RPC object.")
 
+    req_id = data.get("id")
+    try:
+        return _handle_mcp_request(data, req_id)
+    except Exception:
+        # The traceback stays in the server log; the client only sees a generic message.
+        app.logger.exception("Unhandled error while handling MCP request")
+        return _json_error(req_id, -32603, INTERNAL_ERROR_MESSAGE, 500)
+
+
+def _handle_mcp_request(data: dict[str, Any], req_id: Any):
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         body = {
@@ -487,15 +512,16 @@ def mcp_endpoint():
 
     method = data.get("method")
     params = data.get("params") or {}
+    if not isinstance(params, dict):
+        return _json_error(req_id, -32602, "Invalid params: expected an object.")
 
     if method == "initialize":
-        client_proto = params.get("protocolVersion")
         return jsonify(
             {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
-                    "protocolVersion": client_proto,
+                    "protocolVersion": _negotiate_protocol_version(params.get("protocolVersion")),
                     "serverInfo": {"name": "mcp-aidf", "version": SERVER_VERSION},
                     "capabilities": {"tools": {}},
                 },
@@ -541,36 +567,35 @@ def mcp_endpoint():
         name = params.get("name")
         args = params.get("arguments") or {}
 
-        try:
-            if name == "search":
-                query = str(args.get("query", "")).strip()
+        if name == "search":
+            query = str(args.get("query", "")).strip()
+            try:
                 limit = int(args.get("limit", 10))
-                results = {"results": _search_documents(query, limit)}
-                return jsonify(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "result": {"content": [{"type": "text", "text": json.dumps(results)}]},
-                    }
-                )
+            except (TypeError, ValueError):
+                return _json_error(req_id, -32602, "Invalid params: limit must be an integer.")
+            results = {"results": _search_documents(query, limit)}
+            return jsonify(
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {"content": [{"type": "text", "text": json.dumps(results)}]},
+                }
+            )
 
-            if name == "fetch":
-                doc_id = str(args.get("id", "")).strip()
-                if not doc_id:
-                    return _json_error(req_id, -32602, "Missing document id.")
-                doc = _fetch_document(doc_id)
-                if doc is None:
-                    return _json_error(req_id, -32602, f"Document not found: {doc_id}", 404)
-                return jsonify(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "result": {"content": [{"type": "text", "text": json.dumps(doc)}]},
-                    }
-                )
-        except ValueError as exc:
-            return _json_error(req_id, -32603, str(exc), 500)
-
+        if name == "fetch":
+            doc_id = str(args.get("id", "")).strip()
+            if not doc_id:
+                return _json_error(req_id, -32602, "Missing document id.")
+            doc = _fetch_document(doc_id)
+            if doc is None:
+                return _json_error(req_id, -32602, f"Document not found: {doc_id}", 404)
+            return jsonify(
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {"content": [{"type": "text", "text": json.dumps(doc)}]},
+                }
+            )
         return _json_error(req_id, -32602, f"Unknown tool: {name}")
 
     return _json_error(req_id, -32601, f"Method not found: {method}")
