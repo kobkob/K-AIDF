@@ -23,6 +23,7 @@ from ..controller import OllamaChatController, build_controller
 from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
     MentorNotInitializedError,
     ProjectStatus,
@@ -117,7 +118,14 @@ def active_model_label() -> str:
 
 
 def ui_port() -> int:
-    return int(os.environ.get("AIDF_UI_PORT", str(DEFAULT_UI_PORT)))
+    raw = os.environ.get("AIDF_UI_PORT")
+    if raw is None or not raw.strip():
+        return DEFAULT_UI_PORT
+    try:
+        return parse_tcp_port(raw)
+    except ValueError as exc:
+        print(f"Ignoring AIDF_UI_PORT: {exc} Using {DEFAULT_UI_PORT}.", file=sys.stderr)
+        return DEFAULT_UI_PORT
 
 
 def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
@@ -590,7 +598,7 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     ui_help = _("Launch the mentor web UI (Maturity Model phases + mentor chat).")
     for name in ("ui", "serve"):
         ui_parser = subparsers.add_parser(name, help=ui_help)
-        ui_parser.add_argument("--port", type=int, default=ui_port())
+        ui_parser.add_argument("--port", type=tcp_port_argument, default=ui_port())
 
     for name in ("compile", "gen"):
         gen_parser = subparsers.add_parser(name, help=_("Run the K-AIDF generator against a spec."))

@@ -15,6 +15,7 @@ from .instant_apps import (
     stop_instant_app,
 )
 from .mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from .ports import parse_tcp_port
 from .project import MentorNotInitializedError, resolve_mentor_repo_root
 from .repo import filter_documents, find_documents, get_document, list_packs, load_documents
 
@@ -237,13 +238,21 @@ def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
             index = 2
             while index < len(parts):
                 if parts[index] == "--port" and index + 1 < len(parts):
-                    port = int(parts[index + 1])
+                    try:
+                        port = parse_tcp_port(parts[index + 1])
+                    except ValueError as exc:
+                        print(f"app-run: {exc}")
+                        break
                     index += 2
                     continue
                 print(f"Unknown app-run argument: {parts[index]}")
                 break
             else:
-                runtime = run_instant_app(repo_root, ref, port=port)
+                try:
+                    runtime = run_instant_app(repo_root, ref, port=port)
+                except ValueError as exc:
+                    print(f"app-run: {exc}")
+                    continue
                 print(f"Started {runtime.app_id} on port {runtime.port}")
                 continue
         if command == "app-create" and len(parts) >= 2:
