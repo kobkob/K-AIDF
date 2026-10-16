@@ -23,6 +23,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - front matter parsing accepts CRLF line endings, so documents saved with Windows line endings keep their metadata instead of silently losing it (#32)
 - `initialize` validates the requested `protocolVersion` against the supported revisions (`2024-11-05`): a supported version is echoed back, while an unknown, missing or non-string one is answered with the newest supported version instead of being echoed blindly (#27)
 
+### Changed
+
+- the document index is cached in memory: each request checks a signature of the indexable files (path, mtime, size) and reuses the parsed documents while nothing changed, instead of re-reading and re-parsing the whole repository. On a 65-document repository a request dropped from about 27 ms to about 2 ms; edits, additions and removals are picked up on the next request (#26)
+- the indexing contract is shared with `agent-aidf` through `contracts/index-contract/` (fixture corpus and `expected.json`), and both packages' tests check against it (#15)
+
 ## [0.1.2] - 2026-03-20
 
 ## [0.1.1] - 2026-03-20

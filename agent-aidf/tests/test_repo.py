@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from agent_aidf.repo import _parse_front_matter
+from agent_aidf.repo import _parse_front_matter, load_documents
+
+CONTRACT_ROOT = Path(__file__).resolve().parents[2] / "contracts" / "index-contract"
+CONTRACT_FIELDS = (
+    "id",
+    "path",
+    "title",
+    "document_class",
+    "phase",
+    "visibility",
+    "status",
+    "doctrine_category",
+    "canonical_doctrine",
+    "variant_domain",
+    "pack",
+    "maturity_level",
+    "assessment_type",
+    "ethical_domain",
+    "control_type",
+    "risk_type",
+)
 
 
 def test_parse_front_matter_accepts_crlf_line_endings() -> None:
@@ -42,3 +63,13 @@ def test_parse_front_matter_without_block_returns_empty_metadata_and_body() -> N
 
     assert front_matter == {}
     assert body == "# Sem front matter\n"
+
+
+def test_index_matches_shared_contract() -> None:
+    expected = json.loads((CONTRACT_ROOT / "expected.json").read_text(encoding="utf-8"))
+
+    documents = sorted(load_documents(CONTRACT_ROOT / "corpus"), key=lambda doc: doc.path)
+
+    assert [
+        {field: getattr(doc, field) for field in CONTRACT_FIELDS} for doc in documents
+    ] == expected

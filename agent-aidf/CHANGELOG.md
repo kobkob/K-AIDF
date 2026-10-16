@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Fixed
 
+- `repo.py` document classification now matches `mcp-aidf` for the shared index contract (`contracts/index-contract/`): Portuguese doctrine keywords (`princípios`, `governança`, `maturidade`, `treinamento`, `implementação`, `certificação`) are recognized, and blank or non-string metadata values (`pack`, `maturity_level`, ...) are treated as absent instead of being kept raw (#15)
 - `kob gen`/`kob compile` now resolve relative `--out` and `spec` paths against the directory you ran the command from (#39). Previously the generator subprocess ran with `cwd` set to the generator repository, so `kob gen --out ./out` wrote into the generator checkout instead of your project
 - front matter parsing (`repo.py`) accepts CRLF line endings, so documents saved with Windows line endings keep their metadata (title, phase, pack, ...) instead of silently losing it (#32)
 

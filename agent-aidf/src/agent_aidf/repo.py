@@ -122,22 +122,36 @@ def _infer_phase(rel_path: str) -> str:
 
 
 def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
+    # Keep in sync with mcp-aidf/app.py: both must classify the shared index contract the same way.
     if rel_path in CANONICAL_DOCTRINE_FILES:
         return CANONICAL_DOCTRINE_FILES[rel_path]
     text = "\n".join([rel_path, title, body]).casefold()
-    if "principles" in text or "principles" in rel_path:
+    if "principles" in text or "princípios" in text or "principios" in text:
         return "principles"
-    if "best practice" in text or "best practices" in text:
+    if "boas práticas" in text or "best practice" in text or "best practices" in text:
         return "best-practices"
-    if "governance" in text or "decision-rights" in text:
+    if "governança" in text or "governance" in text or "decision-rights" in text:
         return "governance"
-    if "maturity" in text:
+    if "maturidade" in text or "maturity" in text:
         return "maturity"
-    if "implementation" in text:
+    if "implementação" in text or "implementation" in text:
         return "implementation"
-    if "training" in text or "certification" in text:
+    if (
+        "treinamento" in text
+        or "training" in text
+        or "certificação" in text
+        or "certification" in text
+    ):
         return "training"
     return "general"
+
+
+def _string_field(front_matter: dict[str, Any], key: str) -> str | None:
+    # Non-string or blank values are treated as absent, as mcp-aidf does.
+    value = front_matter.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
 
 
 def load_documents(repo_root: str | Path | None = None) -> list[Document]:
@@ -162,12 +176,12 @@ def load_documents(repo_root: str | Path | None = None) -> list[Document]:
                 doctrine_category=_infer_doctrine_category(rel_path, title, body),
                 canonical_doctrine=rel_path in CANONICAL_DOCTRINE_FILES,
                 variant_domain=STARTER_VARIANT_DOMAINS.get(rel_path),
-                pack=front_matter.get("pack"),
-                maturity_level=front_matter.get("maturity_level"),
-                assessment_type=front_matter.get("assessment_type"),
-                ethical_domain=front_matter.get("ethical_domain"),
-                control_type=front_matter.get("control_type"),
-                risk_type=front_matter.get("risk_type"),
+                pack=_string_field(front_matter, "pack"),
+                maturity_level=_string_field(front_matter, "maturity_level"),
+                assessment_type=_string_field(front_matter, "assessment_type"),
+                ethical_domain=_string_field(front_matter, "ethical_domain"),
+                control_type=_string_field(front_matter, "control_type"),
+                risk_type=_string_field(front_matter, "risk_type"),
                 content=raw_text,
                 body=body,
             )
