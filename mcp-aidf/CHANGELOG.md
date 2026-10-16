@@ -15,10 +15,13 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - Dockerfile runs as a non-root `appuser` and serves the app with `gunicorn` (`app:app`, port 7777) instead of the Flask development server (`python app.py`)
 - `requirements.txt` pins all runtime dependencies, including transitive ones: `Flask==3.1.3` (was `3.0.0`), `Werkzeug==3.1.9`, `PyYAML==6.0.3` (was `>=6.0.1`), `gunicorn==26.2.0`
 - removed the `SECRET_KEY` placeholders: `docker-compose.yml` requires `SECRET_KEY` from the environment (`${SECRET_KEY:?...}`, no default), and `app.py` no longer falls back to the hardcoded `dev-key-change-in-prod`, using a random per-process secret when unset
+- internal errors no longer leak to clients: `/mcp` wraps every request, logs the traceback on the server, and returns a JSON-RPC `-32603` "Internal error." (HTTP 500) with no stack trace, path or exception text; a non-JSON body returns `-32700` and a non-object body returns `-32600`, both as JSON (#27)
+- `tools/call` `search` rejects a non-integer `limit` with `-32602` instead of an internal error that quoted the Python exception message (#27)
 
 ### Fixed
 
 - front matter parsing accepts CRLF line endings, so documents saved with Windows line endings keep their metadata instead of silently losing it (#32)
+- `initialize` validates the requested `protocolVersion` against the supported revisions (`2024-11-05`): a supported version is echoed back, while an unknown, missing or non-string one is answered with the newest supported version instead of being echoed blindly (#27)
 
 ## [0.1.2] - 2026-03-20
 
