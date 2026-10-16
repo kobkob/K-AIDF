@@ -534,3 +534,128 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
         )
 
         self.assertEqual(response.get_json()["error"]["code"], -32602)
+
+
+CONTRACT_ROOT = Path(__file__).resolve().parents[2] / "contracts" / "index-contract"
+CONTRACT_FIELDS = (
+    "id",
+    "path",
+    "title",
+    "document_class",
+    "phase",
+    "visibility",
+    "status",
+    "doctrine_category",
+    "canonical_doctrine",
+    "variant_domain",
+    "pack",
+    "maturity_level",
+    "assessment_type",
+    "ethical_domain",
+    "control_type",
+    "risk_type",
+)
+
+
+class McpAidfIndexContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.previous_repo_root = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = str(CONTRACT_ROOT / "corpus")
+
+    def tearDown(self) -> None:
+        if self.previous_repo_root is None:
+            os.environ.pop("AIDF_REPO_ROOT", None)
+        else:
+            os.environ["AIDF_REPO_ROOT"] = self.previous_repo_root
+
+    def test_index_matches_shared_contract(self) -> None:
+        expected = json.loads((CONTRACT_ROOT / "expected.json").read_text(encoding="utf-8"))
+
+        actual = sorted(app._load_index(), key=lambda doc: doc["path"])
+
+        self.assertEqual(
+            [{field: doc[field] for field in CONTRACT_FIELDS} for doc in actual],
+            expected,
+        )
+
+
+class McpAidfIndexCacheTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.repo_root = Path(self.tmpdir.name)
+        self.previous_repo_root = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = str(self.repo_root)
+        _write(self.repo_root / "README.md", "# Demo\n")
+        _write(self.repo_root / "docs/00-overview/governance.md", "# Governance\n\nBody.\n")
+        _write(self.repo_root / "docs/01_intent_constraints/README.md", "# Intent\n")
+        app._index_cache.update(root=None, signature=None, documents=[])
+
+    def tearDown(self) -> None:
+        if self.previous_repo_root is None:
+            os.environ.pop("AIDF_REPO_ROOT", None)
+        else:
+            os.environ["AIDF_REPO_ROOT"] = self.previous_repo_root
+        app._index_cache.update(root=None, signature=None, documents=[])
+        self.tmpdir.cleanup()
+
+    def _count_parses(self):
+        return unittest.mock.patch.object(app, "_load_document", wraps=app._load_document)
+
+    def test_consecutive_requests_do_not_reparse_unchanged_documents(self) -> None:
+        with self._count_parses() as parses:
+            first = app._load_index()
+            parses_after_first = parses.call_count
+            for _ in range(5):
+                app._load_index()
+
+        self.assertEqual(parses_after_first, 3)
+        self.assertEqual(parses.call_count, parses_after_first)
+        self.assertEqual(len(first), 3)
+
+    def test_search_and_fetch_share_the_cache(self) -> None:
+        with self._count_parses() as parses:
+            app._search_documents("governance")
+            app._fetch_document("docs/00-overview/governance.md")
+            app._search_documents("intent")
+
+        self.assertEqual(parses.call_count, 3)
+
+    def test_edited_file_is_reindexed_on_next_request(self) -> None:
+        app._load_index()
+        _write(
+            self.repo_root / "docs/00-overview/governance.md", "# Governança Revisada\n\nNovo.\n"
+        )
+
+        titles = {doc["path"]: doc["title"] for doc in app._load_index()}
+
+        self.assertEqual(titles["docs/00-overview/governance.md"], "Governança Revisada")
+
+    def test_added_and_removed_files_invalidate_the_cache(self) -> None:
+        app._load_index()
+        _write(self.repo_root / "docs/02_discovery_mapping/README.md", "# Discovery\n")
+        (self.repo_root / "docs/01_intent_constraints/README.md").unlink()
+
+        paths = {doc["path"] for doc in app._load_index()}
+
+        self.assertIn("docs/02_discovery_mapping/README.md", paths)
+        self.assertNotIn("docs/01_intent_constraints/README.md", paths)
+
+    def test_cache_is_scoped_to_the_configured_repository(self) -> None:
+        other = tempfile.TemporaryDirectory()
+        try:
+            _write(Path(other.name) / "README.md", "# Other\n")
+            os.environ["AIDF_REPO_ROOT"] = other.name
+
+            paths = {doc["path"] for doc in app._load_index()}
+
+            self.assertEqual(paths, {"README.md"})
+        finally:
+            other.cleanup()
+
+    def test_callers_cannot_mutate_cached_records(self) -> None:
+        first = app._load_index()
+        first[0]["title"] = "tampered"
+
+        second = app._load_index()
+
+        self.assertNotEqual(second[0]["title"], "tampered")

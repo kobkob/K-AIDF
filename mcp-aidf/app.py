@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import threading
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -258,9 +259,33 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
     }
 
 
+# In-memory index cache. Validity is checked on every call by comparing a signature of the
+# indexable files (path, mtime, size), so unchanged documents are never re-read or re-parsed,
+# and edits, additions and removals are visible on the next request.
+_index_cache_lock = threading.Lock()
+_index_cache: dict[str, Any] = {"root": None, "signature": None, "documents": []}
+
+
+def _index_signature(root: Path, paths: list[Path]) -> tuple[tuple[str, int, int], ...]:
+    entries = []
+    for file_path in paths:
+        stat = file_path.stat()
+        entries.append((file_path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size))
+    return tuple(entries)
+
+
 def _load_index() -> list[dict[str, Any]]:
     root = _repo_root()
-    return [_load_document(root, file_path) for file_path in _iter_indexable_paths(root)]
+    paths = _iter_indexable_paths(root)
+    signature = _index_signature(root, paths)
+    with _index_cache_lock:
+        if _index_cache["root"] == root and _index_cache["signature"] == signature:
+            # Shallow copies so callers cannot mutate the cached records.
+            return [dict(doc) for doc in _index_cache["documents"]]
+    documents = [_load_document(root, file_path) for file_path in paths]
+    with _index_cache_lock:
+        _index_cache.update(root=root, signature=signature, documents=documents)
+    return [dict(doc) for doc in documents]
 
 
 def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:

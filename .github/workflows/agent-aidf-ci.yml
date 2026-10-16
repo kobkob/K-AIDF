@@ -6,10 +6,12 @@ on:
       - main
     paths:
       - "agent-aidf/**"
+      - "contracts/**"
       - ".github/workflows/agent-aidf-ci.yml"
   pull_request:
     paths:
       - "agent-aidf/**"
+      - "contracts/**"
       - ".github/workflows/agent-aidf-ci.yml"
 
 jobs:

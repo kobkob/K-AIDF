@@ -6,10 +6,12 @@ on:
       - main
     paths:
       - "mcp-aidf/**"
+      - "contracts/**"
       - ".github/workflows/mcp-aidf-ci.yml"
   pull_request:
     paths:
       - "mcp-aidf/**"
+      - "contracts/**"
       - ".github/workflows/mcp-aidf-ci.yml"
 
 jobs:
