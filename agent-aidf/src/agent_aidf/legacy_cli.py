@@ -15,6 +15,7 @@ from .instant_apps import (
     stop_instant_app,
 )
 from .mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from .ports import tcp_port_argument
 from .project import (
     MentorNotInitializedError,
     init_project_repo,
@@ -117,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
         "app-run", help="Start a background runtime for a web instant app."
     )
     app_run_parser.add_argument("ref")
-    app_run_parser.add_argument("--port", type=int)
+    app_run_parser.add_argument("--port", type=tcp_port_argument)
     app_runtime_parser = subparsers.add_parser(
         "app-runtime", help="Show stored runtime state for an instant app."
     )

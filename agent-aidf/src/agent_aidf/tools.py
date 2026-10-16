@@ -205,24 +205,10 @@ def apply_action(project_root: str | Path, action: ProposedAction) -> str:
 _AFFIRMATIVE_TOKENS = {
     "yes",
     "y",
-    "yeah",
-    "yea",
-    "yep",
-    "sure",
-    "ok",
-    "okay",
-    "confirm",
-    "confirmed",
-    "accept",
-    "accepted",
-    "approve",
-    "approved",
-    "agree",
-    "agreed",
-    "done",
-    "go",
-    "correct",
-    "affirmative",
+    "sim",
+    "s",
+    "true",
+    "1",
 }
 _NEGATIVE_PREFIXES = ("no,", "no ", "not ", "don't", "do not", "n,", "n ")
 
