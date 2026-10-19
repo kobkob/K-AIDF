@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `audit_matrix` spec block (v1.0): the KAIDF-AMM 5-dimension audit matrix (Data Sovereignty & Perimeter, Methodology-as-Code, Regulatory Compliance, Deterministic Guardrails, Cost & Infrastructure Health), 20 points per dimension and 100 in total, with 16 checks and the evidence each one requires. The schema and `validate_spec` reject a matrix whose checks do not add up to their dimension, or whose dimensions do not add up to the total
+- `docs/30-kaidf-amm/` scaffold in the default spec: a README, one page per dimension, `audit-matrix.csv` (one row per check, with empty `status` and `auditor_notes` columns), and an audit report template. All Markdown documents carry the complete Front Matter v2 block
+- the matrix defines checks and points; it does not certify compliance. The regulatory-compliance checks require mapping tables (LGPD/GDPR, NIST AI RMF, EU AI Act) in `docs/20-ethical-model/` that the ethical pack does not yet provide
+
 ## [0.5.5] - 2026-10-16
 
 ### Security

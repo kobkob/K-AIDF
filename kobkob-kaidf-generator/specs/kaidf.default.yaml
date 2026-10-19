@@ -574,3 +574,175 @@ sections:
           title: "Escalation And Review"
           control_type: "review"
           risk_type: "social-impact"
+
+  - path: "docs/30-kaidf-amm"
+    files:
+      - path: "audit-matrix.csv"
+        content: "library:docs/30-kaidf-amm/audit-matrix.csv"
+      - path: "README.md"
+        content: "library:docs/30-kaidf-amm/README.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/README.md"
+          title: "KAIDF-AMM: 5-Dimension Audit Matrix"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "dimensions/01-data-sovereignty.md"
+        content: "library:docs/30-kaidf-amm/dimensions/01-data-sovereignty.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/dimensions/01-data-sovereignty.md"
+          title: "Dimension 1: Data Sovereignty & Perimeter"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "dimensions/02-methodology-as-code.md"
+        content: "library:docs/30-kaidf-amm/dimensions/02-methodology-as-code.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/dimensions/02-methodology-as-code.md"
+          title: "Dimension 2: Methodology-as-Code"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "dimensions/03-regulatory-compliance.md"
+        content: "library:docs/30-kaidf-amm/dimensions/03-regulatory-compliance.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/dimensions/03-regulatory-compliance.md"
+          title: "Dimension 3: Regulatory Compliance"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "dimensions/04-deterministic-guardrails.md"
+        content: "library:docs/30-kaidf-amm/dimensions/04-deterministic-guardrails.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/dimensions/04-deterministic-guardrails.md"
+          title: "Dimension 4: Deterministic Guardrails"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "dimensions/05-cost-infrastructure-health.md"
+        content: "library:docs/30-kaidf-amm/dimensions/05-cost-infrastructure-health.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/dimensions/05-cost-infrastructure-health.md"
+          title: "Dimension 5: Cost & Infrastructure Health"
+          document_class: "core-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+      - path: "templates/audit-report.md"
+        content: "library:docs/30-kaidf-amm/templates/audit-report.md"
+        front_matter:
+          id: "docs/30-kaidf-amm/templates/audit-report.md"
+          title: "KAIDF-AMM Audit Report"
+          document_class: "template-doc"
+          phase: "30-kaidf-amm"
+          visibility: "internal"
+          status: "active"
+          pack: "kaidf-amm"
+
+# KAIDF-AMM 5-dimension audit matrix (v1.0). Declarative: validate_spec checks that each
+# dimension's checks add up to its max_points and that the dimensions add up to total_points.
+# The matrix documents are generated from the section above; scoring is done by the auditor.
+audit_matrix:
+  version: "1.0"
+  total_points: 100
+  dimensions:
+    - id: "data-sovereignty"
+      name: "Data Sovereignty & Perimeter"
+      summary: "Personal data stays out of versioned content, no cloud credentials are committed, and the default execution path runs locally."
+      max_points: 20
+      checks:
+        - id: "pii-isolation"
+          title: "Personal data is kept out of versioned content"
+          points: 8
+          evidence: "Scan of committed docs and data files for personal identifiers; findings listed with file paths."
+        - id: "no-cloud-keys-in-git"
+          title: "No cloud API keys or credentials are committed"
+          points: 6
+          evidence: "Secret scan of the full history of the default branch; any hit fails the check."
+        - id: "local-execution"
+          title: "The default execution path runs entirely locally"
+          points: 6
+          evidence: "Configuration of the default model provider and endpoints; no outbound calls on the default path."
+    - id: "methodology-as-code"
+      name: "Methodology-as-Code"
+      summary: "The methodology lives in versioned, validated artifacts: the .kaidf/ scaffold, the mentor workflow state, the YAML specs and the phase deliverables."
+      max_points: 20
+      checks:
+        - id: "kaidf-scaffold"
+          title: ".kaidf/ matches the generator scaffold"
+          points: 6
+          evidence: "Directory tree of .kaidf/ compared with the generated scaffold of the same spec version."
+        - id: "mentor-state-valid"
+          title: "mentor-workflow.json is valid and current"
+          points: 5
+          evidence: ".kaidf/mentor-workflow.json parses as JSON and its phase references exist."
+        - id: "specs-validate"
+          title: "All YAML specs pass kaidf-gen validate"
+          points: 5
+          evidence: "Output of kaidf-gen validate for every spec in the repository."
+        - id: "phase-artifacts-filled"
+          title: "Phase deliverables are filled in, not left as scaffold"
+          points: 4
+          evidence: "Deliverable files under docs/0N_*/ differ from the blank generator templates."
+    - id: "regulatory-compliance"
+      name: "Regulatory Compliance"
+      summary: "Obligations from LGPD, GDPR, the NIST AI RMF and the EU AI Act are mapped to controls and evidence in the ethical model pack."
+      max_points: 20
+      checks:
+        - id: "lgpd-gdpr-mapping"
+          title: "LGPD and GDPR obligations are mapped to controls"
+          points: 7
+          evidence: "Mapping table in docs/20-ethical-model/ linking each obligation to a control and an evidence file."
+        - id: "nist-ai-rmf-mapping"
+          title: "NIST AI RMF functions are mapped to controls"
+          points: 7
+          evidence: "Mapping table linking Govern, Map, Measure and Manage to controls and evidence files."
+        - id: "eu-ai-act-mapping"
+          title: "EU AI Act obligations are mapped to controls"
+          points: 6
+          evidence: "Mapping table with the risk class of the system and the controls applied to it."
+    - id: "deterministic-guardrails"
+      name: "Deterministic Guardrails"
+      summary: "Checks run automatically and block merges: CI gates, pre-commit hooks and security gates that do not depend on a person remembering to run them."
+      max_points: 20
+      checks:
+        - id: "ci-blocking-gates"
+          title: "CI gates for tests and lint block merges"
+          points: 7
+          evidence: "Workflow files in .github/workflows/ with lint and test steps not marked continue-on-error."
+        - id: "pre-commit-hooks"
+          title: "Pre-commit hooks run formatting and secret checks"
+          points: 5
+          evidence: "Hook configuration in the repository and proof that it is installed in the developer setup."
+        - id: "security-gates"
+          title: "Security gates run in CI and block on findings"
+          points: 8
+          evidence: "Dependency pinning and secret scanning enabled in CI, with the gate set to fail the build."
+    - id: "cost-infrastructure-health"
+      name: "Cost & Infrastructure Health"
+      summary: "Consumption is bounded: hard token caps, request timeouts, and a documented local fallback when the remote model is unavailable."
+      max_points: 20
+      checks:
+        - id: "token-hard-caps"
+          title: "Hard caps on tokens per request are configured"
+          points: 8
+          evidence: "Configured maximum output and context sizes for each provider, enforced in code."
+        - id: "request-timeouts"
+          title: "Network calls to models have timeouts"
+          points: 6
+          evidence: "Timeout values for every outbound model request, set in code or configuration."
+        - id: "local-fallback"
+          title: "A local fallback is documented and tested"
+          points: 6
+          evidence: "Documented fallback to the local model and a test that exercises the switch."
