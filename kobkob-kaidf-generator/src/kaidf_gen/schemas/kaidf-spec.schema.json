@@ -59,6 +59,83 @@
         },
         "additionalProperties": true
       }
+    },
+    "audit_matrix": {
+      "type": "object",
+      "required": [
+        "version",
+        "total_points",
+        "dimensions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "1.0"
+        },
+        "total_points": {
+          "const": 100
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "max_points",
+              "checks"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "max_points": {
+                "const": 20
+              },
+              "checks": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "title",
+                    "points",
+                    "evidence"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "points": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "evidence": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {

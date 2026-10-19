@@ -30,6 +30,28 @@ def validate_spec(spec: dict[str, Any]) -> None:
         path = ".".join([str(p) for p in e.absolute_path]) if e.absolute_path else "<root>"
         raise SpecValidationError(f"Spec validation error at {path}: {e.message}") from e
     _check_duplicate_paths(spec)
+    if "audit_matrix" in spec:
+        _check_audit_matrix(spec["audit_matrix"])
+
+
+def _check_audit_matrix(matrix: dict[str, Any]) -> None:
+    """Points must add up: each dimension to its max, and all dimensions to the total."""
+    seen_ids: set[str] = set()
+    for dimension in matrix["dimensions"]:
+        if dimension["id"] in seen_ids:
+            raise SpecValidationError(f"Duplicate audit dimension id {dimension['id']!r}")
+        seen_ids.add(dimension["id"])
+        check_points = sum(check["points"] for check in dimension["checks"])
+        if check_points != dimension["max_points"]:
+            raise SpecValidationError(
+                f"Audit dimension {dimension['id']!r} checks add up to {check_points} points, "
+                f"expected {dimension['max_points']}"
+            )
+    total = sum(dimension["max_points"] for dimension in matrix["dimensions"])
+    if total != matrix["total_points"]:
+        raise SpecValidationError(
+            f"Audit dimensions add up to {total} points, expected {matrix['total_points']}"
+        )
 
 
 def _output_paths(spec: dict[str, Any]) -> list[tuple[str, str]]:
