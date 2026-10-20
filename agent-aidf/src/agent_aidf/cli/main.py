@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import json
 import os
 import random
 import subprocess
@@ -19,6 +20,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
+from ..audit import render_audit_report, run_audit
 from ..controller import OllamaChatController, build_controller
 from ..i18n import _
 from ..maturity import phase_progress
@@ -595,6 +597,14 @@ def _build_cli_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("shell", help=_("Start the interactive OLMo-backed shell."))
 
+    audit_parser = subparsers.add_parser(
+        "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
+    )
+    audit_parser.add_argument("path", nargs="?", default=".")
+    audit_parser.add_argument(
+        "--json", action="store_true", help=_("Print the full result as JSON.")
+    )
+
     ui_help = _("Launch the mentor web UI (Maturity Model phases + mentor chat).")
     for name in ("ui", "serve"):
         ui_parser = subparsers.add_parser(name, help=ui_help)
@@ -609,6 +619,19 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_audit_command(path: str, *, as_json: bool) -> int:
+    try:
+        result = run_audit(path)
+    except ValueError as exc:
+        print(f"kob audit: {exc}", file=sys.stderr)
+        return 2
+    if as_json:
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(render_audit_report(result), end="")
+    return 0
+
+
 def _run_cli(argv: list[str]) -> int:
     parser = _build_cli_parser()
     args = parser.parse_args(argv)
@@ -619,6 +642,9 @@ def _run_cli(argv: list[str]) -> int:
         name = project_repo_root(project_root).name
         print(_("Initialized {name} at {path}").format(name=name, path=repo_root))
         return 0
+
+    if args.command == "audit":
+        return _run_audit_command(args.path, as_json=args.json)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 

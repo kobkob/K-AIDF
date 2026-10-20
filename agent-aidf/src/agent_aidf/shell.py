@@ -4,6 +4,7 @@ import shlex
 from argparse import Namespace
 from pathlib import Path
 
+from .audit import render_audit_report, run_audit
 from .contracts import create_basic_contract, get_contract, list_contracts
 from .controller import build_controller
 from .instant_apps import (
@@ -158,6 +159,15 @@ def _print_app_runtime(repo_root: Path, ref: str) -> int:
     return 0
 
 
+def _print_audit(path: str) -> None:
+    try:
+        result = run_audit(path)
+    except ValueError as exc:
+        print(f"audit: {exc}")
+        return
+    print(render_audit_report(result), end="")
+
+
 def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
     controller = build_controller()
     print("kob shell")
@@ -180,13 +190,18 @@ def run_shell(repo_root: Path, project_root: Path | None = None) -> int:
                 "app-open <id-or-path> | app-run <id> [--port ...] | app-runtime <id> | app-stop "
                 "<id> | "
                 "mentor [answer] | mentor-status | mentor-reset | "
-                "docs [filters] | find <query> | open <id-or-path> | chat <prompt> | quit"
+                "docs [filters] | find <query> | open <id-or-path> | audit [path] | "
+                "chat <prompt> | quit"
             )
             continue
         parts = shlex.split(raw)
         command = parts[0]
         if command == "packs":
             _print_packs(repo_root)
+            continue
+        if command == "audit":
+            default = project_root or repo_root
+            _print_audit(parts[1] if len(parts) >= 2 else str(default))
             continue
         if command == "contracts":
             _print_contracts(repo_root)

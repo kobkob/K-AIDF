@@ -1,6 +1,18 @@
 from __future__ import annotations
 
-from agent_aidf.cli.main import DEFAULT_LOCAL_MODEL, active_model_label
+import builtins
+import json
+from pathlib import Path
+
+import pytest
+
+from agent_aidf.cli.main import (
+    DEFAULT_LOCAL_MODEL,
+    _build_cli_parser,
+    _run_cli,
+    active_model_label,
+)
+from agent_aidf.shell import run_shell
 
 
 def test_active_model_label_defaults_to_friendly_local_name(monkeypatch) -> None:
@@ -82,3 +94,119 @@ def test_gen_resolves_relative_out_and_spec_against_caller_cwd(monkeypatch, tmp_
     assert Path(command[command.index("--out") + 1]) == (project / "out_relative").resolve()
     assert (project / "out_relative" / "generated.txt").is_file()
     assert not (generator_repo / "out_relative").exists()
+
+
+FRONT_MATTER = (
+    "---\nid: docs/doc.md\ntitle: Doc\ndocument_class: core-doc\nphase: 00-overview\n"
+    "visibility: internal\nstatus: active\n---\n\n# Doc\n"
+)
+
+
+def _write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _fully_compliant_repo(root: Path) -> Path:
+    _write(root / ".kaidf/README.md", FRONT_MATTER)
+    _write(root / ".kaidf/docs/00-overview/kaidf.md", FRONT_MATTER)
+    _write(root / ".kaidf/mentor-workflow.json", '{"phase": "01"}')
+    _write(root / ".kaidf/policy/pii-masking-rules.yaml", "rules:\n  - email\n")
+    _write(root / ".kaidf/policy/hitl-config.yaml", "reviewer: human\n")
+    _write(
+        root / ".kaidf/policy/budget.yaml",
+        "max_tokens: 4096\nrequest_timeout_seconds: 30\nlocal_fallback: true\n",
+    )
+    _write(root / "specs/kaidf.yaml", "version: '1.0'\n")
+    _write(root / "docs/20-ethical-model/risk-assessment.json", '{"risk": "low"}')
+    _write(root / "docs/20-ethical-model/explicability-schema.json", '{"fields": []}')
+    _write(root / "data/manifests/dataset-audit.yaml", "dataset: demo\n")
+    _write(root / ".github/workflows/ci.yml", "steps:\n  - run: pytest\n")
+    return root
+
+
+def test_audit_parser_defaults_to_current_directory_in_text_mode() -> None:
+    args = _build_cli_parser().parse_args(["audit"])
+
+    assert args.path == "."
+    assert args.json is False
+
+
+def test_audit_parser_accepts_a_path_and_json_flag() -> None:
+    args = _build_cli_parser().parse_args(["audit", "some/repo", "--json"])
+
+    assert args.path == "some/repo"
+    assert args.json is True
+
+
+def test_kob_audit_prints_scorecard_and_exits_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run_cli(["audit", str(tmp_path)])
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "K-AIDF Audit Matrix (KAIDF-AMM v1.0)" in out
+    assert "Score: 0/100" in out
+    assert "Tier: Non-Compliant / Unrated" in out
+    assert "Dimension" in out and "Finding" in out
+    assert "Data Sovereignty & Perimeter" in out
+
+
+def test_kob_audit_reports_no_failed_checks_for_a_compliant_repo(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run_cli(["audit", str(_fully_compliant_repo(tmp_path))])
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "Score: 100/100" in out
+    assert "Tier: Platinum" in out
+    assert "No failed checks." in out
+
+
+def test_kob_audit_json_mode_prints_structured_result(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run_cli(["audit", str(_fully_compliant_repo(tmp_path)), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert payload["score"] == 100
+    assert payload["max_score"] == 100
+    assert payload["tier"] == "Platinum"
+    assert [d["id"] for d in payload["dimensions"]] == [
+        "data-sovereignty",
+        "methodology-as-code",
+        "regulatory-compliance",
+        "deterministic-guardrails",
+        "cost-infrastructure-health",
+    ]
+    first_check = payload["dimensions"][0]["checks"][0]
+    assert set(first_check) == {"id", "title", "points", "max_points", "detail"}
+
+
+def test_kob_audit_rejects_a_missing_path_with_exit_code_two(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run_cli(["audit", str(tmp_path / "missing")])
+
+    captured = capsys.readouterr()
+    assert code == 2
+    assert captured.out == ""
+    assert "kob audit:" in captured.err
+    assert "does not exist" in captured.err
+
+
+def test_repl_audit_reports_the_project_and_survives_a_missing_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["audit", f"audit {tmp_path / 'missing'}", "exit"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(commands))
+
+    run_shell(tmp_path / "repo-missing-kaidf", tmp_path)
+
+    out = capsys.readouterr().out
+    assert "K-AIDF Audit Matrix (KAIDF-AMM v1.0)" in out
+    assert "Score: 0/100" in out
+    assert "audit: " in out and "does not exist" in out

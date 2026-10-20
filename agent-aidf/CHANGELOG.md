@@ -8,6 +8,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
+- `kob audit [PATH] [--json]`: runs the KAIDF-AMM audit on a repository (default: the current directory). It prints the score, the tier, a breakdown by dimension, and each check that did not earn its points, with the finding. `--json` prints the full result for pipelines. A missing path exits with code 2, and a completed audit exits with code 0 whatever the score
+- `audit [path]` in the interactive shell, scoring the project (or the given path) and printing the same report
 - `agent_aidf.audit`: a read-only static scorecard for a K-AIDF repository (`run_audit(repo_path)`), with the five KAIDF-AMM dimensions of 20 points each, scored out of 100 and classified as Platinum (90+), Gold (75-89), Silver (60-74) or Non-Compliant / Unrated (below 60). It checks tracked files for credentials and `.env` files, the `.kaidf/` scaffold, `mentor-workflow.json`, YAML specs, Front Matter v2 coverage, the regulatory artifacts, CI workflows and blocking gates, and the budget policy in `.kaidf/policy/budget.yaml`. Each check reports the detail it found (#audit)
 
 ## [0.5.5] - 2026-10-16

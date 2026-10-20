@@ -7,6 +7,7 @@ Nothing is executed: the audit only reads files, and it never sends data anywher
 
 from __future__ import annotations
 
+import io
 import json
 import re
 import subprocess
@@ -15,6 +16,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from .repo import _parse_front_matter, resolve_repo_root
 
@@ -70,8 +75,74 @@ class AuditResult:
         return sum(dimension.points for dimension in self.dimensions)
 
     @property
+    def max_score(self) -> int:
+        return sum(dimension.max_points for dimension in self.dimensions)
+
+    @property
     def tier(self) -> str:
         return classify_tier(self.score)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "repo_path": self.repo_path,
+            "score": self.score,
+            "max_score": self.max_score,
+            "tier": self.tier,
+            "dimensions": [
+                {
+                    "id": dimension.id,
+                    "name": dimension.name,
+                    "points": dimension.points,
+                    "max_points": dimension.max_points,
+                    "checks": [
+                        {
+                            "id": check.id,
+                            "title": check.title,
+                            "points": check.points,
+                            "max_points": check.max_points,
+                            "detail": check.detail,
+                        }
+                        for check in dimension.checks
+                    ],
+                }
+                for dimension in self.dimensions
+            ],
+        }
+
+
+def render_audit_report(result: AuditResult) -> str:
+    """Plain-text scorecard for the terminal and the REPL. No colors, so output stays greppable."""
+    buffer = io.StringIO()
+    console = Console(file=buffer, width=100, color_system=None, highlight=False)
+    console.print(
+        Panel(
+            Text(f"Score: {result.score}/{result.max_score}    Tier: {result.tier}"),
+            title="K-AIDF Audit Matrix (KAIDF-AMM v1.0)",
+        )
+    )
+    breakdown = Table("Dimension", "Points")
+    for dimension in result.dimensions:
+        breakdown.add_row(Text(dimension.name), f"{dimension.points}/{dimension.max_points}")
+    console.print(breakdown)
+    failed = [
+        (dimension, check)
+        for dimension in result.dimensions
+        for check in dimension.checks
+        if check.points < check.max_points
+    ]
+    if not failed:
+        console.print("No failed checks.")
+    else:
+        findings = Table("Dimension", "Check", "Lost", "Finding")
+        for dimension, check in failed:
+            findings.add_row(
+                Text(dimension.name),
+                Text(check.title),
+                f"-{check.max_points - check.points}",
+                Text(check.detail),
+            )
+        console.print(findings)
+    return buffer.getvalue()
 
 
 def classify_tier(score: int) -> str:
