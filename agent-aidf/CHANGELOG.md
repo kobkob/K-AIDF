@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `agent_aidf.audit`: a read-only static scorecard for a K-AIDF repository (`run_audit(repo_path)`), with the five KAIDF-AMM dimensions of 20 points each, scored out of 100 and classified as Platinum (90+), Gold (75-89), Silver (60-74) or Non-Compliant / Unrated (below 60). It checks tracked files for credentials and `.env` files, the `.kaidf/` scaffold, `mentor-workflow.json`, YAML specs, Front Matter v2 coverage, the regulatory artifacts, CI workflows and blocking gates, and the budget policy in `.kaidf/policy/budget.yaml`. Each check reports the detail it found (#audit)
+
 ## [0.5.5] - 2026-10-16
 
 ### Security
