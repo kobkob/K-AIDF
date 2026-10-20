@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-20
+
 ### Added
 
 - `audit_matrix` spec block (v1.0): the KAIDF-AMM 5-dimension audit matrix (Data Sovereignty & Perimeter, Methodology-as-Code, Regulatory Compliance, Deterministic Guardrails, Cost & Infrastructure Health), 20 points per dimension and 100 in total, with 16 checks and the evidence each one requires. The schema and `validate_spec` reject a matrix whose checks do not add up to their dimension, or whose dimensions do not add up to the total

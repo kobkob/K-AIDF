@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-20
+
 ### Added
 
 - `kob audit [PATH] [--json]`: runs the KAIDF-AMM audit on a repository (default: the current directory). It prints the score, the tier, a breakdown by dimension, and each check that did not earn its points, with the finding. `--json` prints the full result for pipelines. A missing path exits with code 2, and a completed audit exits with code 0 whatever the score
