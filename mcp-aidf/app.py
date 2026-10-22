@@ -8,13 +8,56 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
-from flask import Flask, jsonify, make_response, redirect, request
+from flask import Flask, jsonify, make_response, request
 from werkzeug.exceptions import BadRequest
 
 app = Flask(__name__)
 # No hardcoded fallback: without SECRET_KEY a random per-process secret is used
 # (fine for local runs). Containers require SECRET_KEY via docker-compose.yml.
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(32)
+
+
+def _resolve_bearer_token(configured: str | None) -> str:
+    """The configured MCP bearer token, or a random one for this process when none is set.
+
+    A generated token changes on every start and is not shared between gunicorn workers, so
+    deployments must set MCP_BEARER_TOKEN (docker-compose.yml requires it).
+    """
+    token = (configured or "").strip()
+    return token or secrets.token_urlsafe(32)
+
+
+MCP_BEARER_TOKEN = os.environ.get("MCP_BEARER_TOKEN", "").strip()
+ACTIVE_BEARER_TOKEN = _resolve_bearer_token(MCP_BEARER_TOKEN)
+if not MCP_BEARER_TOKEN:
+    app.logger.warning(
+        "MCP_BEARER_TOKEN is not set; using a temporary token for this process: %s",
+        ACTIVE_BEARER_TOKEN,
+    )
+
+
+def _check_bearer(auth_header: str | None) -> bool:
+    if not ACTIVE_BEARER_TOKEN:
+        return False
+    scheme, _, presented = (auth_header or "").partition(" ")
+    return (
+        scheme.lower() == "bearer"
+        and bool(presented)
+        and secrets.compare_digest(presented, ACTIVE_BEARER_TOKEN)
+    )
+
+
+def _www_authenticate(auth_header: str | None) -> str:
+    challenge = (
+        "Bearer "
+        'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", '
+        'scope="mcp"'
+    )
+    if auth_header:
+        # RFC 6750: a credential was presented but it is not valid.
+        return challenge + ', error="invalid_token"'
+    return challenge
+
 
 SERVER_VERSION = "0.5.5"
 # Protocol revisions this server implements, oldest first. A client asking for any other
@@ -507,7 +550,7 @@ def mcp_endpoint():
 
 def _handle_mcp_request(data: dict[str, Any], req_id: Any):
     auth_header = request.headers.get("Authorization")
-    if not auth_header:
+    if not _check_bearer(auth_header):
         body = {
             "jsonrpc": "2.0",
             "id": req_id,
@@ -520,19 +563,15 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                             "Bearer "
                             'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/'
                             'oauth-protected-resource", '
-                            'scope="mcp", error="authorization_required", error_description="Link '
-                            'your account"'
+                            'scope="mcp", error="authorization_required", '
+                            'error_description="Provide a valid bearer token."'
                         )
                     }
                 },
             },
         }
         resp = make_response(jsonify(body), 401)
-        resp.headers["WWW-Authenticate"] = (
-            "Bearer "
-            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", '
-            'scope="mcp"'
-        )
+        resp.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
         return resp
 
     method = data.get("method")
@@ -631,86 +670,19 @@ def protected_resource_metadata():
     return jsonify(
         {
             "resource": DEFAULT_RESOURCE,
-            "authorization_servers": [DEFAULT_RESOURCE],
             "scopes_supported": ["mcp"],
             "resource_documentation": f"{DEFAULT_RESOURCE}/docs",
         }
     )
 
 
-@app.route("/.well-known/oauth-authorization-server")
-def oauth_config():
-    return jsonify(
-        {
-            "issuer": DEFAULT_RESOURCE,
-            "authorization_endpoint": f"{DEFAULT_RESOURCE}/oauth/authorize",
-            "token_endpoint": f"{DEFAULT_RESOURCE}/oauth/token",
-            "registration_endpoint": f"{DEFAULT_RESOURCE}/oauth/register",
-            "scopes_supported": ["mcp"],
-            "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "client_credentials"],
-            "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": [
-                "client_secret_basic",
-                "client_secret_post",
-                "none",
-            ],
-        }
-    )
-
-
-@app.route("/oauth/authorize")
-def oauth_authorize():
-    redirect_uri = request.args.get("redirect_uri")
-    state = request.args.get("state")
-    resource = request.args.get("resource")
-
-    if not redirect_uri or not state:
-        return "Missing required parameters", 400
-
-    auth_code = "auth_code_123"
-    redirect_url = f"{redirect_uri}?code={auth_code}&state={state}"
-    if resource:
-        redirect_url += f"&resource={resource}"
-    return redirect(redirect_url)
-
-
-@app.route("/oauth/register", methods=["POST"])
-def oauth_register():
-    data = request.get_json() or {}
-    requested_auth_method = data.get("token_endpoint_auth_method", "client_secret_post")
-    return jsonify(
-        {
-            "client_id": "mcp_client",
-            "client_secret": "mcp_secret",
-            "token_endpoint_auth_method": requested_auth_method,
-        }
-    )
-
-
-@app.route("/oauth/token", methods=["POST"])
-def oauth_token():
-    data = request.get_json(silent=True) or {}
-    form_data = request.form.to_dict()
-    token_data = {**data, **form_data}
-    resource = token_data.get("resource")
-
-    response = {"access_token": "mcp_token", "token_type": "bearer", "expires_in": 3600}
-    if resource:
-        response["resource"] = resource
-    return jsonify(response)
-
-
 @app.route("/")
 def root():
     auth_header = request.headers.get("Authorization")
-    if not auth_header:
+    if not _check_bearer(auth_header):
         response = jsonify({"error": "authorization_required"})
         response.status_code = 401
-        response.headers["WWW-Authenticate"] = (
-            "Bearer "
-            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource"'
-        )
+        response.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
         return response
     return "MCP Server Running"
 

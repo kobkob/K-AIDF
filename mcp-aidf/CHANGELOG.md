@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- `/mcp` and `/` accept only `Authorization: Bearer <MCP_BEARER_TOKEN>`, compared in constant time. Before, any non-empty `Authorization` header was accepted (#11)
+- `MCP_BEARER_TOKEN` is required by `docker-compose.yml` and documented in `.env.example`. Without it, the server starts with a random token for that process only, logs it at startup, and does not share it between gunicorn workers (#11)
+
+### Removed
+
+- the OAuth 2.1 stub endpoints `/oauth/authorize`, `/oauth/token`, `/oauth/register` and `/.well-known/oauth-authorization-server`. `/oauth/token` issued the fixed token `mcp_token`, and `/oauth/authorize` redirected to any `redirect_uri` with a fixed code (open redirect) (#11)
+- the `authorization_servers` field from `/.well-known/oauth-protected-resource`, because no authorization server is implemented (#11)
+
 ## [0.5.5] - 2026-10-16
 
 ### Added
