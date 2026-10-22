@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- document visibility is enforced on `search` and `fetch`: `private` documents are never returned, `internal` documents only to authenticated requests, and `public` documents to everyone. Unknown visibility values are hidden (fail closed). A `fetch` of a hidden document returns the same error as a missing one (#14)
+
 ### Security
 
 - `/mcp` and `/` accept only `Authorization: Bearer <MCP_BEARER_TOKEN>`, compared in constant time. Before, any non-empty `Authorization` header was accepted (#11)

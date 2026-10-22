@@ -331,13 +331,32 @@ def _load_index() -> list[dict[str, Any]]:
     return [dict(doc) for doc in documents]
 
 
-def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
+def _is_visible(doc: dict[str, Any], is_authenticated: bool) -> bool:
+    """Visibility ACL: private never, internal only when authenticated, public always.
+
+    A document with no visibility key is public. Any other value fails closed (hidden).
+    """
+    visibility = doc.get("visibility")
+    if visibility == "private":
+        return False
+    if visibility == "internal":
+        return is_authenticated
+    if visibility is None or visibility == "public":
+        return True
+    return False
+
+
+def _search_documents(
+    query: str, limit: int = 10, *, is_authenticated: bool = False
+) -> list[dict[str, Any]]:
     query_norm = query.strip().casefold()
     if not query_norm:
         return []
     query_label = _normalize_label(query)
     results: list[tuple[int, dict[str, Any]]] = []
     for doc in _load_index():
+        if not _is_visible(doc, is_authenticated):
+            continue
         haystack = "\n".join(
             [
                 doc["id"],
@@ -485,8 +504,11 @@ def _search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
     return trimmed
 
 
-def _fetch_document(doc_id: str) -> dict[str, Any] | None:
+def _fetch_document(doc_id: str, *, is_authenticated: bool = False) -> dict[str, Any] | None:
     for doc in _load_index():
+        # Hidden documents look exactly like missing ones, so their existence is not revealed.
+        if not _is_visible(doc, is_authenticated):
+            continue
         if doc["id"] == doc_id or doc["path"] == doc_id:
             return {
                 "id": doc["id"],
@@ -574,6 +596,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
         resp.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
         return resp
 
+    is_authenticated = _check_bearer(auth_header)
     method = data.get("method")
     params = data.get("params") or {}
     if not isinstance(params, dict):
@@ -637,7 +660,9 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                 limit = int(args.get("limit", 10))
             except (TypeError, ValueError):
                 return _json_error(req_id, -32602, "Invalid params: limit must be an integer.")
-            results = {"results": _search_documents(query, limit)}
+            results = {
+                "results": _search_documents(query, limit, is_authenticated=is_authenticated)
+            }
             return jsonify(
                 {
                     "jsonrpc": "2.0",
@@ -650,7 +675,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
             doc_id = str(args.get("id", "")).strip()
             if not doc_id:
                 return _json_error(req_id, -32602, "Missing document id.")
-            doc = _fetch_document(doc_id)
+            doc = _fetch_document(doc_id, is_authenticated=is_authenticated)
             if doc is None:
                 return _json_error(req_id, -32602, f"Document not found: {doc_id}", 404)
             return jsonify(
