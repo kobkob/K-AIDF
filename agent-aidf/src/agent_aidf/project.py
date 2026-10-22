@@ -49,6 +49,14 @@ class MentorNotInitializedError(ValueError):
     pass
 
 
+class ProjectAlreadyInitializedError(ValueError):
+    """The project already has a .kaidf/ directory and init was not asked to overwrite it."""
+
+    def __init__(self, target: Path) -> None:
+        super().__init__(f"Project already contains {KAIDF_DIRNAME}: {target}")
+        self.target = target
+
+
 def resolve_mentor_repo_root(project_root: str | Path | None = None) -> Path:
     """The mentor workflow always reads and writes .kaidf/mentor-workflow.json.
 
@@ -160,7 +168,7 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
     target = project_repo_root(project)
     if target.exists():
         if not force:
-            raise ValueError(f"Project already contains {KAIDF_DIRNAME}: {target}")
+            raise ProjectAlreadyInitializedError(target)
         shutil.rmtree(target)
 
     generator_repo = locate_generator_repo()

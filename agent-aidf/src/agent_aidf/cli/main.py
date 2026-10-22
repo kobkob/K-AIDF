@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pyperclip
 from rich.console import Console
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
@@ -27,7 +28,9 @@ from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
+    KAIDF_DIRNAME,
     MentorNotInitializedError,
+    ProjectAlreadyInitializedError,
     ProjectStatus,
     init_project_repo,
     locate_generator_repo,
@@ -632,13 +635,33 @@ def _run_audit_command(path: str, *, as_json: bool) -> int:
     return 0
 
 
+def _print_already_initialized(target: Path) -> None:
+    console = Console(stderr=True, highlight=False, soft_wrap=True)
+    console.print(
+        Text.assemble(
+            ("Error: ", "bold red"),
+            f"Project already initialized. Target '{KAIDF_DIRNAME}' already exists at {target}.",
+        )
+    )
+    console.print(
+        Text.assemble(
+            ("Hint: ", "bold yellow"),
+            f"Use 'kob init --force' if you want to re-initialize or overwrite {KAIDF_DIRNAME}.",
+        )
+    )
+
+
 def _run_cli(argv: list[str]) -> int:
     parser = _build_cli_parser()
     args = parser.parse_args(argv)
     project_root = resolve_project_root(args.project)
 
     if args.command == "init":
-        repo_root = init_project_repo(project_root, force=args.force)
+        try:
+            repo_root = init_project_repo(project_root, force=args.force)
+        except ProjectAlreadyInitializedError as exc:
+            _print_already_initialized(exc.target)
+            return 1
         name = project_repo_root(project_root).name
         print(_("Initialized {name} at {path}").format(name=name, path=repo_root))
         return 0

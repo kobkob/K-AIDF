@@ -249,3 +249,56 @@ def test_plain_scorecard_has_no_escape_codes_and_shows_partial_progress(tmp_path
     assert "█" in text and "░" in text
     scaffold = next(c for d in result.dimensions for c in d.checks if c.id == "kaidf-scaffold")
     assert scaffold.points == scaffold.max_points
+
+
+def test_kob_init_on_an_initialized_project_prints_guidance_and_exits_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    (tmp_path / ".kaidf").mkdir()
+
+    def generator_must_not_run(*args: object, **kwargs: object) -> None:
+        raise AssertionError("init must refuse before running the generator")
+
+    monkeypatch.setattr(subprocess, "run", generator_must_not_run)
+
+    code = _run_cli(["--project", str(tmp_path), "init"])
+
+    captured = capsys.readouterr()
+    assert code == 1
+    assert captured.out == ""
+    assert "Error: Project already initialized" in captured.err
+    assert f"already exists at {tmp_path / '.kaidf'}" in captured.err
+    assert "Hint: Use 'kob init --force'" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_kob_init_force_reinitializes_an_existing_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+    import sys
+
+    from agent_aidf import project as project_module
+
+    _write(tmp_path / ".kaidf/stale.txt", "old\n")
+    fake_generator = tmp_path / "fake-generator"
+
+    def fake_generator_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
+        out_dir = Path(command[command.index("--out") + 1])
+        _write(out_dir / "kobkob-kaidf/README.md", "# fresh\n")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(project_module, "locate_generator_repo", lambda: fake_generator)
+    monkeypatch.setattr(
+        project_module, "resolve_generator_python", lambda repo: Path(sys.executable)
+    )
+    monkeypatch.setattr(project_module.subprocess, "run", fake_generator_run)
+
+    code = _run_cli(["--project", str(tmp_path), "init", "--force"])
+
+    assert code == 0
+    assert (tmp_path / ".kaidf/README.md").read_text(encoding="utf-8") == "# fresh\n"
+    assert not (tmp_path / ".kaidf/stale.txt").exists()
+    assert "Initialized .kaidf at" in capsys.readouterr().out
