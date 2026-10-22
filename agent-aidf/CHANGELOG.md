@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Fixed
+
+- `kob init` on a project that already has `.kaidf/` prints a short error and a hint to use `kob init --force`, and exits with code 1, instead of a Python traceback. The condition is a new `ProjectAlreadyInitializedError`, a `ValueError` subclass, so existing callers are unaffected
+
 ### Added
 
 - `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation`
