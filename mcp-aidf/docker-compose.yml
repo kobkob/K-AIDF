@@ -5,6 +5,7 @@ services:
       - "7777:7777"
     environment:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set (see .env.example)}
+      - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN:?MCP_BEARER_TOKEN must be set (see .env.example)}
       - AIDF_REPO_ROOT=/data/kaidf-repo
     volumes:
       - ${AIDF_REPO_HOST_PATH:-./sample-kaidf}:/data/kaidf-repo:ro

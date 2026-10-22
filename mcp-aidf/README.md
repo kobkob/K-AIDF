@@ -1,10 +1,10 @@
 # MCP-AIDF Server
 
-A Model Context Protocol (MCP) server with OAuth 2.1 authentication for ChatGPT integration.
+A Model Context Protocol (MCP) server with bearer-token authentication (`MCP_BEARER_TOKEN`).
 
 ## Overview
 
-This server implements the MCP specification with OAuth authentication, providing search and fetch capabilities for AIDF content. It is designed to work with ChatGPT connectors and follows OpenAI's MCP requirements.
+This server implements the MCP specification with bearer-token authentication, providing search and fetch capabilities for AIDF content. Every request to `/mcp` and `/` must carry `Authorization: Bearer <MCP_BEARER_TOKEN>`.
 
 The current implementation uses the simplest useful content model:
 
@@ -52,13 +52,13 @@ Doctrine-aware categories currently inferred by the server:
 
 Canonical doctrine files under `docs/00-overview/` receive rigid ranking priority for doctrine-oriented queries.
 
-### OAuth 2.1 Authentication
+### Bearer Token Authentication
 
-- `GET /.well-known/oauth-authorization-server` - OAuth server metadata
-- `GET /.well-known/oauth-protected-resource` - Protected resource metadata
-- `GET /oauth/authorize` - Authorization endpoint
-- `POST /oauth/token` - Token exchange endpoint
-- `POST /oauth/register` - Dynamic client registration
+- `MCP_BEARER_TOKEN` is the only accepted credential. The comparison is constant-time.
+- A missing or wrong token returns HTTP 401 with a `WWW-Authenticate` challenge. A wrong token adds `error="invalid_token"` (RFC 6750).
+- `GET /.well-known/oauth-protected-resource` - Protected resource metadata (RFC 9728). It names this server as the resource and does not advertise an authorization server, because none is implemented.
+
+The earlier OAuth 2.1 endpoints (`/oauth/authorize`, `/oauth/token`, `/oauth/register` and `/.well-known/oauth-authorization-server`) were stubs that issued a fixed token and redirected to any URL. They have been removed.
 
 ## Usage
 
@@ -66,7 +66,7 @@ Canonical doctrine files under `docs/00-overview/` receive rigid ranking priorit
 
 1. In ChatGPT → Settings → Connectors → Create
 2. Enter URL: `https://mcp-aidf.kobkob.org/mcp`
-3. Follow OAuth linking flow
+3. Configure the connector with the bearer token from `MCP_BEARER_TOKEN`, if its settings allow a static token. This server no longer offers an OAuth linking flow.
 4. Use search and fetch tools in conversations
 
 ### API Example
@@ -105,7 +105,8 @@ docker compose logs -f
 
 Environment variables in `docker-compose.yml`:
 
-- `SECRET_KEY` - Flask session secret. Required by `docker-compose.yml` (no default; `docker compose` fails if it is unset or empty). Set it in the root `.env` (see `.env.example`).
+- `SECRET_KEY` - Flask session secret. Required by `docker-compose.yml` (no default; `docker compose` fails if it is unset or empty). Set it in `.env` (see `.env.example`).
+- `MCP_BEARER_TOKEN` - the bearer token every client must present. Required by `docker-compose.yml` (no default). Use a long random value, for example `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Outside Docker, if it is unset, the server starts with a random token for that process only and logs it at startup; that token changes on every restart and is not shared between gunicorn workers.
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
 
 Docker Compose also expects:
@@ -115,7 +116,7 @@ Docker Compose also expects:
 ## Compliance
 
 - **MCP Specification**: 2025-03-26
-- **OAuth 2.1**: RFC 6749 with PKCE
+- **Authentication**: static bearer token (RFC 6750) and protected resource metadata (RFC 9728). No OAuth 2.1 authorization server
 - **JSON-RPC 2.0**: Request/response protocol
 - **OpenAI Requirements**: Search/fetch tools, proper error handling
 
@@ -207,7 +208,6 @@ Ranking rule:
 
 ## Security
 
-- OAuth 2.1 with PKCE for secure authentication
-- Resource parameter binding for token scope
-- WWW-Authenticate headers for proper challenge flow
+- Bearer token checked with a constant-time comparison on `/mcp` and `/`
+- WWW-Authenticate headers for proper challenge flow (RFC 6750)
 - HTTPS enforced via Cloudflare

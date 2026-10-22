@@ -9,6 +9,20 @@ from pathlib import Path
 
 import app
 
+TEST_BEARER_TOKEN = "test-bearer-token-0123456789abcdef"
+_token_patch = None
+
+
+def setUpModule() -> None:
+    # Every request in this module authenticates with the fixed test token.
+    global _token_patch
+    _token_patch = unittest.mock.patch.object(app, "ACTIVE_BEARER_TOKEN", TEST_BEARER_TOKEN)
+    _token_patch.start()
+
+
+def tearDownModule() -> None:
+    _token_patch.stop()
+
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -358,7 +372,7 @@ class McpAidfIndexingTests(unittest.TestCase):
 
     def test_mcp_tools_call_returns_ranking_metadata(self) -> None:
         client = app.app.test_client()
-        headers = {"Authorization": "Bearer test"}
+        headers = {"Authorization": f"Bearer {TEST_BEARER_TOKEN}"}
 
         response = client.post(
             "/mcp",
@@ -379,10 +393,6 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(first["path"], "docs/00-overview/governance.md")
         self.assertIn("ranking", first)
         self.assertIn("score", first)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class McpAidfFrontMatterTests(unittest.TestCase):
@@ -406,7 +416,7 @@ class McpAidfFrontMatterTests(unittest.TestCase):
 class McpAidfProtocolAndErrorTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = app.app.test_client()
-        self.headers = {"Authorization": "Bearer test"}
+        self.headers = {"Authorization": f"Bearer {TEST_BEARER_TOKEN}"}
 
     def _post(self, body: object = None, **kwargs):
         return self.client.post("/mcp", headers=self.headers, json=body, **kwargs)
@@ -659,3 +669,92 @@ class McpAidfIndexCacheTests(unittest.TestCase):
         second = app._load_index()
 
         self.assertNotEqual(second[0]["title"], "tampered")
+
+
+class McpBearerAuthTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = app.app.test_client()
+
+    def _initialize(self, headers: dict[str, str] | None = None):
+        return self.client.post(
+            "/mcp",
+            headers=headers or {},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+
+    def test_request_without_token_is_rejected_with_401(self) -> None:
+        response = self._initialize()
+
+        self.assertEqual(response.status_code, 401)
+        challenge = response.headers["WWW-Authenticate"]
+        self.assertIn("resource_metadata=", challenge)
+        self.assertNotIn("invalid_token", challenge)
+
+    def test_wrong_token_is_rejected_with_401_and_invalid_token_challenge(self) -> None:
+        response = self._initialize({"Authorization": "Bearer not-the-token"})
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn('error="invalid_token"', response.headers["WWW-Authenticate"])
+
+    def test_correct_token_is_accepted(self) -> None:
+        response = self._initialize({"Authorization": f"Bearer {TEST_BEARER_TOKEN}"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+
+    def test_non_bearer_scheme_with_the_right_secret_is_rejected(self) -> None:
+        response = self._initialize({"Authorization": f"Basic {TEST_BEARER_TOKEN}"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_bearer_scheme_is_case_insensitive(self) -> None:
+        response = self._initialize({"Authorization": f"bearer {TEST_BEARER_TOKEN}"})
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_empty_active_token_rejects_everything(self) -> None:
+        with unittest.mock.patch.object(app, "ACTIVE_BEARER_TOKEN", ""):
+            response = self._initialize({"Authorization": "Bearer "})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_root_requires_the_bearer_token(self) -> None:
+        self.assertEqual(self.client.get("/").status_code, 401)
+        self.assertEqual(
+            self.client.get("/", headers={"Authorization": "Bearer nope"}).status_code, 401
+        )
+        response = self.client.get("/", headers={"Authorization": f"Bearer {TEST_BEARER_TOKEN}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_data(as_text=True), "MCP Server Running")
+
+    def test_oauth_stub_endpoints_are_removed(self) -> None:
+        self.assertEqual(
+            self.client.get("/oauth/authorize?redirect_uri=x&state=y").status_code, 404
+        )
+        self.assertEqual(self.client.post("/oauth/register", json={}).status_code, 404)
+        self.assertEqual(self.client.post("/oauth/token", json={}).status_code, 404)
+        self.assertEqual(
+            self.client.get("/.well-known/oauth-authorization-server").status_code, 404
+        )
+
+    def test_protected_resource_metadata_is_kept_without_an_authorization_server(self) -> None:
+        response = self.client.get("/.well-known/oauth-protected-resource")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["resource"], app.DEFAULT_RESOURCE)
+        self.assertNotIn("authorization_servers", payload)
+
+    def test_resolve_bearer_token_uses_the_configured_value(self) -> None:
+        self.assertEqual(app._resolve_bearer_token("  my-token  "), "my-token")
+
+    def test_resolve_bearer_token_generates_a_fresh_random_token_when_unset(self) -> None:
+        first = app._resolve_bearer_token("")
+        second = app._resolve_bearer_token(None)
+
+        self.assertGreaterEqual(len(first), 40)
+        self.assertNotEqual(first, second)
+
+
+if __name__ == "__main__":
+    unittest.main()
