@@ -4,7 +4,9 @@ import shlex
 from argparse import Namespace
 from pathlib import Path
 
-from .audit import render_audit_report, run_audit
+from rich.console import Console
+
+from .audit import print_audit_report, run_audit
 from .contracts import create_basic_contract, get_contract, list_contracts
 from .controller import build_controller
 from .instant_apps import (
@@ -165,7 +167,7 @@ def _print_audit(path: str) -> None:
     except ValueError as exc:
         print(f"audit: {exc}")
         return
-    print(render_audit_report(result), end="")
+    print_audit_report(result, Console())
 
 
 def run_shell(repo_root: Path, project_root: Path | None = None) -> int:

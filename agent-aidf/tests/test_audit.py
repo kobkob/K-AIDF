@@ -26,6 +26,17 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+SKILLS_FIXTURE_PATH = "data/manifests/skills.yaml"
+VALID_SKILLS = (
+    'version: "1.0"\n'
+    "skills:\n"
+    '  - id: "kaidf-audit"\n'
+    '    command: "kob audit"\n'
+    "    permissions:\n"
+    '      filesystem: "read"\n'
+)
+
+
 def _complete_repo(root: Path) -> Path:
     _write(root / ".kaidf/README.md", FRONT_MATTER)
     _write(root / ".kaidf/docs/00-overview/kaidf.md", FRONT_MATTER)
@@ -37,6 +48,7 @@ def _complete_repo(root: Path) -> Path:
     _write(root / "docs/20-ethical-model/risk-assessment.json", '{"risk": "low"}')
     _write(root / "docs/20-ethical-model/explicability-schema.json", '{"fields": []}')
     _write(root / "data/manifests/dataset-audit.yaml", "dataset: demo\n")
+    _write(root / SKILLS_FIXTURE_PATH, VALID_SKILLS)
     _write(root / ".github/workflows/ci.yml", "jobs:\n  test:\n    steps:\n      - run: pytest\n")
     return root
 
@@ -189,7 +201,7 @@ def test_kaidf_scaffold_needs_readme_and_docs(tmp_path: Path) -> None:
     _write(tmp_path / ".kaidf/README.md", "# kaidf\n")
     assert _check(run_audit(tmp_path), "kaidf-scaffold").points == 0
     _write(tmp_path / ".kaidf/docs/index.md", "# docs\n")
-    assert _check(run_audit(tmp_path), "kaidf-scaffold").points == 5
+    assert _check(run_audit(tmp_path), "kaidf-scaffold").points == 4
 
 
 @pytest.mark.parametrize("content", ["not json", "[1, 2]", ""])
@@ -202,7 +214,7 @@ def test_mentor_state_must_be_a_json_object(tmp_path: Path, content: str) -> Non
 def test_mentor_state_valid_object_scores(tmp_path: Path) -> None:
     _write(tmp_path / ".kaidf/mentor-workflow.json", '{"phase": "01"}')
 
-    assert _check(run_audit(tmp_path), "mentor-state").points == 5
+    assert _check(run_audit(tmp_path), "mentor-state").points == 4
 
 
 def test_specs_score_is_the_fraction_that_parses(tmp_path: Path) -> None:
@@ -227,7 +239,7 @@ def test_front_matter_score_is_the_fraction_of_complete_documents(tmp_path: Path
     check = _check(run_audit(tmp_path), "front-matter-v2")
 
     assert check.detail == "1 of 3 Markdown documents complete"
-    assert check.points == 2
+    assert check.points == 1
 
 
 @pytest.mark.parametrize(
@@ -310,3 +322,54 @@ def test_audit_result_exposes_repo_path_and_dimensions(tmp_path: Path) -> None:
         "deterministic-guardrails",
         "cost-infrastructure-health",
     ]
+
+
+def test_skills_manifest_must_be_a_valid_registry(tmp_path: Path) -> None:
+    manifest = tmp_path / SKILLS_FIXTURE_PATH
+    cases = {
+        "missing": None,
+        "empty file": "",
+        "not a mapping": "- a list\n",
+        "no version": "skills:\n  - id: a\n    command: x\n    permissions: {}\n",
+        "no skills list": 'version: "1.0"\nskills: nope\n',
+        "empty skills list": 'version: "1.0"\nskills: []\n',
+        "entry not a mapping": 'version: "1.0"\nskills:\n  - just-text\n',
+        "no id": 'version: "1.0"\nskills:\n  - command: x\n    permissions: {}\n',
+        "blank id": 'version: "1.0"\nskills:\n  - id: " "\n    command: x\n    permissions: {}\n',
+        "duplicate id": (
+            'version: "1.0"\nskills:\n'
+            "  - id: a\n    command: x\n    permissions: {}\n"
+            "  - id: a\n    command: y\n    permissions: {}\n"
+        ),
+        "no command": 'version: "1.0"\nskills:\n  - id: a\n    permissions: {}\n',
+        "no permissions": 'version: "1.0"\nskills:\n  - id: a\n    command: x\n',
+    }
+    for label, content in cases.items():
+        if content is None:
+            manifest.unlink(missing_ok=True)
+        else:
+            _write(manifest, content)
+        check = _check(run_audit(tmp_path), "skills-manifest")
+        assert check.points == 0, f"{label}: {check.detail}"
+
+    _write(manifest, VALID_SKILLS)
+    check = _check(run_audit(tmp_path), "skills-manifest")
+    assert check.points == 4
+    assert check.detail == "1 skill(s) registered in data/manifests/skills.yaml"
+
+
+def test_every_check_has_a_remediation_and_failing_results_carry_it(tmp_path: Path) -> None:
+    result = run_audit(tmp_path)
+
+    for dimension in result.dimensions:
+        for check in dimension.checks:
+            assert check.remediation, check.id
+    failing = _check(result, "skills-manifest")
+    assert "skills list" in failing.remediation
+
+
+def test_json_export_includes_remediations(tmp_path: Path) -> None:
+    payload = run_audit(tmp_path).to_dict()
+
+    check = payload["dimensions"][1]["checks"][0]
+    assert check["remediation"]
