@@ -650,6 +650,11 @@ sections:
           status: "active"
           pack: "kaidf-amm"
 
+  - path: "data/manifests"
+    files:
+      - path: "skills.yaml"
+        content: "library:data/manifests/skills.yaml"
+
 # KAIDF-AMM 5-dimension audit matrix (v1.0). Declarative: validate_spec checks that each
 # dimension's checks add up to its max_points and that the dimensions add up to total_points.
 # The matrix documents are generated from the section above; scoring is done by the auditor.

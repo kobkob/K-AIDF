@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation`
+- the static audit checks `data/manifests/skills.yaml` in Methodology-as-Code: the file must declare a version and a non-empty list of skills, each with a unique id, a command and a permissions mapping
+
+### Changed
+
+- Methodology-as-Code now has five checks of 4 points each, instead of four of 5 points, so the dimension still totals 20
+
 ## [0.5.6] - 2026-10-20
 
 ### Added

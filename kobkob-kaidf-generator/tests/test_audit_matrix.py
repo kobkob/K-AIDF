@@ -103,3 +103,18 @@ def test_audit_matrix_csv_matches_the_spec(tmp_path: Path) -> None:
     ]
     assert [(r["dimension_id"], r["check_id"], r["points"]) for r in rows] == expected
     assert all(r["status"] == "" and r["auditor_notes"] == "" for r in rows)
+
+
+def test_generated_scaffold_registers_the_kaidf_audit_skill(tmp_path: Path) -> None:
+    import yaml
+
+    target = generate(
+        load_yaml("specs/kaidf.default.yaml"), tmp_path / "out", GenerateOptions(force=False)
+    )
+    manifest = yaml.safe_load((target / "data/manifests/skills.yaml").read_text(encoding="utf-8"))
+
+    skills = {skill["id"]: skill for skill in manifest["skills"]}
+    assert manifest["version"] == "1.0"
+    assert skills["kaidf-audit"]["command"] == "kob audit"
+    assert skills["kaidf-audit"]["permissions"]["writes"] == "none"
+    assert skills["kaidf-audit"]["permissions"]["network"] == "none"

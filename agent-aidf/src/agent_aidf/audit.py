@@ -51,6 +51,7 @@ class CheckResult:
     max_points: int
     points: int
     detail: str
+    remediation: str
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,7 @@ class AuditResult:
                             "points": check.points,
                             "max_points": check.max_points,
                             "detail": check.detail,
+                            "remediation": check.remediation,
                         }
                         for check in dimension.checks
                     ],
@@ -110,20 +112,51 @@ class AuditResult:
         }
 
 
-def render_audit_report(result: AuditResult) -> str:
-    """Plain-text scorecard for the terminal and the REPL. No colors, so output stays greppable."""
-    buffer = io.StringIO()
-    console = Console(file=buffer, width=100, color_system=None, highlight=False)
-    console.print(
-        Panel(
-            Text(f"Score: {result.score}/{result.max_score}    Tier: {result.tier}"),
-            title="K-AIDF Audit Matrix (KAIDF-AMM v1.0)",
-        )
-    )
-    breakdown = Table("Dimension", "Points")
+TIER_STYLES = {
+    "Platinum": "bold green",
+    "Gold": "bold green",
+    "Silver": "bold yellow",
+    UNRATED: "bold red",
+}
+STATUS_STYLES = {"Pass": "green", "Partial": "yellow", "Fail": "red"}
+BAR_WIDTH = 20
+
+
+def _status(points: int, max_points: int) -> str:
+    if points >= max_points:
+        return "Pass"
+    if points <= 0:
+        return "Fail"
+    return "Partial"
+
+
+def _progress_bar(points: int, max_points: int) -> str:
+    filled = round(BAR_WIDTH * points / max_points) if max_points else 0
+    return "█" * filled + "░" * (BAR_WIDTH - filled)
+
+
+def print_audit_report(result: AuditResult, console: Console) -> None:
+    """Scorecard for a terminal: tier-coloured score, dimension table, remediation panel."""
+    tier_style = TIER_STYLES[result.tier]
+    score_line = Text()
+    score_line.append(f"Score: {result.score}/{result.max_score}", style=tier_style)
+    score_line.append("    ")
+    score_line.append(f"Tier: {result.tier}", style=tier_style)
+    console.print(Panel(score_line, title="KAIDF-AMM v1.0 - Audit Scorecard"))
+
+    dimensions = Table("Dimensão", "Pontuação", "Status", "Progresso")
     for dimension in result.dimensions:
-        breakdown.add_row(Text(dimension.name), f"{dimension.points}/{dimension.max_points}")
-    console.print(breakdown)
+        status = _status(dimension.points, dimension.max_points)
+        dimensions.add_row(
+            Text(dimension.name),
+            f"{dimension.points}/{dimension.max_points}",
+            Text(status, style=STATUS_STYLES[status]),
+            Text(
+                _progress_bar(dimension.points, dimension.max_points), style=STATUS_STYLES[status]
+            ),
+        )
+    console.print(dimensions)
+
     failed = [
         (dimension, check)
         for dimension in result.dimensions
@@ -131,17 +164,25 @@ def render_audit_report(result: AuditResult) -> str:
         if check.points < check.max_points
     ]
     if not failed:
-        console.print("No failed checks.")
-    else:
-        findings = Table("Dimension", "Check", "Lost", "Finding")
-        for dimension, check in failed:
-            findings.add_row(
-                Text(dimension.name),
-                Text(check.title),
-                f"-{check.max_points - check.points}",
-                Text(check.detail),
-            )
-        console.print(findings)
+        console.print(Panel(Text("No failed checks.", style="green"), title="Remediações"))
+        return
+    body = Text()
+    for index, (dimension, check) in enumerate(failed):
+        if index:
+            body.append("\n\n")
+        body.append(f"- {check.title}", style="bold")
+        body.append(f"  (-{check.max_points - check.points})", style="red")
+        body.append(f"\n  Dimensão: {dimension.name}")
+        body.append(f"\n  Achado: {check.detail}")
+        body.append(f"\n  Ação: {check.remediation}")
+    console.print(Panel(body, title="Remediações"))
+
+
+def render_audit_report(result: AuditResult) -> str:
+    """The same scorecard as plain text, without colors (for the REPL transcript and tests)."""
+    buffer = io.StringIO()
+    console = Console(file=buffer, width=100, color_system=None, highlight=False)
+    print_audit_report(result, console)
     return buffer.getvalue()
 
 
@@ -343,6 +384,35 @@ def _check_local_fallback(root: Path) -> tuple[float, str]:
     return 0.0, "no local_fallback: true in .kaidf/policy/budget.yaml"
 
 
+SKILLS_MANIFEST = "data/manifests/skills.yaml"
+
+
+def _check_skills_manifest(root: Path) -> tuple[float, str]:
+    """A valid manifest: a version, and a non-empty skills list whose entries each name an id,
+    a command and their permissions. Ids must be unique."""
+    manifest = _load_yaml_mapping(root / SKILLS_MANIFEST)
+    if manifest is None:
+        return 0.0, f"{SKILLS_MANIFEST} missing, empty or not a YAML mapping"
+    skills = manifest.get("skills")
+    if not isinstance(manifest.get("version"), str) or not isinstance(skills, list) or not skills:
+        return 0.0, f"{SKILLS_MANIFEST} needs a version and a non-empty skills list"
+    ids: set[str] = set()
+    for index, skill in enumerate(skills):
+        if not isinstance(skill, dict):
+            return 0.0, f"skills[{index}] is not a mapping"
+        skill_id = skill.get("id")
+        if not isinstance(skill_id, str) or not skill_id.strip():
+            return 0.0, f"skills[{index}] has no id"
+        if skill_id in ids:
+            return 0.0, f"duplicate skill id {skill_id!r}"
+        ids.add(skill_id)
+        if not isinstance(skill.get("command"), str) or not skill.get("command"):
+            return 0.0, f"skill {skill_id!r} has no command"
+        if not isinstance(skill.get("permissions"), dict):
+            return 0.0, f"skill {skill_id!r} has no permissions mapping"
+    return 1.0, f"{len(skills)} skill(s) registered in {SKILLS_MANIFEST}"
+
+
 def _workflow_files(root: Path) -> list[Path]:
     directory = root / ".github/workflows"
     if not directory.is_dir():
@@ -371,10 +441,11 @@ DIMENSION_SPECS: tuple[tuple[str, str, tuple[tuple[str, str, int, CheckFn], ...]
         "methodology-as-code",
         "Methodology-as-Code",
         (
-            ("kaidf-scaffold", ".kaidf/ scaffold is present", 5, _check_kaidf_scaffold),
-            ("mentor-state", "mentor-workflow.json is valid", 5, _check_mentor_state),
-            ("specs-parse", "YAML specs parse", 5, _check_specs),
-            ("front-matter-v2", "Markdown documents carry Front Matter v2", 5, _check_front_matter),
+            ("kaidf-scaffold", ".kaidf/ scaffold is present", 4, _check_kaidf_scaffold),
+            ("mentor-state", "mentor-workflow.json is valid", 4, _check_mentor_state),
+            ("specs-parse", "YAML specs parse", 4, _check_specs),
+            ("front-matter-v2", "Markdown documents carry Front Matter v2", 4, _check_front_matter),
+            ("skills-manifest", "skills.yaml registers valid skills", 4, _check_skills_manifest),
         ),
     ),
     (
@@ -426,6 +497,35 @@ DIMENSION_SPECS: tuple[tuple[str, str, tuple[tuple[str, str, int, CheckFn], ...]
 )
 
 
+REMEDIATIONS: dict[str, str] = {
+    "no-credentials": "Remove the credential from tracked files, rotate it, and read secrets from "
+    "the environment. Keep .env out of git.",
+    "pii-masking-rules": "Create .kaidf/policy/pii-masking-rules.yaml with the masking rules for "
+    "personal data.",
+    "kaidf-scaffold": "Run `kob init` in the project to create .kaidf/ with README.md and docs/.",
+    "mentor-state": "Run `kob mentor` so .kaidf/mentor-workflow.json is written as a valid JSON "
+    "object.",
+    "specs-parse": "Add a YAML spec under specs/ and fix any spec that does not parse to a "
+    "mapping.",
+    "front-matter-v2": "Add the Front Matter v2 block (id, title, document_class, phase, "
+    "visibility, status) to every Markdown document.",
+    "skills-manifest": "Create data/manifests/skills.yaml with a version and a skills list; each "
+    "skill needs an id, a command and permissions.",
+    "risk-assessment": "Add docs/20-ethical-model/risk-assessment.json with the system's risk "
+    "assessment.",
+    "explicability-schema": "Add docs/20-ethical-model/explicability-schema.json describing how "
+    "decisions are explained.",
+    "hitl-config": "Add .kaidf/policy/hitl-config.yaml defining which decisions need human review.",
+    "dataset-audit": "Add data/manifests/dataset-audit.yaml describing the datasets used and their "
+    "audit status.",
+    "ci-workflows": "Add a CI workflow under .github/workflows/ that runs the tests and lint.",
+    "blocking-gates": "Remove continue-on-error: true from CI steps so a failure blocks the merge.",
+    "budget-caps": "Set max_tokens and request_timeout_seconds in .kaidf/policy/budget.yaml.",
+    "local-fallback": "Set local_fallback: true in .kaidf/policy/budget.yaml and test the "
+    "fallback.",
+}
+
+
 def _run_check(
     check_id: str, title: str, max_points: int, check: CheckFn, root: Path
 ) -> CheckResult:
@@ -436,6 +536,7 @@ def _run_check(
         max_points=max_points,
         points=round(max_points * fraction),
         detail=detail,
+        remediation=REMEDIATIONS[check_id],
     )
 
 

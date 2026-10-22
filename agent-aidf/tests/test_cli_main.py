@@ -122,6 +122,11 @@ def _fully_compliant_repo(root: Path) -> Path:
     _write(root / "docs/20-ethical-model/explicability-schema.json", '{"fields": []}')
     _write(root / "data/manifests/dataset-audit.yaml", "dataset: demo\n")
     _write(root / ".github/workflows/ci.yml", "steps:\n  - run: pytest\n")
+    _write(
+        root / "data/manifests/skills.yaml",
+        'version: "1.0"\nskills:\n  - id: "kaidf-audit"\n    command: "kob audit"\n'
+        '    permissions:\n      filesystem: "read"\n',
+    )
     return root
 
 
@@ -146,10 +151,11 @@ def test_kob_audit_prints_scorecard_and_exits_zero(
 
     out = capsys.readouterr().out
     assert code == 0
-    assert "K-AIDF Audit Matrix (KAIDF-AMM v1.0)" in out
+    assert "KAIDF-AMM v1.0 - Audit Scorecard" in out
     assert "Score: 0/100" in out
     assert "Tier: Non-Compliant / Unrated" in out
-    assert "Dimension" in out and "Finding" in out
+    assert "Dimensão" in out and "Status" in out and "Progresso" in out
+    assert "Remediações" in out
     assert "Data Sovereignty & Perimeter" in out
 
 
@@ -183,7 +189,7 @@ def test_kob_audit_json_mode_prints_structured_result(
         "cost-infrastructure-health",
     ]
     first_check = payload["dimensions"][0]["checks"][0]
-    assert set(first_check) == {"id", "title", "points", "max_points", "detail"}
+    assert set(first_check) == {"id", "title", "points", "max_points", "detail", "remediation"}
 
 
 def test_kob_audit_rejects_a_missing_path_with_exit_code_two(
@@ -207,6 +213,39 @@ def test_repl_audit_reports_the_project_and_survives_a_missing_path(
     run_shell(tmp_path / "repo-missing-kaidf", tmp_path)
 
     out = capsys.readouterr().out
-    assert "K-AIDF Audit Matrix (KAIDF-AMM v1.0)" in out
+    assert "KAIDF-AMM v1.0 - Audit Scorecard" in out
     assert "Score: 0/100" in out
     assert "audit: " in out and "does not exist" in out
+
+
+def test_rich_scorecard_colours_the_tier_on_a_terminal(tmp_path: Path) -> None:
+    import io
+
+    from rich.console import Console
+
+    from agent_aidf.audit import print_audit_report, run_audit
+
+    buffer = io.StringIO()
+    console = Console(file=buffer, width=100, force_terminal=True, color_system="truecolor")
+    print_audit_report(run_audit(_fully_compliant_repo(tmp_path)), console)
+
+    out = buffer.getvalue()
+    assert "\x1b[" in out
+    assert "KAIDF-AMM v1.0 - Audit Scorecard" in out
+    assert "Pass" in out
+    assert "No failed checks." in out
+
+
+def test_plain_scorecard_has_no_escape_codes_and_shows_partial_progress(tmp_path: Path) -> None:
+    from agent_aidf.audit import render_audit_report, run_audit
+
+    _write(tmp_path / ".kaidf/README.md", "# kaidf\n")
+    _write(tmp_path / ".kaidf/docs/index.md", "# docs\n")
+    result = run_audit(tmp_path)
+    text = render_audit_report(result)
+
+    assert "\x1b" not in text
+    assert "Partial" in text
+    assert "█" in text and "░" in text
+    scaffold = next(c for d in result.dimensions for c in d.checks if c.id == "kaidf-scaffold")
+    assert scaffold.points == scaffold.max_points

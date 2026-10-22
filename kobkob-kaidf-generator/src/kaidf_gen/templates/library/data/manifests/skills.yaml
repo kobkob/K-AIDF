@@ -1,0 +1,21 @@
+# Skill manifest for this K-AIDF repository. The kob CLI and the static audit (dimension 2,
+# Methodology-as-Code) read it. Each skill declares the command it runs and what it may touch.
+version: "1.0"
+skills:
+  - id: "kaidf-audit"
+    name: "KAIDF-AMM audit"
+    description: "Scores the repository against the 5-dimension audit matrix (0-100) and lists the remediations."
+    command: "kob audit"
+    arguments:
+      - name: "path"
+        required: false
+        default: "."
+        description: "Repository to audit."
+      - name: "--json"
+        required: false
+        description: "Print the full result as JSON."
+    permissions:
+      filesystem: "read"
+      network: "none"
+      writes: "none"
+      shell: "none"

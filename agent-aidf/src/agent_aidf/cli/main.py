@@ -20,7 +20,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
-from ..audit import render_audit_report, run_audit
+from ..audit import print_audit_report, run_audit
 from ..controller import OllamaChatController, build_controller
 from ..i18n import _
 from ..maturity import phase_progress
@@ -628,7 +628,7 @@ def _run_audit_command(path: str, *, as_json: bool) -> int:
     if as_json:
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
-        print(render_audit_report(result), end="")
+        print_audit_report(result, Console())
     return 0
 
 
