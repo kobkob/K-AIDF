@@ -142,6 +142,21 @@ Docker Compose also expects:
 - falls back to repository-relative path lookup
 - returns metadata, doctrine classification, and full document content
 
+## Document Visibility
+
+Each indexed document has a `visibility` value from its front matter. The server enforces it on `search` and `fetch`:
+
+| `visibility` | Returned to an authenticated request | Returned without authentication |
+| --- | --- | --- |
+| `public` | yes | yes |
+| `internal` | yes | no |
+| `private` | never | never |
+
+- A document with no `visibility` field is indexed as `internal`, the contract default shared with `agent-aidf`. Set `visibility: public` explicitly to publish it.
+- Any other value fails closed: the document is hidden.
+- Hidden documents are omitted from search results. A `fetch` of a hidden document returns the same "Document not found" error as a missing one, so its existence is not revealed.
+- Every `/mcp` request must carry a valid bearer token, so in practice every request is authenticated. The unauthenticated column applies to callers of the helpers (for example, a future public route).
+
 ## Canonical Doctrine And Variants
 
 The canonical doctrine package is expected under `docs/00-overview/`.
