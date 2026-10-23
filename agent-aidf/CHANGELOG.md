@@ -8,17 +8,18 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Fixed
 
-- `kob init` on a project that already has `.kaidf/` prints a short error and a hint to use `kob init --force`, and exits with code 1, instead of a Python traceback. The condition is a new `ProjectAlreadyInitializedError`, a `ValueError` subclass, so existing callers are unaffected
+- `kob init` on a project that already has `.kaidf/` prints a short error and a hint to use `kob init --force`, and exits with code 1, instead of a Python traceback. The condition is a new `ProjectAlreadyInitializedError`, a `ValueError` subclass, so existing callers are unaffected (#57)
 
 ### Added
 
-- `kob --version` and `kob -v` print the installed version as `kob X.Y.Z` and exit with code 0, instead of an argument error
-- `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation`
+- `kob --version` and `kob -v` print the installed version as `kob X.Y.Z` and exit with code 0, instead of an argument error (#58)
+- `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation` (#56)
 - the static audit checks `data/manifests/skills.yaml` in Methodology-as-Code: the file must declare a version and a non-empty list of skills, each with a unique id, a command and a permissions mapping
 
 ### Changed
 
 - Methodology-as-Code now has five checks of 4 points each, instead of four of 5 points, so the dimension still totals 20
+- `ruff check` and `ruff format --check` are clean across `src/` and `tests/`. The cleanup covers `controller.py`, `mentor.py`, `tools.py` and their tests. The same PR also carries pending changes to those modules, which this entry does not describe (#59)
 
 ## [0.5.6] - 2026-10-20
 
