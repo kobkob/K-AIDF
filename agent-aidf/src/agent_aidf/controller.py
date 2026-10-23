@@ -50,6 +50,23 @@ DEFAULT_CHAT_INSTRUCTIONS = (
     "action, tell them to continue with the mentor workflow so the change can be applied safely."
 )
 
+# Used ONLY for mentor.py's prompt (passed as chat()'s `instructions` override). This must
+# NEVER contain a blanket "you cannot read or write files" statement like the one above: the
+# mentor prompt that gets appended after these instructions (see mentor.py's
+# ACTION_PROTOCOL_INSTRUCTIONS) explicitly teaches the model how to propose a write_file/
+# run_shell action. Telling it "you cannot do that" first and "here's how to do that" second in
+# the same prompt is a direct contradiction, and models reliably resolve it by refusing ("As an
+# AI I can't execute commands...") - this was the actual cause of that hallucination, not a
+# missing tool-calling framework.
+MENTOR_CHAT_INSTRUCTIONS = (
+    "You are guiding a K-AIDF mentor workflow: a structured, phase-by-phase conversation that "
+    "helps someone produce real project artifacts. Keep guidance pragmatic and grounded in the "
+    "phase context and artifact files provided below. You have exactly one way to affect the "
+    "project: proposing a single action using the protocol described below, which the user must "
+    "confirm before anything happens. Do not claim you are unable to read, write, or run "
+    "anything - if an action would help, propose it using that protocol."
+)
+
 # Appended to every successful reply in code, not left to the model to remember to say -
 # a small local model can't be trusted to comply with a "always add this" instruction on
 # every single turn, so the guarantee lives here instead of in the prompt.
@@ -84,7 +101,9 @@ def _kob_identity_line(model: str) -> str:
 
 
 class ChatController(Protocol):
-    def chat(self, prompt: str) -> str: ...
+    def chat(
+        self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
+    ) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -92,7 +111,9 @@ class NullChatController:
     message: str = "AI chat controller is not configured yet."
     last_usage: dict[str, int] | None = None
 
-    def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
+    def chat(
+        self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
+    ) -> str:
         return f"{self.message} Prompt received: {prompt}"
 
 
@@ -105,9 +126,11 @@ class OpenAIResponsesController:
     previous_response_id: str | None = None
     last_usage: dict[str, int] | None = None
 
-    def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
+    def chat(
+        self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
+    ) -> str:
         repo = resolve_repo_root(repo_root)
-        payload = self._build_payload(prompt, repo)
+        payload = self._build_payload(prompt, repo, instructions)
         http_request = request.Request(
             url=f"{self.base_url.rstrip('/')}/responses",
             data=json.dumps(payload).encode("utf-8"),
@@ -146,13 +169,16 @@ class OpenAIResponsesController:
         text = self._extract_output_text(data)
         return _with_caveat(text) if text else "OpenAI API returned no text output."
 
-    def _build_payload(self, prompt: str, repo_root: Path) -> dict[str, object]:
+    def _build_payload(
+        self, prompt: str, repo_root: Path, instructions: str | None = None
+    ) -> dict[str, object]:
+        effective_instructions = instructions if instructions is not None else self.instructions
         payload: dict[str, object] = {
             "model": self.model,
             "input": [
                 {
                     "role": "developer",
-                    "content": f"{_kob_identity_line(self.model)}\n\n{self.instructions}",
+                    "content": f"{_kob_identity_line(self.model)}\n\n{effective_instructions}",
                 },
                 {"role": "user", "content": _build_context_prompt(repo_root, prompt)},
             ],
@@ -193,10 +219,13 @@ class OllamaChatController:
     instructions: str = DEFAULT_CHAT_INSTRUCTIONS
     last_usage: dict[str, int] | None = None
 
-    def chat(self, prompt: str, repo_root: str | Path | None = None) -> str:
+    def chat(
+        self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
+    ) -> str:
         repo = resolve_repo_root(repo_root)
+        effective_instructions = instructions if instructions is not None else self.instructions
         full_prompt = (
-            f"{_kob_identity_line(self.model)}\n\n{self.instructions}\n\n"
+            f"{_kob_identity_line(self.model)}\n\n{effective_instructions}\n\n"
             f"{_build_context_prompt(repo, prompt)}"
         )
         payload = {

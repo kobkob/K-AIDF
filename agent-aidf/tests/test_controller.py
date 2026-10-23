@@ -427,3 +427,48 @@ def test_ollama_controller_timeout_message_has_no_caveat(tmp_path: Path, monkeyp
     reply = controller.chat("hello", tmp_path)
 
     assert controller_module.RESPONSE_CAVEAT not in reply
+
+
+def test_mentor_instructions_override_replaces_default_and_drops_denial(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Regression test: DEFAULT_CHAT_INSTRUCTIONS flatly denies file/shell access, which used to
+    # get sent on every mentor turn too - directly contradicting the action protocol taught
+    # later in the same prompt, and reliably causing "As an AI I can't execute commands..."
+    # hallucinations. mentor.py must override it with MENTOR_CHAT_INSTRUCTIONS instead.
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(json.dumps({"response": "ok"}).encode("utf-8"))
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OllamaChatController()
+
+    controller.chat(
+        "continue the workflow", tmp_path, instructions=controller_module.MENTOR_CHAT_INSTRUCTIONS
+    )
+
+    prompt_sent = captured["body"]["prompt"]
+    assert "You cannot read or write files or run shell commands" not in prompt_sent
+    assert "propose it using that protocol" in prompt_sent
+
+
+def test_default_chat_still_denies_tool_access_when_no_override_given(
+    tmp_path: Path, monkeypatch
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(json.dumps({"response": "ok"}).encode("utf-8"))
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+    controller = OllamaChatController()
+
+    controller.chat("just chatting", tmp_path)
+
+    prompt_sent = captured["body"]["prompt"]
+    assert "You cannot read or write files or run shell commands" in prompt_sent
