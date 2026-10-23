@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
+- `kob --version` and `kob -v` print the installed version as `kob X.Y.Z` and exit with code 0, instead of an argument error
 - `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation`
 - the static audit checks `data/manifests/skills.yaml` in Methodology-as-Code: the file must declare a version and a non-empty list of skills, each with a unique id, a command and a permissions mapping
 
