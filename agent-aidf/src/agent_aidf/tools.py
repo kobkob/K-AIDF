@@ -29,10 +29,10 @@ def is_yolo_enabled() -> bool:
 ACTION_MARKER_START = "<<<KOB_ACTION"
 ACTION_MARKER_END = "KOB_ACTION>>>"
 
-_ACTION_BLOCK_RE = re.compile(
-    re.escape(ACTION_MARKER_START) + r"\s*(.*?)\s*" + re.escape(ACTION_MARKER_END),
-    re.DOTALL,
-)
+# Consumes whatever marker-ish debris follows the JSON payload: a correct closing marker, a
+# small model's typo of it (e.g. a bare "<<<" instead of "KOB_ACTION>>>"), or nothing at all.
+# Deliberately NOT anchored to an exact closing string - see extract_proposed_action().
+_TRAILING_MARKER_RE = re.compile(r"[\s<>]*(?:KOB_ACTION)?[\s<>]*")
 
 _SUPPORTED_ACTIONS = {"write_file", "run_shell"}
 
@@ -40,9 +40,13 @@ _DEFAULT_SHELL_TIMEOUT_SECONDS = 30
 
 ACTION_PROTOCOL_INSTRUCTIONS = (
     "If (and only if) it would clearly help right now, you may propose ONE action as exactly "
-    "one block in this exact form, with valid JSON inside and nothing else on those lines:\n"
+    "one block in this exact form, with valid JSON inside and nothing else on those lines. "
+    f"Every block starts with {ACTION_MARKER_START} on its own line and ends with "
+    f"{ACTION_MARKER_END} on its own line - never omit the closing line, and never write "
+    "anything else (like '<<<' alone) as the closing line. Two examples:\n"
     f"{ACTION_MARKER_START}\n"
     '{"action": "write_file", "path": "relative/path/to/file", "content": "full file content"}\n'
+    f"{ACTION_MARKER_END}\n"
     "or\n"
     f"{ACTION_MARKER_START}\n"
     '{"action": "run_shell", "command": "the shell command to run"}\n'
@@ -67,6 +71,48 @@ class ProposedAction:
     command: str = ""
 
 
+def _strip_through_end_marker(text: str, start_idx: int) -> str:
+    """Best-effort cleanup when there's no parseable JSON: if a well-formed closing marker
+    exists after start_idx, strip the whole span so raw markers/garbage don't leak into what
+    the user sees; otherwise leave the text untouched."""
+    end_marker_idx = text.find(ACTION_MARKER_END, start_idx)
+    if end_marker_idx == -1:
+        return text.strip()
+    return (text[:start_idx] + text[end_marker_idx + len(ACTION_MARKER_END) :]).strip()
+
+
+_MAX_REPAIR_BRACES = 3
+
+
+def _parse_json_object(text: str, json_start: int) -> tuple[object, int] | None:
+    """Parse the JSON value starting at json_start, returning (payload, end_index) with
+    end_index relative to the original text - or None if nothing parses.
+
+    Tries a direct parse first. Small models reliably get the content right but sometimes
+    omit the final closing brace(s) entirely, especially after a long multi-line "content"
+    string - jumping straight from the closing quote to the marker. If the direct parse
+    fails, retry against just the span up to the next closing marker (or end of text) with
+    1-3 closing braces appended; this is a real, observed failure mode, not a hypothetical.
+    """
+    decoder = json.JSONDecoder(strict=False)
+    try:
+        return decoder.raw_decode(text, json_start)
+    except json.JSONDecodeError:
+        pass
+
+    boundary = text.find(ACTION_MARKER_END, json_start)
+    if boundary == -1:
+        boundary = len(text)
+    candidate = text[json_start:boundary].rstrip()
+    for extra in range(1, _MAX_REPAIR_BRACES + 1):
+        try:
+            payload, _ = decoder.raw_decode(candidate + ("}" * extra))
+            return payload, boundary
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
 def extract_proposed_action(text: str) -> tuple[str, ProposedAction | None]:
     """Strip a proposed action block out of model output.
 
@@ -74,15 +120,33 @@ def extract_proposed_action(text: str) -> tuple[str, ProposedAction | None]:
     Never raises - a malformed or unrecognized block is just dropped (with the surrounding
     text left intact), since a small local model can't be trusted to always format this
     perfectly.
+
+    Deliberately does NOT require an exact closing marker: we anchor on the opening
+    ACTION_MARKER_START, then parse the next well-formed JSON value from there with
+    json.JSONDecoder.raw_decode(), which tells us exactly where the JSON ends regardless of
+    what comes after. A small model reliably gets the JSON itself right but sometimes typos
+    the closing line (e.g. a bare "<<<" instead of "KOB_ACTION>>>") - requiring an exact
+    closing match used to silently drop the whole action in that case.
+
+    Parses with strict=False so a literal (unescaped) newline inside a multi-line "content"
+    string - another real thing small models do when writing file content - doesn't fail the
+    whole parse; the JSON spec requires escaping control characters in strings, but rejecting
+    the action outright over it would be worse than tolerating it here.
     """
-    match = _ACTION_BLOCK_RE.search(text)
-    if not match:
+    start_idx = text.find(ACTION_MARKER_START)
+    if start_idx == -1:
         return text.strip(), None
-    cleaned = (text[: match.start()] + text[match.end() :]).strip()
-    try:
-        payload = json.loads(match.group(1))
-    except json.JSONDecodeError:
-        return cleaned, None
+    json_start = text.find("{", start_idx)
+    if json_start == -1:
+        return _strip_through_end_marker(text, start_idx), None
+    parsed = _parse_json_object(text, json_start)
+    if parsed is None:
+        return _strip_through_end_marker(text, start_idx), None
+    payload, json_end = parsed
+    trailing_match = _TRAILING_MARKER_RE.match(text, json_end)
+    end_idx = trailing_match.end() if trailing_match else json_end
+    cleaned = (text[:start_idx] + text[end_idx:]).strip()
+
     if not isinstance(payload, dict):
         return cleaned, None
     kind = payload.get("action")

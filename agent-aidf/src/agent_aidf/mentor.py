@@ -447,7 +447,7 @@ def _build_mentor_reply(
     phase_dir: str,
     answer: str,
 ) -> tuple[str, str | None, dict[str, int] | None]:
-    from .controller import build_controller
+    from .controller import MENTOR_CHAT_INSTRUCTIONS, build_controller
 
     controller = build_controller()
     if hasattr(controller, "previous_response_id"):
@@ -460,7 +460,7 @@ def _build_mentor_reply(
         phase_dir=phase_dir,
         answer=answer,
     )
-    raw_reply = controller.chat(prompt, repo_root)
+    raw_reply = controller.chat(prompt, repo_root, instructions=MENTOR_CHAT_INSTRUCTIONS)
     next_response_id = getattr(controller, "previous_response_id", state.previous_response_id)
     token_usage = getattr(controller, "last_usage", None)
     if raw_reply.startswith("AI chat controller is not configured yet."):
@@ -504,7 +504,10 @@ def _build_mentor_prompt(
 
     return "\n".join(
         [
-            "Continue the K-AIDF mentor workflow as a guided, conversational process.",
+            "Continue the K-AIDF mentor workflow as a guided, conversational process. You ARE "
+            "the mentor, speaking directly to the user in first person right now - do not "
+            "describe what 'the mentor' should do, and do not write advice for someone else to "
+            "relay to the user.",
             f"You are on phase {phase['order']}/{_total_phases()}: {phase['name']}.",
             f"Human role this phase: {phase['human_role']}",
             f"Your role this phase: {phase['ai_role']}",

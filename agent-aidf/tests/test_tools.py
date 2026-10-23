@@ -5,6 +5,9 @@ from pathlib import Path
 import pytest
 
 from agent_aidf.tools import (
+    ACTION_MARKER_END,
+    ACTION_MARKER_START,
+    ACTION_PROTOCOL_INSTRUCTIONS,
     ProposedAction,
     SafeActionTool,
     UnsafeActionPathError,
@@ -236,3 +239,66 @@ def test_apply_action_reports_unsafe_write_path_without_raising(tmp_path: Path) 
 )
 def test_is_affirmative(answer: str, expected: bool) -> None:
     assert is_affirmative(answer) is expected
+
+
+def test_extract_proposed_action_tolerates_real_olmo_closing_typo() -> None:
+    # Captured verbatim from a live olmo2:7b-1124-instruct-q4_K_M response: the model got the
+    # JSON exactly right but closed the block with a bare "<<<" instead of "KOB_ACTION>>>".
+    # The old exact-closing-marker regex silently dropped this entire action, which is what
+    # made a real tool-use attempt look like "the agent is bypassing tool execution".
+    text = (
+        "Here's how you might propose this action to the user:\n\n"
+        "<<<KOB_ACTION\n"
+        '{"action": "write_file", "path": '
+        '"docs/01_intent_constraints/templates/constraint-matrix.csv", '
+        '"content": "privacy,comply with all applicable privacy laws"}\n'
+        "<<<\n\n"
+        "This action suggests writing a new row in the constraint matrix CSV file."
+    )
+
+    cleaned, action = extract_proposed_action(text)
+
+    assert action is not None
+    assert action.kind == "write_file"
+    assert action.path == "docs/01_intent_constraints/templates/constraint-matrix.csv"
+    assert "privacy" in action.content
+    assert "KOB_ACTION" not in cleaned
+    assert "Here's how you might propose this action to the user:" in cleaned
+    assert "This action suggests writing a new row" in cleaned
+
+
+def test_extract_proposed_action_tolerates_missing_closing_brace_and_raw_newlines() -> None:
+    # Captured verbatim (shape-for-shape) from a second live olmo2:7b-1124-instruct-q4_K_M
+    # response: the model wrote a long multi-line "content" value with a literal (unescaped)
+    # newline partway through, then jumped straight from the closing quote to the KOB_ACTION>>>
+    # marker without ever writing the JSON object's own closing "}". Both are real, observed
+    # small-model slips, not hypothetical edge cases - strict json.loads rejects both.
+    text = (
+        "<<<KOB_ACTION\n"
+        '{"action": "write_file", "path": "docs/01_intent_constraints/ICB.md", "content": '
+        '"## Problem Statement\\nFirst line is properly escaped.\n'
+        'Second line has a raw, unescaped newline before it."\n'
+        "KOB_ACTION>>>\n\n"
+        "Please review this answer yourself."
+    )
+
+    cleaned, action = extract_proposed_action(text)
+
+    assert action is not None
+    assert action.kind == "write_file"
+    assert action.path == "docs/01_intent_constraints/ICB.md"
+    assert "First line is properly escaped." in action.content
+    assert "Second line has a raw, unescaped newline before it." in action.content
+    assert "KOB_ACTION" not in cleaned
+    assert "Please review this answer yourself." in cleaned
+
+
+def test_action_protocol_instructions_show_a_closing_marker_for_every_example() -> None:
+    # Regression test for the actual bug: an earlier version of this string showed the
+    # write_file example with NO closing marker at all, so the model had no correct example
+    # to imitate for exactly the action kind it needed.
+    examples = ACTION_PROTOCOL_INSTRUCTIONS.split("or\n")
+    assert len(examples) >= 2
+    for example in examples:
+        if ACTION_MARKER_START in example:
+            assert ACTION_MARKER_END in example

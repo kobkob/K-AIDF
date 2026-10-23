@@ -53,7 +53,7 @@ class _FakeController:
         self.last_usage = None
         self.previous_response_id = None
 
-    def chat(self, prompt: str, repo_root=None) -> str:
+    def chat(self, prompt: str, repo_root=None, *, instructions: str | None = None) -> str:
         if not self._replies:
             return "Mentor assessment: nothing more to add right now."
         return self._replies.pop(0)
