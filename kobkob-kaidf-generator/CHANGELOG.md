@@ -10,6 +10,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - `data/manifests/skills.yaml` in the default scaffold: registers the `kaidf-audit` skill (command `kob audit`) with its arguments and permissions (read-only filesystem, no network, no writes, no shell). The static audit's Methodology-as-Code dimension checks this file
 
+### Changed
+
+- `scripts/bootstrap.sh` works where `ensurepip` is missing: when a full venv cannot be created, it makes a venv with `--without-pip --system-site-packages`, installs nothing, and checks that PyYAML and jsonschema are importable from the parent Python. Repeated runs take that path without reinstalling
+
 ## [0.5.6] - 2026-10-20
 
 ### Added

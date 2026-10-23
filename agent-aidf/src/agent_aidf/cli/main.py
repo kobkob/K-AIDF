@@ -33,6 +33,7 @@ from ..project import (
     MentorNotInitializedError,
     ProjectAlreadyInitializedError,
     ProjectStatus,
+    generator_environment,
     init_project_repo,
     locate_generator_repo,
     project_repo_root,
@@ -154,7 +155,10 @@ def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
     ]
     if force:
         command.append("--force")
-    subprocess.run(command, cwd=generator_repo, check=True)
+    # The generator runs from its source tree, so the environment carries its src on PYTHONPATH.
+    subprocess.run(
+        command, cwd=generator_repo, check=True, env=generator_environment(generator_repo)
+    )
 
 
 class KobAgentApp(App):

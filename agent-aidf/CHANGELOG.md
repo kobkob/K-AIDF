@@ -10,6 +10,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - `kob init` on a project that already has `.kaidf/` prints a short error and a hint to use `kob init --force`, and exits with code 1, instead of a Python traceback. The condition is a new `ProjectAlreadyInitializedError`, a `ValueError` subclass, so existing callers are unaffected (#57)
 
+- `kob gen` and `kob init` work where `ensurepip` is missing, such as Kaggle and Colab. If the generator's bootstrap fails, or its `.venv` cannot import PyYAML and jsonschema, kob uses the Python that is running it when that Python has those modules, and prints a notice; otherwise it stops with a message that says what to install. The generator now runs with its source on `PYTHONPATH` in both `init` and `gen`, so no installed package is needed
+
 ### Added
 
 - `kob --version` and `kob -v` print the installed version as `kob X.Y.Z` and exit with code 0, instead of an argument error (#58)
