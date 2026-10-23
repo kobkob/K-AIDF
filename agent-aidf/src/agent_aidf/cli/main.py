@@ -21,6 +21,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
+from .. import __version__
 from ..audit import print_audit_report, run_audit
 from ..controller import OllamaChatController, build_controller
 from ..i18n import _
@@ -583,6 +584,7 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         prog="kob",
         description=_("Run a kob command non-interactively instead of launching the TUI."),
     )
+    parser.add_argument("-v", "--version", action="version", version=f"kob {__version__}")
     parser.add_argument("--project", default=None, help=_("Path to the creator project."))
     parser.add_argument("--repo", default=None, help=_("Path to a K-AIDF repository override."))
     subparsers = parser.add_subparsers(dest="command", required=True)

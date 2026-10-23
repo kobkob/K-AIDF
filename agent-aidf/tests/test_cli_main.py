@@ -302,3 +302,17 @@ def test_kob_init_force_reinitializes_an_existing_project(
     assert (tmp_path / ".kaidf/README.md").read_text(encoding="utf-8") == "# fresh\n"
     assert not (tmp_path / ".kaidf/stale.txt").exists()
     assert "Initialized .kaidf at" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("flag", ["--version", "-v"])
+def test_kob_version_flag_prints_version_and_exits_zero(
+    flag: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import re
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_cli([flag])
+
+    out = capsys.readouterr().out
+    assert excinfo.value.code == 0
+    assert re.search(r"^kob \d+\.\d+\.\d+$", out.strip()), out
