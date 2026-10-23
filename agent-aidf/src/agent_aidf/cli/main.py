@@ -22,7 +22,7 @@ from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
 from .. import __version__
-from ..audit import print_audit_report, run_audit
+from ..audit import SEVERITY_ORDER, has_critical_findings, print_audit_report, run_audit
 from ..controller import OllamaChatController, build_controller
 from ..i18n import _
 from ..maturity import phase_progress
@@ -609,6 +609,21 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument(
         "--json", action="store_true", help=_("Print the full result as JSON.")
     )
+    audit_parser.add_argument(
+        "--severity",
+        choices=SEVERITY_ORDER,
+        help=_("Show only findings at this severity or above. --json always lists every check."),
+    )
+    audit_parser.add_argument(
+        "--fail-under",
+        type=_score_argument,
+        help=_("Exit with code 1 when the score is below this value (0-100)."),
+    )
+    audit_parser.add_argument(
+        "--fail-on-critical",
+        action="store_true",
+        help=_("Exit with code 1 when any critical finding is present."),
+    )
 
     ui_help = _("Launch the mentor web UI (Maturity Model phases + mentor chat).")
     for name in ("ui", "serve"):
@@ -624,7 +639,24 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_audit_command(path: str, *, as_json: bool) -> int:
+def _score_argument(value: str) -> int:
+    try:
+        score = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number from 0 to 100, got {value!r}")
+    if not 0 <= score <= 100:
+        raise argparse.ArgumentTypeError(f"must be between 0 and 100, got {score}")
+    return score
+
+
+def _run_audit_command(
+    path: str,
+    *,
+    as_json: bool,
+    severity: str | None = None,
+    fail_under: int | None = None,
+    fail_on_critical: bool = False,
+) -> int:
     try:
         result = run_audit(path)
     except ValueError as exc:
@@ -633,8 +665,19 @@ def _run_audit_command(path: str, *, as_json: bool) -> int:
     if as_json:
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
-        print_audit_report(result, Console())
-    return 0
+        print_audit_report(result, Console(), severity)
+
+    exit_code = 0
+    if fail_under is not None and result.score < fail_under:
+        print(
+            f"kob audit: score {result.score} is below --fail-under {fail_under}.",
+            file=sys.stderr,
+        )
+        exit_code = 1
+    if fail_on_critical and has_critical_findings(result):
+        print("kob audit: critical findings are present.", file=sys.stderr)
+        exit_code = 1
+    return exit_code
 
 
 def _print_already_initialized(target: Path) -> None:
@@ -669,7 +712,13 @@ def _run_cli(argv: list[str]) -> int:
         return 0
 
     if args.command == "audit":
-        return _run_audit_command(args.path, as_json=args.json)
+        return _run_audit_command(
+            args.path,
+            as_json=args.json,
+            severity=args.severity,
+            fail_under=args.fail_under,
+            fail_on_critical=args.fail_on_critical,
+        )
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 
