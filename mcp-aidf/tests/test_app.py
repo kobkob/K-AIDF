@@ -921,6 +921,10 @@ class McpTenantScopeTests(unittest.TestCase):
             _namespaced_doc(None, "public", "Shared Public"),
         )
         _write(self.repo_root / "docs/shared/plain.md", _namespaced_doc(None, None, "Shared Plain"))
+        _write(
+            self.repo_root / "docs/shared/private.md",
+            _namespaced_doc(None, "private", "Shared Private"),
+        )
         app._index_cache.update(root=None, signature=None, documents=[])
         self.scopes = {
             TENANT_A_TOKEN: frozenset({"acme"}),
@@ -965,9 +969,13 @@ class McpTenantScopeTests(unittest.TestCase):
             },
         )
 
-    def test_scoped_token_searches_only_its_namespace_and_visibility(self) -> None:
-        self.assertEqual(self._search(TENANT_A_TOKEN), {"docs/acme/a-internal.md"})
-        self.assertEqual(self._search(TENANT_B_TOKEN), {"docs/beta/b-internal.md"})
+    def test_scoped_token_searches_its_namespace_plus_shared_public_documents(self) -> None:
+        self.assertEqual(
+            self._search(TENANT_A_TOKEN), {"docs/acme/a-internal.md", "docs/shared/public.md"}
+        )
+        self.assertEqual(
+            self._search(TENANT_B_TOKEN), {"docs/beta/b-internal.md", "docs/shared/public.md"}
+        )
 
     def test_primary_token_is_unrestricted_but_still_hides_private(self) -> None:
         self.assertEqual(
@@ -998,13 +1006,19 @@ class McpTenantScopeTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-    def test_documents_without_a_namespace_are_hidden_from_scoped_tokens(self) -> None:
-        self.assertNotIn("docs/shared/public.md", self._search(TENANT_A_TOKEN, "shared"))
-        self.assertIsNone(
-            app._fetch_document(
-                "docs/shared/public.md", principal=app.Principal(frozenset({"acme"}))
-            )
-        )
+    def test_shared_public_documents_are_readable_by_every_tenant(self) -> None:
+        response = self._fetch(TENANT_B_TOKEN, "docs/shared/public.md")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_internal_and_private_documents_without_a_namespace_stay_with_the_primary_token(
+        self,
+    ) -> None:
+        tenant = app.Principal(frozenset({"acme"}))
+        self.assertIsNone(app._fetch_document("docs/shared/plain.md", principal=tenant))
+        self.assertIsNone(app._fetch_document("docs/shared/private.md", principal=tenant))
+        self.assertIsNotNone(app._fetch_document("docs/shared/plain.md", principal=FULL_ACCESS))
+        self.assertNotIn("docs/shared/private.md", self._search(TENANT_A_TOKEN, "shared"))
 
     def test_helpers_treat_a_none_principal_as_unauthenticated(self) -> None:
         self.assertEqual(app._fetch_document("docs/acme/a-internal.md", principal=None), None)

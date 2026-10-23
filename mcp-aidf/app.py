@@ -412,11 +412,21 @@ def _is_visible(doc: dict[str, Any], is_authenticated: bool) -> bool:
 
 
 def _can_read(doc: dict[str, Any], principal: Principal | None) -> bool:
-    """Visibility ACL plus tenant scope. Unauthenticated callers (None) see only public docs."""
+    """Visibility ACL plus tenant scope. Unauthenticated callers (None) see only public docs.
+
+    A scoped token reads documents in its namespaces. A document with no namespace is shared
+    with every tenant only when it is public; internal and private documents without a
+    namespace belong to the primary token alone.
+    """
     if principal is None:
         return _is_visible(doc, is_authenticated=False)
-    if principal.namespaces is not None and doc.get("namespace") not in principal.namespaces:
-        return False
+    if principal.namespaces is not None:
+        namespace = doc.get("namespace")
+        if namespace is None:
+            if doc.get("visibility") != "public":
+                return False
+        elif namespace not in principal.namespaces:
+            return False
     return _is_visible(doc, is_authenticated=True)
 
 

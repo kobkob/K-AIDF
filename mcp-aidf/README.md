@@ -164,7 +164,7 @@ Documents may declare a `namespace` in their front matter. A token can be limite
 
 - `MCP_BEARER_TOKEN` is the primary token. It is unrestricted: it reads every namespace.
 - `MCP_TOKEN_SCOPES` adds tokens limited to namespaces, as a JSON object that maps each token to a list of namespaces, for example `{"<token>": ["tenant-a"]}`.
-- A scoped token sees only documents whose `namespace` is in its list, and still obeys the visibility rules. A document with no `namespace` is visible only to the primary token.
+- A scoped token sees documents whose `namespace` is in its list, and still obeys the visibility rules. A document with no `namespace` is shared with every tenant only when it is `visibility: public`. Internal or private documents with no `namespace` are visible only to the primary token.
 - A scoped token that fetches another tenant's document gets the same "Document not found" error as a missing document.
 - Invalid `MCP_TOKEN_SCOPES` stops the server at startup. A token may not reuse `MCP_BEARER_TOKEN`.
 
