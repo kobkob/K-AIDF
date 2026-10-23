@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -72,9 +73,10 @@ def test_gen_resolves_relative_out_and_spec_against_caller_cwd(monkeypatch, tmp_
 
     calls = []
 
-    def fake_generator(command, cwd, check):
+    def fake_generator(command, cwd, check, env=None):
         # Emulate the generator: relative paths are interpreted against the subprocess cwd.
         calls.append((command, cwd, check))
+        assert env is not None and env["PYTHONPATH"].split(os.pathsep)[0] == str(cwd / "src")
         spec_arg = Path(cwd) / command[command.index("generate") + 1]
         out_arg = Path(cwd) / command[command.index("--out") + 1]
         assert spec_arg.read_text(encoding="utf-8") == "name: demo\n"

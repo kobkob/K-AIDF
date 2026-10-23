@@ -140,6 +140,45 @@ def locate_generator_repo() -> Path:
     return generator_repo
 
 
+# The generator needs these at runtime. Its own package is not required: the generator is run
+# from its source tree through PYTHONPATH (see generator_environment).
+GENERATOR_RUNTIME_MODULES = ("yaml", "jsonschema")
+
+
+def generator_environment(generator_repo: Path) -> dict[str, str]:
+    """Environment that runs the generator from its source tree, without an installed package."""
+    env = os.environ.copy()
+    generator_src = str(generator_repo / "src")
+    existing = env.get("PYTHONPATH", "").strip()
+    env["PYTHONPATH"] = f"{generator_src}{os.pathsep}{existing}" if existing else generator_src
+    return env
+
+
+def python_has_generator_runtime(python: str | Path) -> bool:
+    probe = "import " + ", ".join(GENERATOR_RUNTIME_MODULES)
+    try:
+        result = subprocess.run(
+            [str(python), "-c", probe], capture_output=True, check=False, timeout=60
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def _fallback_to_current_python(reason: str) -> Path:
+    """Use the Python running kob when it can run the generator, instead of failing."""
+    current = Path(sys.executable)
+    if python_has_generator_runtime(current):
+        print(f"kob: using the current Python for the generator ({reason}).", file=sys.stderr)
+        return current
+    modules = " ".join(GENERATOR_RUNTIME_MODULES)
+    raise RuntimeError(
+        f"{reason}. The current Python ({current}) lacks {', '.join(GENERATOR_RUNTIME_MODULES)} "
+        f"too; install them there (python -m pip install PyYAML jsonschema), "
+        f"or fix the environment. Modules needed: {modules}."
+    )
+
+
 def resolve_generator_python(generator_repo: Path) -> Path:
     bootstrap_script = generator_repo / "scripts/bootstrap.sh"
     generator_python = generator_repo / ".venv/bin/python"
@@ -154,10 +193,10 @@ def resolve_generator_python(generator_repo: Path) -> Path:
             )
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.strip() or exc.stdout.strip()
-            raise RuntimeError(f"Failed to bootstrap generator environment: {stderr}") from exc
-        if not generator_python.is_file():
-            raise RuntimeError(f"Generator Python executable not found: {generator_python}")
-        return generator_python
+            return _fallback_to_current_python(f"bootstrap failed: {stderr}")
+        if generator_python.is_file() and python_has_generator_runtime(generator_python):
+            return generator_python
+        return _fallback_to_current_python("the generator .venv cannot import its runtime modules")
     if generator_python.is_file():
         return generator_python
     return Path(sys.executable)
@@ -176,14 +215,7 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
     spec_path = generator_repo / "specs/kaidf.default.yaml"
     with tempfile.TemporaryDirectory(prefix="agent-aidf-init-", dir=str(project)) as temp_dir:
         temp_path = Path(temp_dir)
-        env = os.environ.copy()
-        generator_pythonpath = str(generator_repo / "src")
-        existing_pythonpath = env.get("PYTHONPATH", "").strip()
-        env["PYTHONPATH"] = (
-            f"{generator_pythonpath}{os.pathsep}{existing_pythonpath}"
-            if existing_pythonpath
-            else generator_pythonpath
-        )
+        env = generator_environment(generator_repo)
         command = [
             str(generator_python),
             "-m",
