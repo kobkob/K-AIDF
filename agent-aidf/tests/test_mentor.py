@@ -511,3 +511,33 @@ def test_yolo_does_not_bypass_phase_acceptance_confirmation(tmp_path: Path, monk
     assert state.awaiting_acceptance
     assert state.accepted_phases == []
     assert "accept this phase as complete" in turn.message
+
+
+def test_unavailable_model_records_nothing_and_keeps_the_question_pending(
+    tmp_path: Path, monkeypatch
+) -> None:
+    unavailable = (
+        f"{controller_module.MODEL_UNAVAILABLE_PREFIX} OpenAI API did not answer after 3 "
+        "attempts (HTTP 503). Nothing was recorded. Try again in a moment."
+    )
+    fake = _FakeController([unavailable, "Mentor assessment: thanks, that is clear."])
+    monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
+    repo = _build_repo(tmp_path)
+    continue_mentor_workflow(repo)
+    before = load_mentor_state(repo)
+
+    turn = continue_mentor_workflow(repo, answer="We need a transparent localhost web app.")
+    after = load_mentor_state(repo)
+
+    assert turn.message.startswith(controller_module.MODEL_UNAVAILABLE_PREFIX)
+    assert "Nothing was recorded" in turn.message
+    assert after.step_count == before.step_count == 0
+    assert after.interactions == before.interactions == []
+    assert after.pending_question == before.pending_question
+
+    # Once the model answers again, the same question is answered and recorded.
+    continue_mentor_workflow(repo, answer="We need a transparent localhost web app.")
+    recovered = load_mentor_state(repo)
+
+    assert recovered.step_count == 1
+    assert recovered.interactions[0].mentor_reply == "Mentor assessment: thanks, that is clear."

@@ -277,7 +277,7 @@ def _generate_ai_guidance(
     source_summary: str,
     current_app_id: str | None,
 ) -> str | None:
-    from .controller import build_controller
+    from .controller import build_controller, is_model_unavailable_reply
 
     prompt = "\n".join(
         [
@@ -290,7 +290,9 @@ def _generate_ai_guidance(
         ]
     )
     raw = build_controller().chat(prompt, repo_root)
-    if raw.startswith("AI chat controller is not configured yet."):
+    if raw.startswith("AI chat controller is not configured yet.") or is_model_unavailable_reply(
+        raw
+    ):
         return None
     return raw.strip()
 

@@ -19,10 +19,14 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - `kob audit --severity <level>` shows only findings at that severity or above (`--severity high` shows high and critical). `--json` always lists every check
 - `kob audit --fail-under <0-100>` exits with code 1 when the score is below the value, and `kob audit --fail-on-critical` exits with code 1 when any critical finding is present. Both messages go to stderr. Without these flags `kob audit` still exits with code 0, as before
 
+- model calls retry transient failures with exponential backoff: three attempts in total, waiting 1s and then 2s. Transient failures are HTTP 408, 429, 500, 502, 503 and 504, timeouts, and connection failures. Other HTTP errors (for example 400 or 401) are not retried. Applies to OpenAI and local Ollama
+- when every attempt fails, chat returns a structured reply that starts with `[kob] Model unavailable:` and says nothing was recorded. The mentor keeps the question pending and records no interaction, so the user can answer again. Phase guidance written for contracts is skipped
+
 ### Changed
 
 - Methodology-as-Code now has five checks of 4 points each, instead of four of 5 points, so the dimension still totals 20
 - `ruff check` and `ruff format --check` are clean across `src/` and `tests/`. The cleanup covers `controller.py`, `mentor.py`, `tools.py` and their tests. The same PR also carries pending changes to those modules, which this entry does not describe (#59)
+- timeouts and connection failures to the model are reported with the `[kob] Model unavailable:` reply after the retries, instead of the earlier one-line messages (`OpenAI API request timed out...`, `Could not reach local Ollama...`)
 
 ## [0.5.6] - 2026-10-20
 
