@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
+- tenant scoping: documents can declare a `namespace`, and `MCP_TOKEN_SCOPES` maps extra bearer tokens to the namespaces they may read. A scoped token gets the same visibility rules as before, plus its namespace list; a document with no namespace is shared with every tenant only when it is public; internal and private documents with no namespace are visible only to the primary token. Another tenant's document returns the same error as a missing one. Invalid configuration stops the server at startup
 - document visibility is enforced on `search` and `fetch`: `private` documents are never returned, `internal` documents only to authenticated requests, and `public` documents to everyone. Unknown visibility values are hidden (fail closed). A `fetch` of a hidden document returns the same error as a missing one (#14)
 
 ### Security

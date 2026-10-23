@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import threading
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -36,15 +37,71 @@ if not MCP_BEARER_TOKEN:
     )
 
 
-def _check_bearer(auth_header: str | None) -> bool:
-    if not ACTIVE_BEARER_TOKEN:
-        return False
+TOKEN_SCOPES_ENV = "MCP_TOKEN_SCOPES"
+
+
+@dataclass(frozen=True)
+class Principal:
+    """The caller of a request. ``namespaces`` None means unrestricted (the primary token)."""
+
+    namespaces: frozenset[str] | None
+
+
+def _same_secret(presented: str, expected: str) -> bool:
+    # Compare bytes: compare_digest raises TypeError on non-ASCII text.
+    return secrets.compare_digest(presented.encode("utf-8"), expected.encode("utf-8"))
+
+
+def _load_token_scopes(raw: str, primary_token: str) -> dict[str, frozenset[str]]:
+    """Parse MCP_TOKEN_SCOPES: a JSON object mapping each extra token to its namespaces.
+
+    Invalid configuration stops the server at startup, instead of silently granting or
+    denying access.
+    """
+    if not raw.strip():
+        return {}
+    try:
+        config = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{TOKEN_SCOPES_ENV} is not valid JSON: {exc}") from exc
+    if not isinstance(config, dict):
+        raise RuntimeError(f"{TOKEN_SCOPES_ENV} must be a JSON object of token -> namespaces")
+    scopes: dict[str, frozenset[str]] = {}
+    for token, namespaces in config.items():
+        if not isinstance(token, str) or not token.strip():
+            raise RuntimeError(f"{TOKEN_SCOPES_ENV} has an empty token")
+        token = token.strip()
+        if primary_token and token == primary_token:
+            raise RuntimeError(f"{TOKEN_SCOPES_ENV} must not reuse MCP_BEARER_TOKEN")
+        if not isinstance(namespaces, list) or not namespaces:
+            raise RuntimeError(f"{TOKEN_SCOPES_ENV}: a token needs a non-empty namespace list")
+        if not all(isinstance(name, str) and name.strip() for name in namespaces):
+            raise RuntimeError(f"{TOKEN_SCOPES_ENV}: namespace names must be non-empty strings")
+        scopes[token] = frozenset(name.strip() for name in namespaces)
+    return scopes
+
+
+TOKEN_SCOPES: dict[str, frozenset[str]] = _load_token_scopes(
+    os.environ.get(TOKEN_SCOPES_ENV, ""), MCP_BEARER_TOKEN
+)
+
+
+def _resolve_principal(auth_header: str | None) -> Principal | None:
     scheme, _, presented = (auth_header or "").partition(" ")
-    return (
-        scheme.lower() == "bearer"
-        and bool(presented)
-        and secrets.compare_digest(presented, ACTIVE_BEARER_TOKEN)
-    )
+    if scheme.lower() != "bearer" or not presented:
+        return None
+    match: Principal | None = None
+    if ACTIVE_BEARER_TOKEN and _same_secret(presented, ACTIVE_BEARER_TOKEN):
+        match = Principal(namespaces=None)
+    # Every configured token is compared, so the timing does not reveal which one matched.
+    for token, namespaces in TOKEN_SCOPES.items():
+        if _same_secret(presented, token):
+            match = Principal(namespaces=namespaces)
+    return match
+
+
+def _check_bearer(auth_header: str | None) -> bool:
+    return _resolve_principal(auth_header) is not None
 
 
 def _www_authenticate(auth_header: str | None) -> str:
@@ -220,6 +277,13 @@ def _pack_name(front_matter: dict[str, Any]) -> str | None:
     return None
 
 
+def _namespace_name(front_matter: dict[str, Any]) -> str | None:
+    namespace = front_matter.get("namespace")
+    if isinstance(namespace, str) and namespace.strip():
+        return namespace.strip()
+    return None
+
+
 def _maturity_level(front_matter: dict[str, Any]) -> str | None:
     level = front_matter.get("maturity_level")
     if isinstance(level, str) and level.strip():
@@ -286,6 +350,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
         "document_class": front_matter.get("document_class", _infer_document_class(rel_path)),
         "phase": front_matter.get("phase", _infer_phase(rel_path)),
         "visibility": front_matter.get("visibility", "internal"),
+        "namespace": _namespace_name(front_matter),
         "status": front_matter.get("status", "active"),
         "doctrine_category": doctrine_category,
         "canonical_doctrine": _is_canonical_doctrine(rel_path),
@@ -346,8 +411,27 @@ def _is_visible(doc: dict[str, Any], is_authenticated: bool) -> bool:
     return False
 
 
+def _can_read(doc: dict[str, Any], principal: Principal | None) -> bool:
+    """Visibility ACL plus tenant scope. Unauthenticated callers (None) see only public docs.
+
+    A scoped token reads documents in its namespaces. A document with no namespace is shared
+    with every tenant only when it is public; internal and private documents without a
+    namespace belong to the primary token alone.
+    """
+    if principal is None:
+        return _is_visible(doc, is_authenticated=False)
+    if principal.namespaces is not None:
+        namespace = doc.get("namespace")
+        if namespace is None:
+            if doc.get("visibility") != "public":
+                return False
+        elif namespace not in principal.namespaces:
+            return False
+    return _is_visible(doc, is_authenticated=True)
+
+
 def _search_documents(
-    query: str, limit: int = 10, *, is_authenticated: bool = False
+    query: str, limit: int = 10, *, principal: Principal | None = None
 ) -> list[dict[str, Any]]:
     query_norm = query.strip().casefold()
     if not query_norm:
@@ -355,7 +439,7 @@ def _search_documents(
     query_label = _normalize_label(query)
     results: list[tuple[int, dict[str, Any]]] = []
     for doc in _load_index():
-        if not _is_visible(doc, is_authenticated):
+        if not _can_read(doc, principal):
             continue
         haystack = "\n".join(
             [
@@ -504,10 +588,10 @@ def _search_documents(
     return trimmed
 
 
-def _fetch_document(doc_id: str, *, is_authenticated: bool = False) -> dict[str, Any] | None:
+def _fetch_document(doc_id: str, *, principal: Principal | None = None) -> dict[str, Any] | None:
     for doc in _load_index():
         # Hidden documents look exactly like missing ones, so their existence is not revealed.
-        if not _is_visible(doc, is_authenticated):
+        if not _can_read(doc, principal):
             continue
         if doc["id"] == doc_id or doc["path"] == doc_id:
             return {
@@ -572,7 +656,8 @@ def mcp_endpoint():
 
 def _handle_mcp_request(data: dict[str, Any], req_id: Any):
     auth_header = request.headers.get("Authorization")
-    if not _check_bearer(auth_header):
+    principal = _resolve_principal(auth_header)
+    if principal is None:
         body = {
             "jsonrpc": "2.0",
             "id": req_id,
@@ -596,7 +681,6 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
         resp.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
         return resp
 
-    is_authenticated = _check_bearer(auth_header)
     method = data.get("method")
     params = data.get("params") or {}
     if not isinstance(params, dict):
@@ -660,9 +744,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                 limit = int(args.get("limit", 10))
             except (TypeError, ValueError):
                 return _json_error(req_id, -32602, "Invalid params: limit must be an integer.")
-            results = {
-                "results": _search_documents(query, limit, is_authenticated=is_authenticated)
-            }
+            results = {"results": _search_documents(query, limit, principal=principal)}
             return jsonify(
                 {
                     "jsonrpc": "2.0",
@@ -675,7 +757,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
             doc_id = str(args.get("id", "")).strip()
             if not doc_id:
                 return _json_error(req_id, -32602, "Missing document id.")
-            doc = _fetch_document(doc_id, is_authenticated=is_authenticated)
+            doc = _fetch_document(doc_id, principal=principal)
             if doc is None:
                 return _json_error(req_id, -32602, f"Document not found: {doc_id}", 404)
             return jsonify(
