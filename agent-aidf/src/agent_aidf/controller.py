@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
@@ -19,6 +21,16 @@ from .repo import Document, list_packs, load_documents, resolve_repo_root
 # shell, the web UI) rely on this and do not wrap .chat() in try/except.
 _DEFAULT_HTTP_TIMEOUT_SECONDS = 300
 _PACKAGE_DISTRIBUTION = "agent-aidf"
+
+# Transient failures are retried with exponential backoff: three attempts in total, waiting
+# 1s and then 2s between them. Other HTTP errors (for example 400 or 401) are not retried,
+# because repeating them cannot succeed.
+RETRY_DELAYS_SECONDS: tuple[float, ...] = (1.0, 2.0)
+TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+# Every reply that means "the model did not answer" starts with this prefix. Callers test it
+# with is_model_unavailable_reply() and must not record such a reply as an answer.
+MODEL_UNAVAILABLE_PREFIX = "[kob] Model unavailable:"
+_sleep: Callable[[float], None] = time.sleep
 
 
 def _resolve_timeout_seconds() -> int:
@@ -100,6 +112,50 @@ def _kob_identity_line(model: str) -> str:
     )
 
 
+class ModelUnavailableError(Exception):
+    """Every attempt to reach the model failed with a transient error."""
+
+    def __init__(self, service: str, attempts: int, reason: str) -> None:
+        super().__init__(f"{service} did not answer after {attempts} attempts ({reason})")
+        self.service = service
+        self.attempts = attempts
+        self.reason = reason
+
+
+def is_model_unavailable_reply(reply: str) -> bool:
+    return reply.startswith(MODEL_UNAVAILABLE_PREFIX)
+
+
+def _unavailable_reply(error_: ModelUnavailableError) -> str:
+    return (
+        f"{MODEL_UNAVAILABLE_PREFIX} {error_.service} did not answer after {error_.attempts} "
+        f"attempts ({error_.reason}). Nothing was recorded. Try again in a moment."
+    )
+
+
+def _send_with_retry(build_request: Callable[[], request.Request], *, service: str) -> bytes:
+    """POST the request and return the response body, retrying transient failures."""
+    attempts = len(RETRY_DELAYS_SECONDS) + 1
+    reason = "no attempt was made"
+    for attempt in range(attempts):
+        if attempt:
+            _sleep(RETRY_DELAYS_SECONDS[attempt - 1])
+        try:
+            with request.urlopen(build_request(), timeout=_HTTP_TIMEOUT_SECONDS) as response:
+                return response.read()
+        except error.HTTPError as exc:
+            if exc.code not in TRANSIENT_HTTP_STATUSES:
+                raise
+            reason = f"HTTP {exc.code}"
+        except TimeoutError:
+            reason = f"timed out after {_HTTP_TIMEOUT_SECONDS}s"
+        except error.URLError as exc:
+            reason = f"connection failed: {exc.reason}"
+        except OSError as exc:
+            reason = f"connection failed: {exc}"
+    raise ModelUnavailableError(service, attempts, reason)
+
+
 class ChatController(Protocol):
     def chat(
         self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
@@ -141,27 +197,19 @@ class OpenAIResponsesController:
             method="POST",
         )
         try:
-            with request.urlopen(http_request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            body = _send_with_retry(lambda: http_request, service="OpenAI API")
+        except ModelUnavailableError as exc:
+            self.last_usage = None
+            return _unavailable_reply(exc)
         except error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
             self.last_usage = None
             return f"OpenAI API error {exc.code}: {details}"
-        except error.URLError as exc:
-            self.last_usage = None
-            return f"OpenAI API request failed: {exc.reason}"
-        except TimeoutError:
-            self.last_usage = None
-            return (
-                f"OpenAI API request timed out after {_HTTP_TIMEOUT_SECONDS}s. "
-                "The model may be slow to respond right now - try again."
-            )
+        try:
+            data = json.loads(body.decode("utf-8", errors="replace"))
         except json.JSONDecodeError as exc:
             self.last_usage = None
             return f"OpenAI API returned an unreadable response: {exc}"
-        except OSError as exc:
-            self.last_usage = None
-            return f"OpenAI API request failed: {exc}"
 
         self.previous_response_id = data.get("id")
         usage = data.get("usage")
@@ -241,34 +289,24 @@ class OllamaChatController:
             method="POST",
         )
         try:
-            with request.urlopen(http_request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            # Timeouts are included here: response.read() can time out on its own, after a
+            # successful connection, while the model is still generating. _send_with_retry
+            # handles that case too, so the TUI and shell never see an unhandled exception.
+            body = _send_with_retry(
+                lambda: http_request, service=f"Local Ollama at {self.base_url}"
+            )
+        except ModelUnavailableError as exc:
+            self.last_usage = None
+            return _unavailable_reply(exc)
         except error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
             self.last_usage = None
             return f"Ollama API error {exc.code} from {self.base_url}: {details}"
-        except error.URLError as exc:
-            self.last_usage = None
-            return (
-                f"Could not reach local Ollama at {self.base_url} ({exc.reason}). "
-                "Run 'make workspace-up' to start the local OLMo/Ollama stack."
-            )
-        except TimeoutError:
-            # response.read() times out on its own, separately from URLError, when the
-            # connection succeeds but the model takes longer than _HTTP_TIMEOUT_SECONDS
-            # to finish generating - this previously crashed the whole TUI/shell process.
-            self.last_usage = None
-            return (
-                f"Local Ollama at {self.base_url} did not respond within {_HTTP_TIMEOUT_SECONDS}s. "
-                f"The model ({self.model}) may still be loading, or the prompt may be too long - "
-                f"try again."
-            )
+        try:
+            data = json.loads(body.decode("utf-8", errors="replace"))
         except json.JSONDecodeError as exc:
             self.last_usage = None
             return f"Ollama at {self.base_url} returned an unreadable response: {exc}"
-        except OSError as exc:
-            self.last_usage = None
-            return f"Could not reach local Ollama at {self.base_url}: {exc}"
 
         prompt_tokens = data.get("prompt_eval_count")
         completion_tokens = data.get("eval_count")

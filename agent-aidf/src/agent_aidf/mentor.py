@@ -234,10 +234,16 @@ def _handle_normal_answer(
     phase_dir: str,
     check_acceptance: bool = True,
 ) -> MentorTurn:
+    from .controller import is_model_unavailable_reply
+
     pending_question = state.pending_question or _first_quiz_question(phase)
     mentor_reply, previous_response_id, token_usage = _build_mentor_reply(
         repo, state, documents, pending_question, phase, phase_dir, answer
     )
+    if is_model_unavailable_reply(mentor_reply):
+        # The model never answered: keep the question pending and record nothing, so the
+        # user can answer again without the mentor treating the attempt as an interaction.
+        return MentorTurn(message=mentor_reply, state=state, token_usage=None)
     cleaned_reply, proposed_action = extract_proposed_action(mentor_reply)
 
     action_summary, current_app_id = _apply_answer_actions(

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
+from urllib import error
+
+import pytest
 
 import agent_aidf.controller as controller_module
 from agent_aidf.controller import (
+    MODEL_UNAVAILABLE_PREFIX,
     OllamaChatController,
     OpenAIResponsesController,
     build_controller,
+    is_model_unavailable_reply,
     select_context_documents,
 )
 from agent_aidf.instant_apps import create_instant_app
@@ -58,12 +64,25 @@ def test_build_controller_uses_openai_when_explicitly_selected(monkeypatch) -> N
     assert controller.model == "gpt-5"
 
 
-def test_ollama_controller_reports_connection_failure_without_raising() -> None:
+@pytest.fixture(autouse=True)
+def _record_backoff_sleeps(monkeypatch) -> list[float]:
+    """Retries wait between attempts; record the waits instead of sleeping in tests."""
+    waits: list[float] = []
+    monkeypatch.setattr(controller_module, "_sleep", waits.append)
+    return waits
+
+
+def test_ollama_controller_reports_connection_failure_without_raising(
+    _record_backoff_sleeps: list[float],
+) -> None:
     controller = OllamaChatController(base_url="http://127.0.0.1:1")
 
     reply = controller.chat("hello")
 
-    assert "Could not reach local Ollama" in reply
+    assert is_model_unavailable_reply(reply)
+    assert "did not answer after 3 attempts" in reply
+    assert "connection failed" in reply
+    assert _record_backoff_sleeps == [1.0, 2.0]
 
 
 def test_ollama_controller_reports_timeout_without_raising(tmp_path: Path, monkeypatch) -> None:
@@ -80,7 +99,8 @@ def test_ollama_controller_reports_timeout_without_raising(tmp_path: Path, monke
 
     reply = controller.chat("hello", tmp_path)
 
-    assert "did not respond within" in reply
+    assert is_model_unavailable_reply(reply)
+    assert "timed out after" in reply
 
 
 def test_openai_controller_reports_timeout_without_raising(tmp_path: Path, monkeypatch) -> None:
@@ -94,7 +114,8 @@ def test_openai_controller_reports_timeout_without_raising(tmp_path: Path, monke
 
     reply = controller.chat("hello", tmp_path)
 
-    assert "timed out" in reply
+    assert is_model_unavailable_reply(reply)
+    assert "timed out after" in reply
 
 
 def test_openai_controller_builds_payload_with_repo_context(tmp_path: Path) -> None:
@@ -472,3 +493,117 @@ def test_default_chat_still_denies_tool_access_when_no_override_given(
 
     prompt_sent = captured["body"]["prompt"]
     assert "You cannot read or write files or run shell commands" in prompt_sent
+
+
+class _JsonResponse:
+    def __init__(self, payload: dict) -> None:
+        self._body = json.dumps(payload).encode("utf-8")
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self) -> "_JsonResponse":
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
+
+
+def _http_error(code: int) -> error.HTTPError:
+    return error.HTTPError("http://model.test", code, "msg", {}, io.BytesIO(b"details"))
+
+
+def _scripted_urlopen(monkeypatch, outcomes: list, calls: list) -> None:
+    """Each call returns the next outcome: an exception to raise, or a payload to return."""
+
+    def fake_urlopen(req, timeout=None):
+        calls.append(req)
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return _JsonResponse(outcome)
+
+    monkeypatch.setattr(controller_module.request, "urlopen", fake_urlopen)
+
+
+OPENAI_OK = {
+    "id": "resp_1",
+    "output": [
+        {"type": "message", "content": [{"type": "output_text", "text": "Recovered answer."}]}
+    ],
+}
+OLLAMA_OK = {"response": "Recovered answer.", "eval_count": 3}
+
+
+def test_transient_http_error_is_retried_until_the_model_answers(
+    tmp_path: Path, monkeypatch, _record_backoff_sleeps: list[float]
+) -> None:
+    calls: list = []
+    _scripted_urlopen(monkeypatch, [_http_error(503), _http_error(500), OPENAI_OK], calls)
+
+    reply = OpenAIResponsesController(api_key="k").chat("hello", tmp_path)
+
+    assert len(calls) == 3
+    assert _record_backoff_sleeps == [1.0, 2.0]
+    assert reply.startswith("Recovered answer.")
+    assert not is_model_unavailable_reply(reply)
+
+
+def test_connection_failure_is_retried_then_succeeds(
+    tmp_path: Path, monkeypatch, _record_backoff_sleeps: list[float]
+) -> None:
+    calls: list = []
+    _scripted_urlopen(monkeypatch, [error.URLError("refused"), OLLAMA_OK], calls)
+
+    reply = OllamaChatController().chat("hello", tmp_path)
+
+    assert len(calls) == 2
+    assert _record_backoff_sleeps == [1.0]
+    assert reply.startswith("Recovered answer.")
+
+
+def test_persistent_transient_errors_end_in_a_structured_unavailable_reply(
+    tmp_path: Path, monkeypatch, _record_backoff_sleeps: list[float]
+) -> None:
+    calls: list = []
+    _scripted_urlopen(monkeypatch, [_http_error(503)] * 3, calls)
+
+    reply = OpenAIResponsesController(api_key="k").chat("hello", tmp_path)
+
+    assert len(calls) == 3
+    assert _record_backoff_sleeps == [1.0, 2.0]
+    assert reply.startswith(MODEL_UNAVAILABLE_PREFIX)
+    assert "OpenAI API did not answer after 3 attempts (HTTP 503)" in reply
+    assert "Nothing was recorded" in reply
+
+
+def test_non_transient_http_error_is_not_retried(
+    tmp_path: Path, monkeypatch, _record_backoff_sleeps: list[float]
+) -> None:
+    calls: list = []
+    _scripted_urlopen(monkeypatch, [_http_error(401)], calls)
+
+    reply = OpenAIResponsesController(api_key="bad").chat("hello", tmp_path)
+
+    assert len(calls) == 1
+    assert _record_backoff_sleeps == []
+    assert reply == "OpenAI API error 401: details"
+
+
+def test_ollama_persistent_server_errors_are_reported_as_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    calls: list = []
+    _scripted_urlopen(monkeypatch, [_http_error(502)] * 3, calls)
+
+    reply = OllamaChatController(base_url="http://model.test").chat("hello", tmp_path)
+
+    assert len(calls) == 3
+    assert "Local Ollama at http://model.test did not answer after 3 attempts" in reply
+    assert "HTTP 502" in reply
+
+
+def test_model_unavailable_detection_ignores_normal_replies() -> None:
+    assert is_model_unavailable_reply(f"{MODEL_UNAVAILABLE_PREFIX} anything")
+    assert not is_model_unavailable_reply("Here is my answer.")
+    assert not is_model_unavailable_reply("OpenAI API error 401: details")
