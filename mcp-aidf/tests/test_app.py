@@ -10,6 +10,7 @@ from pathlib import Path
 import app
 
 TEST_BEARER_TOKEN = "test-bearer-token-0123456789abcdef"
+FULL_ACCESS = app.Principal(namespaces=None)
 _token_patch = None
 
 
@@ -257,7 +258,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(manifesto["doctrine_priority"], 1000)
 
     def test_search_ranks_starter_variant_first_for_domain_query(self) -> None:
-        results = app._search_documents("seo", 10, is_authenticated=True)
+        results = app._search_documents("seo", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/00-overview/best-practices/seo.md")
@@ -265,7 +266,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["variant_exact"], 450)
 
     def test_search_keeps_canonical_best_practices_first_for_generic_query(self) -> None:
-        results = app._search_documents("best practices", 10, is_authenticated=True)
+        results = app._search_documents("best practices", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 2)
         self.assertEqual(results[0]["path"], "docs/00-overview/best-practices.md")
@@ -274,7 +275,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[1]["path"], "docs/00-overview/best-practices/research.md")
 
     def test_search_ranks_canonical_doctrine_file_first_for_exact_category_query(self) -> None:
-        results = app._search_documents("governance", 10, is_authenticated=True)
+        results = app._search_documents("governance", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 2)
         self.assertEqual(results[0]["path"], "docs/00-overview/governance.md")
@@ -284,7 +285,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertGreater(results[0]["score"], results[1]["score"])
 
     def test_search_keeps_canonical_maturity_file_first_for_generic_maturity_query(self) -> None:
-        results = app._search_documents("maturity", 10, is_authenticated=True)
+        results = app._search_documents("maturity", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 2)
         self.assertEqual(results[0]["path"], "docs/00-overview/maturity.md")
@@ -293,7 +294,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[1]["pack"], "maturity-model")
 
     def test_search_ranks_maturity_level_doc_first_for_level_query(self) -> None:
-        results = app._search_documents("managed", 10, is_authenticated=True)
+        results = app._search_documents("managed", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/10-maturity-model/levels/04-managed.md")
@@ -302,7 +303,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["maturity_level_exact"], 420)
 
     def test_search_ranks_assessment_doc_first_for_assessment_query(self) -> None:
-        results = app._search_documents("checklist", 10, is_authenticated=True)
+        results = app._search_documents("checklist", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/10-maturity-model/assessment/checklist.md")
@@ -310,7 +311,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["assessment_exact"], 180)
 
     def test_search_ranks_ethical_pack_readme_first_for_ethics_query(self) -> None:
-        results = app._search_documents("ethical-model", 10, is_authenticated=True)
+        results = app._search_documents("ethical-model", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/20-ethical-model/README.md")
@@ -318,7 +319,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["pack_exact"], 250)
 
     def test_search_ranks_ethical_domain_doc_first_for_domain_query(self) -> None:
-        results = app._search_documents("transparency", 10, is_authenticated=True)
+        results = app._search_documents("transparency", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/20-ethical-model/principles/transparency.md")
@@ -326,14 +327,14 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["ethical_domain_exact"], 420)
 
     def test_search_ranks_ethical_control_doc_first_for_control_query(self) -> None:
-        results = app._search_documents("privacy", 10, is_authenticated=True)
+        results = app._search_documents("privacy", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/20-ethical-model/controls/privacy-checklist.md")
         self.assertEqual(results[0]["ethical_domain"], "data-protection")
 
     def test_search_ranks_ethical_risk_doc_first_for_risk_query(self) -> None:
-        results = app._search_documents("bias-and-harm", 10, is_authenticated=True)
+        results = app._search_documents("bias-and-harm", 10, principal=FULL_ACCESS)
 
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]["path"], "docs/20-ethical-model/risk/bias-and-harm.md")
@@ -341,7 +342,7 @@ class McpAidfIndexingTests(unittest.TestCase):
         self.assertEqual(results[0]["ranking"]["risk_exact"], 260)
 
     def test_fetch_supports_canonical_path_lookup(self) -> None:
-        doc = app._fetch_document("docs/00-overview/governance.md", is_authenticated=True)
+        doc = app._fetch_document("docs/00-overview/governance.md", principal=FULL_ACCESS)
 
         self.assertIsNotNone(doc)
         assert doc is not None
@@ -353,7 +354,7 @@ class McpAidfIndexingTests(unittest.TestCase):
 
     def test_fetch_returns_maturity_pack_metadata(self) -> None:
         doc = app._fetch_document(
-            "docs/10-maturity-model/levels/01-experimental.md", is_authenticated=True
+            "docs/10-maturity-model/levels/01-experimental.md", principal=FULL_ACCESS
         )
 
         self.assertIsNotNone(doc)
@@ -364,7 +365,7 @@ class McpAidfIndexingTests(unittest.TestCase):
 
     def test_fetch_returns_ethical_pack_metadata(self) -> None:
         doc = app._fetch_document(
-            "docs/20-ethical-model/principles/transparency.md", is_authenticated=True
+            "docs/20-ethical-model/principles/transparency.md", principal=FULL_ACCESS
         )
 
         self.assertIsNotNone(doc)
@@ -628,9 +629,9 @@ class McpAidfIndexCacheTests(unittest.TestCase):
 
     def test_search_and_fetch_share_the_cache(self) -> None:
         with self._count_parses() as parses:
-            app._search_documents("governance", is_authenticated=True)
-            app._fetch_document("docs/00-overview/governance.md", is_authenticated=True)
-            app._search_documents("intent", is_authenticated=True)
+            app._search_documents("governance", principal=FULL_ACCESS)
+            app._fetch_document("docs/00-overview/governance.md", principal=FULL_ACCESS)
+            app._search_documents("intent", principal=FULL_ACCESS)
 
         self.assertEqual(parses.call_count, 3)
 
@@ -799,8 +800,8 @@ class McpVisibilityAclTests(unittest.TestCase):
         app._index_cache.update(root=None, signature=None, documents=[])
         self.tmpdir.cleanup()
 
-    def _search_paths(self, is_authenticated: bool) -> set[str]:
-        results = app._search_documents("marker", 50, is_authenticated=is_authenticated)
+    def _search_paths(self, principal) -> set[str]:
+        results = app._search_documents("marker", 50, principal=principal)
         return {doc["path"] for doc in results}
 
     def _call(self, name: str, arguments: dict) -> object:
@@ -836,10 +837,10 @@ class McpVisibilityAclTests(unittest.TestCase):
     def test_unauthenticated_search_returns_only_public_documents(self) -> None:
         # The index gives a document with no visibility field the contract default, "internal",
         # so it is hidden from unauthenticated callers (fail-closed).
-        self.assertEqual(self._search_paths(False), {"docs/acl/public-note.md"})
+        self.assertEqual(self._search_paths(None), {"docs/acl/public-note.md"})
 
     def test_authenticated_search_adds_internal_but_never_private(self) -> None:
-        paths = self._search_paths(True)
+        paths = self._search_paths(FULL_ACCESS)
 
         self.assertIn("docs/acl/internal-note.md", paths)
         self.assertIn("docs/acl/public-note.md", paths)
@@ -849,12 +850,12 @@ class McpVisibilityAclTests(unittest.TestCase):
     def test_fetch_hides_private_and_unknown_visibility_even_when_authenticated(self) -> None:
         for doc_id in ("docs/acl/private-note.md", "docs/acl/typo-note.md"):
             with self.subTest(doc_id=doc_id):
-                self.assertIsNone(app._fetch_document(doc_id, is_authenticated=True))
+                self.assertIsNone(app._fetch_document(doc_id, principal=FULL_ACCESS))
 
     def test_fetch_hides_internal_from_unauthenticated_callers(self) -> None:
-        self.assertIsNone(app._fetch_document("docs/acl/internal-note.md", is_authenticated=False))
+        self.assertIsNone(app._fetch_document("docs/acl/internal-note.md", principal=None))
         self.assertIsNotNone(
-            app._fetch_document("docs/acl/internal-note.md", is_authenticated=True)
+            app._fetch_document("docs/acl/internal-note.md", principal=FULL_ACCESS)
         )
 
     def test_route_search_never_returns_private_content(self) -> None:
@@ -890,6 +891,171 @@ class McpVisibilityAclTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertNotIn("marker", response.get_data(as_text=True))
+
+
+TENANT_A_TOKEN = "tenant-a-token-0123456789abcdef"
+TENANT_B_TOKEN = "tenant-b-token-0123456789abcdef"
+
+
+class McpTenantScopeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.repo_root = Path(self.tmpdir.name)
+        self.previous_repo_root = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = str(self.repo_root)
+        _write(self.repo_root / "README.md", "# Demo\n")
+        _write(
+            self.repo_root / "docs/acme/a-internal.md",
+            _namespaced_doc("acme", "internal", "Acme Internal"),
+        )
+        _write(
+            self.repo_root / "docs/acme/a-private.md",
+            _namespaced_doc("acme", "private", "Acme Private"),
+        )
+        _write(
+            self.repo_root / "docs/beta/b-internal.md",
+            _namespaced_doc("beta", "internal", "Beta Internal"),
+        )
+        _write(
+            self.repo_root / "docs/shared/public.md",
+            _namespaced_doc(None, "public", "Shared Public"),
+        )
+        _write(self.repo_root / "docs/shared/plain.md", _namespaced_doc(None, None, "Shared Plain"))
+        app._index_cache.update(root=None, signature=None, documents=[])
+        self.scopes = {
+            TENANT_A_TOKEN: frozenset({"acme"}),
+            TENANT_B_TOKEN: frozenset({"beta"}),
+        }
+        self._scope_patch = unittest.mock.patch.object(app, "TOKEN_SCOPES", self.scopes)
+        self._scope_patch.start()
+        self.client = app.app.test_client()
+
+    def tearDown(self) -> None:
+        self._scope_patch.stop()
+        if self.previous_repo_root is None:
+            os.environ.pop("AIDF_REPO_ROOT", None)
+        else:
+            os.environ["AIDF_REPO_ROOT"] = self.previous_repo_root
+        app._index_cache.update(root=None, signature=None, documents=[])
+        self.tmpdir.cleanup()
+
+    def _search(self, token: str, query: str = "marker") -> set[str]:
+        response = self.client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "search", "arguments": {"query": query, "limit": 50}},
+            },
+        )
+        results = json.loads(response.get_json()["result"]["content"][0]["text"])["results"]
+        return {item["path"] for item in results}
+
+    def _fetch(self, token: str, doc_id: str):
+        return self.client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "fetch", "arguments": {"id": doc_id}},
+            },
+        )
+
+    def test_scoped_token_searches_only_its_namespace_and_visibility(self) -> None:
+        self.assertEqual(self._search(TENANT_A_TOKEN), {"docs/acme/a-internal.md"})
+        self.assertEqual(self._search(TENANT_B_TOKEN), {"docs/beta/b-internal.md"})
+
+    def test_primary_token_is_unrestricted_but_still_hides_private(self) -> None:
+        self.assertEqual(
+            self._search(TEST_BEARER_TOKEN),
+            {
+                "docs/acme/a-internal.md",
+                "docs/beta/b-internal.md",
+                "docs/shared/public.md",
+                "docs/shared/plain.md",
+            },
+        )
+
+    def test_scoped_token_cannot_fetch_another_tenant_and_gets_the_missing_document_error(
+        self,
+    ) -> None:
+        cross = self._fetch(TENANT_A_TOKEN, "docs/beta/b-internal.md")
+        missing = self._fetch(TENANT_A_TOKEN, "docs/beta/does-not-exist.md")
+
+        self.assertEqual(cross.status_code, 404)
+        self.assertEqual(cross.get_json()["error"]["code"], missing.get_json()["error"]["code"])
+        self.assertEqual(
+            cross.get_json()["error"]["message"], "Document not found: docs/beta/b-internal.md"
+        )
+        self.assertNotIn("Beta Internal", cross.get_data(as_text=True))
+
+    def test_scoped_token_fetches_its_own_internal_document(self) -> None:
+        response = self._fetch(TENANT_A_TOKEN, "docs/acme/a-internal.md")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_documents_without_a_namespace_are_hidden_from_scoped_tokens(self) -> None:
+        self.assertNotIn("docs/shared/public.md", self._search(TENANT_A_TOKEN, "shared"))
+        self.assertIsNone(
+            app._fetch_document(
+                "docs/shared/public.md", principal=app.Principal(frozenset({"acme"}))
+            )
+        )
+
+    def test_helpers_treat_a_none_principal_as_unauthenticated(self) -> None:
+        self.assertEqual(app._fetch_document("docs/acme/a-internal.md", principal=None), None)
+        self.assertIsNotNone(app._fetch_document("docs/shared/public.md", principal=None))
+
+    def test_resolve_principal_maps_each_token_to_its_scope(self) -> None:
+        self.assertEqual(app._resolve_principal(f"Bearer {TEST_BEARER_TOKEN}"), app.Principal(None))
+        self.assertEqual(
+            app._resolve_principal(f"bearer {TENANT_A_TOKEN}"),
+            app.Principal(frozenset({"acme"})),
+        )
+        self.assertIsNone(app._resolve_principal("Bearer unknown-token"))
+        self.assertIsNone(app._resolve_principal(f"Basic {TENANT_A_TOKEN}"))
+        self.assertIsNone(app._resolve_principal(None))
+
+    def test_non_ascii_credentials_are_rejected_without_an_error(self) -> None:
+        response = self.client.get("/", headers={"Authorization": "Bearer caf\u00e9-token"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_parse_token_scopes(self) -> None:
+        primary = "primary-token-0123456789abcdef"
+        parsed = app._load_token_scopes(json.dumps({"  tok-1  ": [" acme ", "beta"]}), primary)
+        self.assertEqual(parsed, {"tok-1": frozenset({"acme", "beta"})})
+        self.assertEqual(app._load_token_scopes("   ", primary), {})
+
+    def test_invalid_token_scope_configuration_stops_the_server(self) -> None:
+        primary = "primary-token-0123456789abcdef"
+        bad_values = [
+            "{not json",
+            "[]",
+            json.dumps({"": ["acme"]}),
+            json.dumps({"tok": []}),
+            json.dumps({"tok": "acme"}),
+            json.dumps({"tok": [""]}),
+            json.dumps({primary: ["acme"]}),
+        ]
+        for raw in bad_values:
+            with self.subTest(raw=raw):
+                with self.assertRaises(RuntimeError):
+                    app._load_token_scopes(raw, primary)
+
+
+def _namespaced_doc(namespace: str | None, visibility: str | None, title: str) -> str:
+    lines = ["---", f"id: docs/{title.lower().replace(' ', '-')}.md", f"title: {title}"]
+    if namespace is not None:
+        lines.append(f"namespace: {namespace}")
+    if visibility is not None:
+        lines.append(f"visibility: {visibility}")
+    body = f"marker-{title.lower().replace(' ', '-')}"
+    return "\n".join(lines) + f"\n---\n\n# {title}\n\n{body}\n"
 
 
 if __name__ == "__main__":

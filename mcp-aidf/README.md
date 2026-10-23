@@ -108,6 +108,7 @@ Environment variables in `docker-compose.yml`:
 - `SECRET_KEY` - Flask session secret. Required by `docker-compose.yml` (no default; `docker compose` fails if it is unset or empty). Set it in `.env` (see `.env.example`).
 - `MCP_BEARER_TOKEN` - the bearer token every client must present. Required by `docker-compose.yml` (no default). Use a long random value, for example `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Outside Docker, if it is unset, the server starts with a random token for that process only and logs it at startup; that token changes on every restart and is not shared between gunicorn workers.
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
+- `MCP_TOKEN_SCOPES` - optional JSON object of tokens limited to namespaces (see Tenant Scopes)
 
 Docker Compose also expects:
 
@@ -156,6 +157,16 @@ Each indexed document has a `visibility` value from its front matter. The server
 - Any other value fails closed: the document is hidden.
 - Hidden documents are omitted from search results. A `fetch` of a hidden document returns the same "Document not found" error as a missing one, so its existence is not revealed.
 - Every `/mcp` request must carry a valid bearer token, so in practice every request is authenticated. The unauthenticated column applies to callers of the helpers (for example, a future public route).
+
+## Tenant Scopes
+
+Documents may declare a `namespace` in their front matter. A token can be limited to some namespaces:
+
+- `MCP_BEARER_TOKEN` is the primary token. It is unrestricted: it reads every namespace.
+- `MCP_TOKEN_SCOPES` adds tokens limited to namespaces, as a JSON object that maps each token to a list of namespaces, for example `{"<token>": ["tenant-a"]}`.
+- A scoped token sees only documents whose `namespace` is in its list, and still obeys the visibility rules. A document with no `namespace` is visible only to the primary token.
+- A scoped token that fetches another tenant's document gets the same "Document not found" error as a missing document.
+- Invalid `MCP_TOKEN_SCOPES` stops the server at startup. A token may not reuse `MCP_BEARER_TOKEN`.
 
 ## Canonical Doctrine And Variants
 
