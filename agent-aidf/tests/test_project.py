@@ -180,8 +180,12 @@ def test_generator_environment_puts_its_source_first_on_pythonpath(
     assert env["PYTHONPATH"] == f"{tmp_path / 'src'}{os.pathsep}/existing/path"
 
 
-def test_runtime_probe_detects_the_current_interpreter_and_rejects_missing_binaries(
-    tmp_path: Path,
-) -> None:
-    assert project_module.python_has_generator_runtime(sys.executable) is True
+def test_runtime_probe_matches_what_the_interpreter_can_import(tmp_path: Path) -> None:
+    # The expected answer depends on the environment: agent-aidf does not declare jsonschema,
+    # so a CI environment may lack it. The probe must report exactly what can be imported.
+    import importlib.util
+
+    expected = all(importlib.util.find_spec(name) is not None for name in ("yaml", "jsonschema"))
+
+    assert project_module.python_has_generator_runtime(sys.executable) is expected
     assert project_module.python_has_generator_runtime(tmp_path / "no-such-python") is False
