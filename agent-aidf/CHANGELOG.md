@@ -15,6 +15,9 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - `kob --version` and `kob -v` print the installed version as `kob X.Y.Z` and exit with code 0, instead of an argument error (#58)
 - `kob audit` output is rich: a tier-coloured score panel titled `KAIDF-AMM v1.0 - Audit Scorecard`, a table of dimensions with points, status (Pass, Partial, Fail) and a progress bar, and a `Remediações` panel that lists each failed check with its finding and the recommended action. `--json` is unchanged, and each check's JSON now includes its `remediation` (#56)
 - the static audit checks `data/manifests/skills.yaml` in Methodology-as-Code: the file must declare a version and a non-empty list of skills, each with a unique id, a command and a permissions mapping
+- every `kob audit` check has a severity (`critical`, `high`, `medium` or `low`) that says what a failure exposes. Credential and personal-data checks are critical; budget, human review and CI gate checks are high; governance artifacts are medium; structure and documentation are low. The severity is in the JSON output of each check and in the findings panel
+- `kob audit --severity <level>` shows only findings at that severity or above (`--severity high` shows high and critical). `--json` always lists every check
+- `kob audit --fail-under <0-100>` exits with code 1 when the score is below the value, and `kob audit --fail-on-critical` exits with code 1 when any critical finding is present. Both messages go to stderr. Without these flags `kob audit` still exits with code 0, as before
 
 ### Changed
 

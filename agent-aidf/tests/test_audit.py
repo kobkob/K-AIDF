@@ -373,3 +373,71 @@ def test_json_export_includes_remediations(tmp_path: Path) -> None:
 
     check = payload["dimensions"][1]["checks"][0]
     assert check["remediation"]
+
+
+def test_every_check_has_a_severity_from_the_taxonomy(tmp_path: Path) -> None:
+    from agent_aidf.audit import SEVERITIES, SEVERITY_ORDER
+
+    result = run_audit(tmp_path)
+
+    for dimension in result.dimensions:
+        for check in dimension.checks:
+            assert check.severity in SEVERITY_ORDER, check.id
+            assert SEVERITIES[check.id] == check.severity
+    assert _check(result, "no-credentials").severity == "critical"
+    assert _check(result, "pii-masking-rules").severity == "critical"
+    assert _check(result, "budget-caps").severity == "high"
+    assert _check(result, "blocking-gates").severity == "high"
+    assert _check(result, "risk-assessment").severity == "medium"
+    assert _check(result, "front-matter-v2").severity == "low"
+
+
+def test_failed_checks_filter_by_minimum_severity(tmp_path: Path) -> None:
+    from agent_aidf.audit import failed_checks
+
+    result = run_audit(tmp_path)
+    ids = lambda checks: {check.id for _, check in checks}  # noqa: E731
+
+    critical = ids(failed_checks(result, "critical"))
+    high = ids(failed_checks(result, "high"))
+    everything = ids(failed_checks(result))
+
+    assert critical == {"no-credentials", "pii-masking-rules"}
+    assert critical < high < everything
+    assert "budget-caps" in high and "budget-caps" not in critical
+    assert "front-matter-v2" in everything and "front-matter-v2" not in high
+
+
+def test_failed_checks_reject_an_unknown_severity(tmp_path: Path) -> None:
+    from agent_aidf.audit import failed_checks
+
+    with pytest.raises(ValueError, match="Unknown severity 'urgent'"):
+        failed_checks(run_audit(tmp_path), "urgent")
+
+
+def test_has_critical_findings_only_when_a_critical_check_fails(tmp_path: Path) -> None:
+    from agent_aidf.audit import has_critical_findings
+
+    assert has_critical_findings(run_audit(tmp_path)) is True
+    assert has_critical_findings(run_audit(_complete_repo(tmp_path / "ok"))) is False
+
+
+def test_text_report_shows_only_findings_at_the_chosen_severity(tmp_path: Path) -> None:
+    from agent_aidf.audit import render_audit_report
+
+    result = run_audit(tmp_path)
+
+    critical_only = render_audit_report(result, "critical")
+    assert "[CRITICAL]" in critical_only
+    assert "[HIGH]" not in critical_only and "[LOW]" not in critical_only
+
+    complete = render_audit_report(run_audit(_complete_repo(tmp_path / "ok")), "high")
+    assert "No findings at severity high or above." in complete
+
+
+def test_json_export_carries_the_severity_of_every_check(tmp_path: Path) -> None:
+    payload = run_audit(tmp_path).to_dict()
+
+    severities = {c["id"]: c["severity"] for d in payload["dimensions"] for c in d["checks"]}
+    assert severities["no-credentials"] == "critical"
+    assert len(severities) == 15

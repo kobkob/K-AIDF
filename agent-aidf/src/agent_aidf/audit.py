@@ -13,7 +13,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import yaml
 from rich.console import Console
@@ -28,6 +28,13 @@ MAX_SCAN_BYTES = 1_000_000
 SKIPPED_DIR_NAMES = {".git", ".venv", "node_modules", "__pycache__"}
 TIERS = (("Platinum", 90), ("Gold", 75), ("Silver", 60))
 UNRATED = "Non-Compliant / Unrated"
+# Most to least severe. A check's severity says what a failure exposes:
+#   critical: credentials or personal data exposed
+#   high:     cost or human/CI control missing, so harm can happen unnoticed
+#   medium:   governance artifact missing, so decisions cannot be audited
+#   low:      structure or documentation, which is fixable without risk
+SEVERITY_ORDER: tuple[str, ...] = ("critical", "high", "medium", "low")
+Severity = Literal["critical", "high", "medium", "low"]
 
 # Common credential shapes. A match is a finding, not proof: the report says what matched.
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -52,6 +59,7 @@ class CheckResult:
     points: int
     detail: str
     remediation: str
+    severity: Severity
 
 
 @dataclass(frozen=True)
@@ -103,6 +111,7 @@ class AuditResult:
                             "max_points": check.max_points,
                             "detail": check.detail,
                             "remediation": check.remediation,
+                            "severity": check.severity,
                         }
                         for check in dimension.checks
                     ],
@@ -119,6 +128,7 @@ TIER_STYLES = {
     UNRATED: "bold red",
 }
 STATUS_STYLES = {"Pass": "green", "Partial": "yellow", "Fail": "red"}
+SEVERITY_STYLES = {"critical": "bold red", "high": "red", "medium": "yellow", "low": "cyan"}
 BAR_WIDTH = 20
 
 
@@ -135,7 +145,28 @@ def _progress_bar(points: int, max_points: int) -> str:
     return "█" * filled + "░" * (BAR_WIDTH - filled)
 
 
-def print_audit_report(result: AuditResult, console: Console) -> None:
+def failed_checks(
+    result: AuditResult, minimum_severity: str | None = None
+) -> list[tuple[DimensionResult, CheckResult]]:
+    """Checks that lost points, at or above ``minimum_severity`` (all severities when None)."""
+    if minimum_severity is not None and minimum_severity not in SEVERITY_ORDER:
+        raise ValueError(f"Unknown severity {minimum_severity!r}")
+    limit = SEVERITY_ORDER.index(minimum_severity) if minimum_severity else len(SEVERITY_ORDER) - 1
+    return [
+        (dimension, check)
+        for dimension in result.dimensions
+        for check in dimension.checks
+        if check.points < check.max_points and SEVERITY_ORDER.index(check.severity) <= limit
+    ]
+
+
+def has_critical_findings(result: AuditResult) -> bool:
+    return any(check.severity == "critical" for _, check in failed_checks(result, "critical"))
+
+
+def print_audit_report(
+    result: AuditResult, console: Console, minimum_severity: str | None = None
+) -> None:
     """Scorecard for a terminal: tier-coloured score, dimension table, remediation panel."""
     tier_style = TIER_STYLES[result.tier]
     score_line = Text()
@@ -157,20 +188,21 @@ def print_audit_report(result: AuditResult, console: Console) -> None:
         )
     console.print(dimensions)
 
-    failed = [
-        (dimension, check)
-        for dimension in result.dimensions
-        for check in dimension.checks
-        if check.points < check.max_points
-    ]
+    failed = failed_checks(result, minimum_severity)
     if not failed:
-        console.print(Panel(Text("No failed checks.", style="green"), title="Remediações"))
+        message = (
+            "No failed checks."
+            if minimum_severity is None
+            else f"No findings at severity {minimum_severity} or above."
+        )
+        console.print(Panel(Text(message, style="green"), title="Remediações"))
         return
     body = Text()
     for index, (dimension, check) in enumerate(failed):
         if index:
             body.append("\n\n")
-        body.append(f"- {check.title}", style="bold")
+        body.append(f"[{check.severity.upper()}] ", style=SEVERITY_STYLES[check.severity])
+        body.append(check.title, style="bold")
         body.append(f"  (-{check.max_points - check.points})", style="red")
         body.append(f"\n  Dimensão: {dimension.name}")
         body.append(f"\n  Achado: {check.detail}")
@@ -178,11 +210,11 @@ def print_audit_report(result: AuditResult, console: Console) -> None:
     console.print(Panel(body, title="Remediações"))
 
 
-def render_audit_report(result: AuditResult) -> str:
+def render_audit_report(result: AuditResult, minimum_severity: str | None = None) -> str:
     """The same scorecard as plain text, without colors (for the REPL transcript and tests)."""
     buffer = io.StringIO()
     console = Console(file=buffer, width=100, color_system=None, highlight=False)
-    print_audit_report(result, console)
+    print_audit_report(result, console, minimum_severity)
     return buffer.getvalue()
 
 
@@ -526,6 +558,25 @@ REMEDIATIONS: dict[str, str] = {
 }
 
 
+SEVERITIES: dict[str, Severity] = {
+    "no-credentials": "critical",
+    "pii-masking-rules": "critical",
+    "budget-caps": "high",
+    "hitl-config": "high",
+    "ci-workflows": "high",
+    "blocking-gates": "high",
+    "local-fallback": "medium",
+    "skills-manifest": "medium",
+    "risk-assessment": "medium",
+    "explicability-schema": "medium",
+    "dataset-audit": "medium",
+    "kaidf-scaffold": "low",
+    "mentor-state": "low",
+    "specs-parse": "low",
+    "front-matter-v2": "low",
+}
+
+
 def _run_check(
     check_id: str, title: str, max_points: int, check: CheckFn, root: Path
 ) -> CheckResult:
@@ -537,6 +588,7 @@ def _run_check(
         points=round(max_points * fraction),
         detail=detail,
         remediation=REMEDIATIONS[check_id],
+        severity=SEVERITIES[check_id],
     )
 
 

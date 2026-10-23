@@ -189,7 +189,15 @@ def test_kob_audit_json_mode_prints_structured_result(
         "cost-infrastructure-health",
     ]
     first_check = payload["dimensions"][0]["checks"][0]
-    assert set(first_check) == {"id", "title", "points", "max_points", "detail", "remediation"}
+    assert set(first_check) == {
+        "id",
+        "title",
+        "points",
+        "max_points",
+        "detail",
+        "remediation",
+        "severity",
+    }
 
 
 def test_kob_audit_rejects_a_missing_path_with_exit_code_two(
@@ -316,3 +324,78 @@ def test_kob_version_flag_prints_version_and_exits_zero(
     out = capsys.readouterr().out
     assert excinfo.value.code == 0
     assert re.search(r"^kob \d+\.\d+\.\d+$", out.strip()), out
+
+
+def test_audit_parser_accepts_severity_and_thresholds() -> None:
+    args = _build_cli_parser().parse_args(
+        ["audit", "repo", "--severity", "high", "--fail-under", "80", "--fail-on-critical"]
+    )
+
+    assert args.severity == "high"
+    assert args.fail_under == 80
+    assert args.fail_on_critical is True
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["audit", "--severity", "urgent"],
+        ["audit", "--fail-under", "101"],
+        ["audit", "--fail-under", "-1"],
+        ["audit", "--fail-under", "high"],
+    ],
+)
+def test_audit_rejects_invalid_severity_and_thresholds(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        _build_cli_parser().parse_args(argv)
+
+    assert excinfo.value.code == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_fail_under_exits_one_only_when_the_score_is_below_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_cli(["audit", str(tmp_path), "--fail-under", "1"]) == 1
+    assert "score 0 is below --fail-under 1" in capsys.readouterr().err
+
+    assert _run_cli(["audit", str(tmp_path), "--fail-under", "0"]) == 0
+    compliant = _fully_compliant_repo(tmp_path / "ok")
+    assert _run_cli(["audit", str(compliant), "--fail-under", "100"]) == 0
+
+
+def test_fail_on_critical_exits_one_when_a_critical_check_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_cli(["audit", str(tmp_path), "--fail-on-critical"]) == 1
+    assert "critical findings are present" in capsys.readouterr().err
+
+    compliant = _fully_compliant_repo(tmp_path / "ok")
+    assert _run_cli(["audit", str(compliant), "--fail-on-critical"]) == 0
+
+
+def test_severity_flag_filters_the_text_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_cli(["audit", str(tmp_path), "--severity", "critical"]) == 0
+    out = capsys.readouterr().out
+    assert "[CRITICAL]" in out
+    assert "[HIGH]" not in out and "[LOW]" not in out
+
+    assert _run_cli(["audit", str(tmp_path)]) == 0
+    everything = capsys.readouterr().out
+    assert "[LOW]" in everything
+
+
+def test_json_ignores_the_severity_filter_and_labels_every_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run_cli(["audit", str(tmp_path), "--json", "--severity", "critical"])
+
+    payload = json.loads(capsys.readouterr().out)
+    severities = [c["severity"] for d in payload["dimensions"] for c in d["checks"]]
+    assert code == 0
+    assert len(severities) == 15
+    assert set(severities) == {"critical", "high", "medium", "low"}
