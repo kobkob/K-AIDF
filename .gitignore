@@ -19,3 +19,6 @@
 /columns.json
 /issues.json
 /olmo-env/
+
+# Windows download metadata (Mark of the Web) copied with files from Windows
+*:Zone.Identifier

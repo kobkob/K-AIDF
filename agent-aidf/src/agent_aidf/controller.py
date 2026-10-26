@@ -13,6 +13,7 @@ from urllib import error, request
 
 from .instant_apps import list_instant_apps, load_instant_app_runtime
 from .mentor import load_mentor_state
+from .prompt_hooks import intercept_prompt
 from .repo import Document, list_packs, load_documents, resolve_repo_root
 
 # Every ChatController implementation must honor this contract: chat() always
@@ -190,6 +191,10 @@ class OpenAIResponsesController:
     def chat(
         self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
     ) -> str:
+        intercepted = _intercepted_reply(prompt, instructions)
+        if intercepted is not None:
+            self.last_usage = None
+            return intercepted
         repo = resolve_repo_root(repo_root)
         payload = self._build_payload(prompt, repo, instructions)
         http_request = request.Request(
@@ -275,6 +280,10 @@ class OllamaChatController:
     def chat(
         self, prompt: str, repo_root: str | Path | None = None, *, instructions: str | None = None
     ) -> str:
+        intercepted = _intercepted_reply(prompt, instructions)
+        if intercepted is not None:
+            self.last_usage = None
+            return intercepted
         repo = resolve_repo_root(repo_root)
         effective_instructions = instructions if instructions is not None else self.instructions
         full_prompt = (
@@ -348,6 +357,14 @@ def apply_model_override(model: str) -> None:
     """
     provider = os.environ.get("AIDF_CHAT_PROVIDER", "").strip().lower()
     os.environ["OPENAI_MODEL" if provider == "openai" else "AIDF_MODEL"] = model.strip()
+
+
+def _intercepted_reply(prompt: str, instructions: str | None) -> str | None:
+    # Callers that pass their own instructions (the mentor workflow) are structured answers to a
+    # pending question, so extensions must not replace them. Only general chat is intercepted.
+    if instructions is not None:
+        return None
+    return intercept_prompt(prompt)
 
 
 def build_controller() -> ChatController:
