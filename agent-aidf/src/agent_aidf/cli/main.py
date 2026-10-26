@@ -23,7 +23,12 @@ from werkzeug.serving import BaseWSGIServer
 
 from .. import __version__
 from ..audit import SEVERITY_ORDER, has_critical_findings, print_audit_report, run_audit
-from ..controller import OllamaChatController, build_controller
+from ..controller import (
+    OllamaChatController,
+    apply_model_override,
+    build_controller,
+    explicit_local_model,
+)
 from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
@@ -44,6 +49,7 @@ from ..project import (
     resolve_runtime_repo_root,
 )
 from ..shell import run_shell
+from ..tools import is_yolo_enabled
 from ..webui import run_webui
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
@@ -120,7 +126,7 @@ def active_model_label() -> str:
     if isinstance(controller, OllamaChatController):
         # Show the friendly local label until `make workspace-up` has picked and
         # pulled a real tag (AIDF_MODEL) — once it has, reflect that exact model.
-        return os.environ.get("AIDF_MODEL", DEFAULT_LOCAL_MODEL)
+        return explicit_local_model() or DEFAULT_LOCAL_MODEL
     return getattr(controller, "model", None) or DEFAULT_LOCAL_MODEL
 
 
@@ -583,6 +589,27 @@ class KobAgentApp(App):
             self.exit()
 
 
+def _model_argument(value: str) -> str:
+    model = value.strip()
+    if not model:
+        raise argparse.ArgumentTypeError(_("expected a model name, got an empty value"))
+    return model
+
+
+def _model_help() -> str:
+    return _(
+        "Model for this run: an Ollama tag, or an OpenAI model when AIDF_CHAT_PROVIDER=openai. "
+        "Overrides AIDF_MODEL, AIDF_OLLAMA_MODEL and OLLAMA_MODEL."
+    )
+
+
+def _add_model_option(parser: argparse.ArgumentParser) -> None:
+    # SUPPRESS keeps a subcommand from resetting a top-level `kob --model X ...` back to None.
+    parser.add_argument(
+        "--model", type=_model_argument, default=argparse.SUPPRESS, help=_model_help()
+    )
+
+
 def _build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kob",
@@ -591,7 +618,9 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--version", action="version", version=f"kob {__version__}")
     parser.add_argument("--project", default=None, help=_("Path to the creator project."))
     parser.add_argument("--repo", default=None, help=_("Path to a K-AIDF repository override."))
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--model", type=_model_argument, default=None, help=_model_help())
+    # Not required: `kob --model X` with no subcommand launches the TUI with that model.
+    subparsers = parser.add_subparsers(dest="command")
 
     init_parser = subparsers.add_parser("init", help=_("Create .kaidf/ in the current project."))
     init_parser.add_argument("--force", action="store_true")
@@ -603,8 +632,12 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     mentor_parser.add_argument("answer", nargs="?")
     mentor_parser.add_argument("--status", dest="show_status", action="store_true")
     mentor_parser.add_argument("--reset", action="store_true")
+    _add_model_option(mentor_parser)
 
-    subparsers.add_parser("shell", help=_("Start the interactive OLMo-backed shell."))
+    shell_parser = subparsers.add_parser(
+        "shell", help=_("Start the interactive OLMo-backed shell.")
+    )
+    _add_model_option(shell_parser)
 
     audit_parser = subparsers.add_parser(
         "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
@@ -633,6 +666,7 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     for name in ("ui", "serve"):
         ui_parser = subparsers.add_parser(name, help=ui_help)
         ui_parser.add_argument("--port", type=tcp_port_argument, default=ui_port())
+        _add_model_option(ui_parser)
 
     for name in ("compile", "gen"):
         gen_parser = subparsers.add_parser(name, help=_("Run the K-AIDF generator against a spec."))
@@ -703,6 +737,12 @@ def _print_already_initialized(target: Path) -> None:
 def _run_cli(argv: list[str]) -> int:
     parser = _build_cli_parser()
     args = parser.parse_args(argv)
+    # Before any controller is built: every entry point resolves its model from the environment.
+    if getattr(args, "model", None):
+        apply_model_override(args.model)
+    if args.command is None:
+        KobAgentApp(yolo=is_yolo_enabled()).run()
+        return 0
     project_root = resolve_project_root(args.project)
 
     if args.command == "init":

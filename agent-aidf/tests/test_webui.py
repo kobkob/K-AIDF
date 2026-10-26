@@ -177,3 +177,31 @@ def test_without_known_port_any_loopback_port_is_accepted(tmp_path: Path, monkey
     response = client.get("/api/status", base_url="http://127.0.0.1:12345")
 
     assert response.status_code == 200
+
+
+# --- header logo ------------------------------------------------------------
+
+
+def test_kob_logo_is_served_as_png(client):
+    response = client.get("/brand/kob-logo.png", base_url=BASE_URL)
+
+    assert response.status_code == 200
+    assert response.mimetype == "image/png"
+    assert response.data.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_kob_logo_route_still_applies_host_guard(client):
+    response = client.get("/brand/kob-logo.png", base_url="http://evil.example")
+
+    assert response.status_code == 403
+
+
+def test_kob_logo_asset_ships_inside_the_package():
+    assert (webui.UI_ASSETS_DIR / webui.KOB_LOGO_FILENAME).is_file()
+
+
+def test_built_bundle_references_the_kob_logo():
+    bundles = list((webui.STATIC_DIR / "assets").glob("*.js"))
+
+    assert bundles, "run `npm run build` in agent-aidf/webui/"
+    assert any(b"/brand/kob-logo.png" in path.read_bytes() for path in bundles)

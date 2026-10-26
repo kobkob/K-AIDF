@@ -24,6 +24,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - model calls retry transient failures with exponential backoff: three attempts in total, waiting 1s and then 2s. Transient failures are HTTP 408, 429, 500, 502, 503 and 504, timeouts, and connection failures. Other HTTP errors (for example 400 or 401) are not retried. Applies to OpenAI and local Ollama
 - when every attempt fails, chat returns a structured reply that starts with `[kob] Model unavailable:` and says nothing was recorded. The mentor keeps the question pending and records no interaction, so the user can answer again. Phase guidance written for contracts is skipped
 
+- `kob --model <name>` picks the model for one run. It works at the top level and on `mentor`, `shell`, `ui` and `serve` (for example `kob mentor --model qwen2.5:0.5b`). The flag beats `AIDF_MODEL`, `AIDF_OLLAMA_MODEL`, `OLLAMA_MODEL` and the built-in default `olmo2:7b-1124-instruct-q4_K_M`. The flag is written to `AIDF_MODEL` for Ollama, or to `OPENAI_MODEL` when `AIDF_CHAT_PROVIDER=openai`, so the TUI, shell, mentor and web UI all use it. A bare `kob --model <name>` opens the TUI with that model. An empty value is rejected
+- `AIDF_OLLAMA_MODEL` and `OLLAMA_MODEL` are read as fallbacks, after `AIDF_MODEL`, when choosing the local Ollama model
+- the web UI header shows the kob logo (`ui/assets/kob-logo.png`) at the top left, 40px tall with its aspect ratio kept. The PNG is served at `/brand/kob-logo.png` and ships in the wheel
+
 ### Changed
 
 - Methodology-as-Code now has five checks of 4 points each, instead of four of 5 points, so the dimension still totals 20

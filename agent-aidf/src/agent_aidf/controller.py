@@ -30,6 +30,11 @@ TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
 # Every reply that means "the model did not answer" starts with this prefix. Callers test it
 # with is_model_unavailable_reply() and must not record such a reply as an answer.
 MODEL_UNAVAILABLE_PREFIX = "[kob] Model unavailable:"
+
+DEFAULT_OLLAMA_MODEL = "olmo2:7b-1124-instruct-q4_K_M"
+# Local Ollama model variables, highest precedence first. `kob --model` writes AIDF_MODEL, so
+# it wins over all three. AIDF_MODEL is first so existing setups keep their current behavior.
+LOCAL_MODEL_ENV_VARS = ("AIDF_MODEL", "AIDF_OLLAMA_MODEL", "OLLAMA_MODEL")
 _sleep: Callable[[float], None] = time.sleep
 
 
@@ -261,7 +266,7 @@ class OpenAIResponsesController:
 
 @dataclass
 class OllamaChatController:
-    model: str = "olmo2:7b-1124-instruct-q4_K_M"
+    model: str = DEFAULT_OLLAMA_MODEL
     base_url: str = "http://localhost:11434"
     temperature: float = 0.2
     instructions: str = DEFAULT_CHAT_INSTRUCTIONS
@@ -321,6 +326,30 @@ class OllamaChatController:
         return _with_caveat(text.strip()) if text else "Ollama returned no text output."
 
 
+def explicit_local_model() -> str | None:
+    """The local model named by the environment, or None when no variable sets one."""
+    for name in LOCAL_MODEL_ENV_VARS:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return None
+
+
+def resolve_local_model() -> str:
+    return explicit_local_model() or DEFAULT_OLLAMA_MODEL
+
+
+def apply_model_override(model: str) -> None:
+    """Make `model` the active model for this process, for the backend build_controller() picks.
+
+    Writes OPENAI_MODEL when AIDF_CHAT_PROVIDER=openai, otherwise AIDF_MODEL. Because every
+    entry point (TUI, shell, mentor, web UI) resolves its controller from the environment, this
+    reaches all of them without threading the value through each call.
+    """
+    provider = os.environ.get("AIDF_CHAT_PROVIDER", "").strip().lower()
+    os.environ["OPENAI_MODEL" if provider == "openai" else "AIDF_MODEL"] = model.strip()
+
+
 def build_controller() -> ChatController:
     provider = os.environ.get("AIDF_CHAT_PROVIDER", "").strip().lower()
 
@@ -341,7 +370,7 @@ def build_controller() -> ChatController:
     # environment is NOT enough to switch to cloud; that requires explicitly
     # setting AIDF_CHAT_PROVIDER=openai.
     return OllamaChatController(
-        model=os.environ.get("AIDF_MODEL", "olmo2:7b-1124-instruct-q4_K_M"),
+        model=resolve_local_model(),
         base_url=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
     )
 
