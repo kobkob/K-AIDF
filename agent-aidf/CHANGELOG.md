@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-26
+
 ### Fixed
 
 - `kob init` on a project that already has `.kaidf/` prints a short error and a hint to use `kob init --force`, and exits with code 1, instead of a Python traceback. The condition is a new `ProjectAlreadyInitializedError`, a `ValueError` subclass, so existing callers are unaffected (#57)
@@ -27,6 +29,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - `kob --model <name>` picks the model for one run. It works at the top level and on `mentor`, `shell`, `ui` and `serve` (for example `kob mentor --model qwen2.5:0.5b`). The flag beats `AIDF_MODEL`, `AIDF_OLLAMA_MODEL`, `OLLAMA_MODEL` and the built-in default `olmo2:7b-1124-instruct-q4_K_M`. The flag is written to `AIDF_MODEL` for Ollama, or to `OPENAI_MODEL` when `AIDF_CHAT_PROVIDER=openai`, so the TUI, shell, mentor and web UI all use it. A bare `kob --model <name>` opens the TUI with that model. An empty value is rejected
 - `AIDF_OLLAMA_MODEL` and `OLLAMA_MODEL` are read as fallbacks, after `AIDF_MODEL`, when choosing the local Ollama model
 - the web UI header shows the kob logo (`ui/assets/kob-logo.png`) at the top left, 40px tall with its aspect ratio kept. The PNG is served at `/brand/kob-logo.png` and ships in the wheel
+
+- runtime extension system. At boot, kob scans the built-in `agent_aidf/ext/` directory and the user directory (`$KOB_EXTENSIONS_DIR`, default `~/.kob/extensions`). Each extension is a directory with a `main.py` whose leading comments hold the metadata header (`Extension`, `Description`, `Version` as x.y.z, `Author`, `Entrypoints` from `cli` and `prompt`, `Topics`) and whose `register(hooks)` function adds hooks. The header is read without importing the file. A broken extension is logged and skipped, and its partial registrations are dropped. `KOB_DISABLE_EXTENSIONS=name,...` turns extensions off by directory name
+- extension hooks: `add_cli_arguments` adds top-level flags, `add_subcommand` adds `kob <name>`, `add_cli_handler` runs before built-in commands and can stop with an exit code, and `add_prompt_interceptor` can answer a prompt before the model sees it. Interceptors apply to general chat (TUI, shell, `kob` chat), not to mentor answers
+- `kob -x <source>` (or `--ext`) installs an extension from a local `.tgz` or an `https://` `.tgz` URL into the user directory, and it takes effect on the next start. The archive is extracted into a hidden staging directory and checked before anything is moved into place: one top-level directory (or the archive root) with a valid `main.py`, a valid header, a `main.py` that compiles and defines `register`, and a name that is a lowercase slug and does not collide with a built-in. Only files and directories are allowed, paths must be relative and stay inside the archive, and the size limits are 20 MB compressed and 50 MB extracted. A rejected archive leaves nothing behind. Validation does not run the extension's code, but after install its code runs on every start, so install only archives you trust
+- core extension `Words` (`ext/words/words.json`) answers presentation questions such as "Quem é você?", "How are you?" and "Introduce yourself" with the institutional presentation of K-AIDF and kob, in the language of the matched phrase. Matching ignores accents, case and punctuation, and needs whole words. Those prompts never reach the model, so they use no tokens. A longer question that contains one of these phrases is answered with the presentation too
 
 ### Changed
 

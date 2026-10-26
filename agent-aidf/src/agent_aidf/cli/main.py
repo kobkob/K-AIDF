@@ -29,6 +29,7 @@ from ..controller import (
     build_controller,
     explicit_local_model,
 )
+from ..extensions.extension_loader import active_registry
 from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
@@ -674,6 +675,8 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         gen_parser.add_argument("--out", default="./out")
         gen_parser.add_argument("--force", action="store_true")
 
+    # Extensions come last so an extension that clashes with a built-in name is skipped, not fatal.
+    active_registry().configure_parser(parser, subparsers)
     return parser
 
 
@@ -740,6 +743,9 @@ def _run_cli(argv: list[str]) -> int:
     # Before any controller is built: every entry point resolves its model from the environment.
     if getattr(args, "model", None):
         apply_model_override(args.model)
+    handled = active_registry().dispatch(args)
+    if handled is not None:
+        return handled
     if args.command is None:
         KobAgentApp(yolo=is_yolo_enabled()).run()
         return 0
@@ -812,6 +818,8 @@ def _run_cli(argv: list[str]) -> int:
 
 
 def main() -> int:
+    # Load extensions once at boot, so their prompt interceptors apply to the TUI and shell too.
+    active_registry()
     argv = sys.argv[1:]
     yolo = "--yolo" in argv
     if yolo:
