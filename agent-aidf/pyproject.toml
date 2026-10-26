@@ -34,6 +34,7 @@ agent_aidf = [
   "locale/**/LC_MESSAGES/*.po",
   "locale/**/LC_MESSAGES/*.mo",
   "webui_dist/**/*",
+  "ui/assets/*.png",
 ]
 
 [tool.ruff]

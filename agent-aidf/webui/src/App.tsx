@@ -263,8 +263,11 @@ export default function App() {
     <div className="mx-auto flex h-screen max-w-5xl flex-col gap-4 p-4">
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <CardTitle className="text-lg text-primary">Kob Agent - Maturity Model</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <img src="/brand/kob-logo.png" alt="kob" className="h-10 w-auto" />
+              <CardTitle className="text-lg text-primary">Kob Agent - Maturity Model</CardTitle>
+            </div>
             <span className="text-xs text-muted-foreground">{status?.project_root}</span>
           </div>
           <CardDescription>

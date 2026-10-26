@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlsplit
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_from_directory
 from werkzeug.serving import BaseWSGIServer, make_server
 
 from .i18n import _
@@ -20,6 +20,10 @@ from .project import MentorNotInitializedError, read_project_status, resolve_men
 from .tools import is_yolo_enabled
 
 STATIC_DIR = Path(__file__).resolve().parent / "webui_dist"
+# Brand assets live beside the Python package, not in the Vite build output, so the header logo
+# is served from here. The route below is exact, so it takes precedence over the static catch-all.
+UI_ASSETS_DIR = Path(__file__).resolve().parent / "ui" / "assets"
+KOB_LOGO_FILENAME = "kob-logo.png"
 
 API_TOKEN_HEADER = "X-KAIDF-Token"
 API_TOKEN_PLACEHOLDER = "__KAIDF_API_TOKEN__"
@@ -153,6 +157,10 @@ def create_app(
         response = Response(page, mimetype="text/html")
         response.headers["Cache-Control"] = "no-store"
         return response
+
+    @app.get(f"/brand/{KOB_LOGO_FILENAME}")
+    def kob_logo():
+        return send_from_directory(UI_ASSETS_DIR, KOB_LOGO_FILENAME, mimetype="image/png")
 
     return app
 
