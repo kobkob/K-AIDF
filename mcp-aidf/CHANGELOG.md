@@ -11,6 +11,13 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - tenant scoping: documents can declare a `namespace`, and `MCP_TOKEN_SCOPES` maps extra bearer tokens to the namespaces they may read. A scoped token gets the same visibility rules as before, plus its namespace list; a document with no namespace is shared with every tenant only when it is public; internal and private documents with no namespace are visible only to the primary token. Another tenant's document returns the same error as a missing one. Invalid configuration stops the server at startup
 - document visibility is enforced on `search` and `fetch`: `private` documents are never returned, `internal` documents only to authenticated requests, and `public` documents to everyone. Unknown visibility values are hidden (fail closed). A `fetch` of a hidden document returns the same error as a missing one (#14)
 
+- two MCP tools for KAIDF-AMM maturity, built on the audit engine in `agent-aidf`:
+  - `get_maturity_scorecard` returns the matrix: dimensions, point weights, severities, and the criteria and remediation for each check
+  - `evaluate_repository_maturity` scores a repository under `AIDF_REPO_ROOT` and returns the global and per-dimension score, the violations ordered by severity, the gap counts per severity, and an ordered mitigation backlog. `format: "prompt"` returns a Portuguese prompt for a local model (OLMo 2, Qwen 2.5 Coder) that asks for a diagnosis and a prioritised backlog
+- `path` is resolved against `AIDF_REPO_ROOT` (default: the root, not the server's working directory). Paths outside the root are refused, symlinks included, and the refusal does not reveal whether the path exists
+- `evaluate_repository_maturity` requires the primary token. Scoped tokens get `403`, because the report lists file paths
+- without the `agent-aidf` package the two tools return `503` with a clear message. `search` and `fetch` are unaffected. `Dockerfile` copies `maturity.py`, but the image does not install `agent-aidf`, so the evaluation tools are unavailable in the container until it is added
+
 ### Security
 
 - `/mcp` and `/` accept only `Authorization: Bearer <MCP_BEARER_TOKEN>`, compared in constant time. Before, any non-empty `Authorization` header was accepted (#11)
