@@ -6,7 +6,16 @@ from pathlib import Path
 import pytest
 
 from agent_aidf import audit
-from agent_aidf.audit import DIMENSION_SPECS, classify_tier, run_audit
+from agent_aidf.audit import (
+    DIMENSION_SPECS,
+    SEVERITY_ORDER,
+    classify_tier,
+    failed_checks,
+    has_critical_findings,
+    render_audit_report,
+    run_audit,
+)
+from agent_aidf.cli.main import _run_cli
 
 FRONT_MATTER = (
     "---\n"
@@ -441,3 +450,267 @@ def test_json_export_carries_the_severity_of_every_check(tmp_path: Path) -> None
     severities = {c["id"]: c["severity"] for d in payload["dimensions"] for c in d["checks"]}
     assert severities["no-credentials"] == "critical"
     assert len(severities) == 15
+
+
+# --- edge-case suite: missing governance, partial compliance, CLI flags, isolation -------------
+
+SECRET_LINE = 'api_key = "abcdefghijklmnopqrstu"\n'
+
+
+def _snapshot(root: Path) -> dict[str, bytes | None]:
+    """Every path under root with its bytes (None for directories), to prove a run wrote nothing."""
+    return {
+        str(path.relative_to(root)): (path.read_bytes() if path.is_file() else None)
+        for path in sorted(root.rglob("*"))
+    }
+
+
+def _all_titles(result) -> dict[str, str]:
+    return {check.id: check.title for dim in result.dimensions for check in dim.checks}
+
+
+# 1. Repository without governance -----------------------------------------------------------
+
+
+def test_repo_without_kaidf_scaffold_or_specs_fails_those_checks(tmp_path: Path) -> None:
+    _write(tmp_path / "README.md", "# Plain project\n")
+
+    result = run_audit(tmp_path)
+
+    assert _check(result, "kaidf-scaffold").points == 0
+    assert "missing" in _check(result, "kaidf-scaffold").detail
+    assert _check(result, "specs-parse").points == 0
+    assert _check(result, "mentor-state").points == 0
+    # A README without secrets passes the credential check, which is the only point it can earn.
+    assert result.score == _check(result, "no-credentials").points
+    assert result.tier == classify_tier(result.score)
+
+
+@pytest.mark.parametrize(
+    "setup",
+    [
+        pytest.param(lambda root: None, id="empty-directory"),
+        pytest.param(lambda root: _write(root / ".kaidf", "not a directory\n"), id="kaidf-is-file"),
+        pytest.param(
+            lambda root: _write(root / "specs/broken.yaml", "k: [unclosed\n"), id="bad-yaml"
+        ),
+        pytest.param(
+            lambda root: _write(root / ".kaidf/mentor-workflow.json", "[1, 2, 3]"),
+            id="mentor-state-not-object",
+        ),
+        pytest.param(
+            lambda root: _write(root / ".kaidf/policy/pii-masking-rules.yaml", "- just a list\n"),
+            id="pii-rules-not-mapping",
+        ),
+        pytest.param(
+            lambda root: (root / "binary.bin").write_bytes(b"\x00\xff\xfe" * 100),
+            id="binary-only",
+        ),
+    ],
+)
+def test_degenerate_repositories_score_without_raising(tmp_path: Path, setup) -> None:
+    setup(tmp_path)
+
+    result = run_audit(tmp_path)
+
+    assert 0 <= result.score <= 100
+    assert len(result.dimensions) == len(DIMENSION_SPECS)
+    assert result.tier in {tier for tier, _ in audit.TIERS} | {audit.UNRATED}
+
+
+def test_empty_repository_reports_every_check_with_a_detail(tmp_path: Path) -> None:
+    result = run_audit(tmp_path)
+
+    for dimension in result.dimensions:
+        for check in dimension.checks:
+            assert check.detail, check.id
+            assert 0 <= check.points <= check.max_points
+
+
+def test_repository_without_governance_is_flagged_as_critical(tmp_path: Path) -> None:
+    _write(tmp_path / "README.md", "# Plain project\n")
+
+    result = run_audit(tmp_path)
+
+    assert has_critical_findings(result)
+
+
+# 2. Partial compliance -----------------------------------------------------------------------
+
+
+def test_partial_scaffold_earns_points_for_each_part_present(tmp_path: Path) -> None:
+    _write(tmp_path / ".kaidf/README.md", FRONT_MATTER)
+    _write(tmp_path / ".kaidf/docs/00-overview/kaidf.md", FRONT_MATTER)
+
+    result = run_audit(tmp_path)
+
+    scaffold = _check(result, "kaidf-scaffold")
+    assert scaffold.points == scaffold.max_points
+    assert _check(result, "mentor-state").points == 0
+    assert 0 < result.score < 100
+
+
+def test_specs_score_is_proportional_to_the_valid_fraction(tmp_path: Path) -> None:
+    _write(tmp_path / "specs/good.yaml", "version: '1.0'\n")
+    _write(tmp_path / "specs/bad.yaml", "k: [unclosed\n")
+    _write(tmp_path / "specs/also-bad.yaml", "k: [unclosed\n")
+    _write(tmp_path / "specs/fine.yaml", "a: 1\n")
+
+    check = _check(run_audit(tmp_path), "specs-parse")
+
+    assert check.points == round(check.max_points * 2 / 4)
+
+
+def test_front_matter_score_is_proportional_to_complete_documents(tmp_path: Path) -> None:
+    _write(tmp_path / ".kaidf/docs/a.md", FRONT_MATTER)
+    _write(tmp_path / ".kaidf/docs/b.md", FRONT_MATTER)
+    _write(tmp_path / ".kaidf/docs/c.md", "# no front matter\n")
+    _write(tmp_path / ".kaidf/docs/d.md", "# no front matter\n")
+
+    check = _check(run_audit(tmp_path), "front-matter-v2")
+
+    assert check.points == round(check.max_points * 2 / 4)
+    assert "2 of 4" in check.detail
+
+
+def test_intent_folder_only_earns_the_generic_checks(tmp_path: Path) -> None:
+    # There is no intent-constraints check. docs/01_intent_constraints/ can only score through the
+    # generic checks that scan every file: the credential scan and the front-matter scan.
+    _write(tmp_path / "docs/01_intent_constraints/intent.md", FRONT_MATTER)
+
+    result = run_audit(tmp_path)
+
+    earned = {check.id for dim in result.dimensions for check in dim.checks if check.points > 0}
+    assert earned == {"no-credentials", "front-matter-v2"}
+    assert (
+        result.score
+        == _check(result, "no-credentials").points + _check(result, "front-matter-v2").points
+    )
+
+
+def test_removing_artifacts_lowers_the_score_by_their_weight(tmp_path: Path) -> None:
+    _complete_repo(tmp_path)
+    (tmp_path / "data/manifests/dataset-audit.yaml").unlink()
+    (tmp_path / "docs/20-ethical-model/risk-assessment.json").unlink()
+
+    result = run_audit(tmp_path)
+
+    lost = _check(result, "dataset-audit").max_points + _check(result, "risk-assessment").max_points
+    assert result.score == 100 - lost
+    assert result.tier == classify_tier(result.score)
+
+
+# 3. Command-line flags -----------------------------------------------------------------------
+
+
+@pytest.fixture
+def clean_cwd(tmp_path: Path, monkeypatch) -> Path:
+    """Run the CLI from an empty directory so any stray write would show up there."""
+    workdir = tmp_path / "cwd"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    return workdir
+
+
+def test_severity_flag_filters_findings_to_the_requested_level(
+    tmp_path: Path, clean_cwd, capsys
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    result = run_audit(repo)
+    titles = _all_titles(result)
+
+    for level in SEVERITY_ORDER:
+        report = "".join(render_audit_report(result, level).split())
+        expected = {check.id for _, check in failed_checks(result, level)}
+        for check_id, title in titles.items():
+            normalized = "".join(title.split())
+            if check_id in expected:
+                assert normalized in report, (level, check_id)
+            else:
+                assert normalized not in report, (level, check_id)
+
+
+@pytest.mark.parametrize("level", SEVERITY_ORDER)
+def test_cli_accepts_every_severity_level(tmp_path: Path, clean_cwd, capsys, level) -> None:
+    assert _run_cli(["audit", str(tmp_path), "--severity", level]) == 0
+
+
+def test_cli_rejects_an_unknown_severity(tmp_path: Path, clean_cwd, capsys) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        _run_cli(["audit", str(tmp_path), "--severity", "urgent"])
+
+    assert excinfo.value.code == 2
+
+
+def test_fail_on_critical_exits_zero_without_critical_findings(
+    tmp_path: Path, clean_cwd, capsys
+) -> None:
+    _complete_repo(tmp_path)
+    # Removing the CI workflow fails only high-severity checks, never a critical one.
+    (tmp_path / ".github/workflows/ci.yml").unlink()
+    result = run_audit(tmp_path)
+    assert not has_critical_findings(result)
+
+    assert _run_cli(["audit", str(tmp_path), "--fail-on-critical"]) == 0
+    assert "critical findings" not in capsys.readouterr().err
+
+
+def test_fail_on_critical_exits_one_when_a_critical_check_fails(
+    tmp_path: Path, clean_cwd, capsys
+) -> None:
+    _complete_repo(tmp_path)
+    _write(tmp_path / "config.py", SECRET_LINE)
+
+    assert _run_cli(["audit", str(tmp_path), "--fail-on-critical"]) == 1
+    assert "critical findings are present" in capsys.readouterr().err
+
+
+def test_audit_without_the_flag_still_exits_zero_on_critical_findings(
+    tmp_path: Path, clean_cwd, capsys
+) -> None:
+    _complete_repo(tmp_path)
+    _write(tmp_path / "config.py", SECRET_LINE)
+
+    assert _run_cli(["audit", str(tmp_path)]) == 0
+
+
+def test_fail_on_critical_with_json_output_still_fails(tmp_path: Path, clean_cwd, capsys) -> None:
+    _complete_repo(tmp_path)
+    _write(tmp_path / "config.py", SECRET_LINE)
+
+    assert _run_cli(["audit", str(tmp_path), "--json", "--fail-on-critical"]) == 1
+
+
+# 4. Isolation and cleanup --------------------------------------------------------------------
+
+
+def test_run_audit_is_read_only(tmp_path: Path) -> None:
+    _complete_repo(tmp_path)
+    before = _snapshot(tmp_path)
+
+    run_audit(tmp_path)
+
+    assert _snapshot(tmp_path) == before
+
+
+def test_cli_run_leaves_the_repository_and_the_cwd_untouched(
+    tmp_path: Path, clean_cwd, capsys
+) -> None:
+    _complete_repo(tmp_path)
+    _write(tmp_path / "config.py", SECRET_LINE)
+    before = _snapshot(tmp_path)
+
+    _run_cli(["audit", str(tmp_path), "--severity", "low", "--fail-on-critical"])
+    _run_cli(["audit", str(tmp_path), "--json"])
+
+    assert _snapshot(tmp_path) == before
+    assert list(clean_cwd.iterdir()) == []
+
+
+def test_extension_state_is_redirected_into_tmp_path(tmp_path: Path) -> None:
+    # The autouse fixture in conftest.py points the user extensions directory at tmp_path, so a
+    # CLI run never reads or writes ~/.kob.
+    import os
+
+    assert os.environ["KOB_EXTENSIONS_DIR"].startswith(str(tmp_path))
