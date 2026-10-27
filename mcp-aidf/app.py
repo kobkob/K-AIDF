@@ -12,6 +12,8 @@ import yaml
 from flask import Flask, jsonify, make_response, request
 from werkzeug.exceptions import BadRequest
 
+import maturity
+
 app = Flask(__name__)
 # No hardcoded fallback: without SECRET_KEY a random per-process secret is used
 # (fine for local runs). Containers require SECRET_KEY via docker-compose.yml.
@@ -729,6 +731,35 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                                 "required": ["id"],
                             },
                         },
+                        {
+                            "name": "get_maturity_scorecard",
+                            "description": "Return the KAIDF-AMM maturity matrix: dimensions, "
+                            "point weights, severities and the criteria the audit engine applies.",
+                            "inputSchema": {"type": "object", "properties": {}},
+                        },
+                        {
+                            "name": "evaluate_repository_maturity",
+                            "description": "Score a repository under the configured K-AIDF root. "
+                            "Returns the global and per-dimension score, violations and gaps by "
+                            "severity, and an ordered mitigation backlog. Requires the primary "
+                            "token.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {
+                                        "type": "string",
+                                        "description": "Directory to evaluate, relative to the "
+                                        "configured root or inside it. Defaults to the root.",
+                                    },
+                                    "format": {
+                                        "type": "string",
+                                        "enum": list(maturity.OUTPUT_FORMATS),
+                                        "description": "json (default) or prompt, a ready-made "
+                                        "prompt for a local model.",
+                                    },
+                                },
+                            },
+                        },
                     ]
                 },
             }
@@ -767,9 +798,65 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                     "result": {"content": [{"type": "text", "text": json.dumps(doc)}]},
                 }
             )
+        if name == "get_maturity_scorecard":
+            return _maturity_tool(req_id, maturity.get_scorecard_matrix)
+
+        if name == "evaluate_repository_maturity":
+            if principal.namespaces is not None:
+                return _json_error(
+                    req_id,
+                    -32001,
+                    "Forbidden: repository evaluation requires the primary token.",
+                    403,
+                )
+            return _evaluate_maturity_tool(req_id, args)
         return _json_error(req_id, -32602, f"Unknown tool: {name}")
 
     return _json_error(req_id, -32601, f"Method not found: {method}")
+
+
+def _tool_text_result(req_id: Any, text: str):
+    return jsonify(
+        {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {"content": [{"type": "text", "text": text}]},
+        }
+    )
+
+
+def _maturity_tool(req_id: Any, action):
+    try:
+        payload = action()
+    except maturity.MaturityError as exc:
+        return _maturity_error(req_id, exc)
+    return _tool_text_result(req_id, json.dumps(payload, ensure_ascii=False))
+
+
+def _evaluate_maturity_tool(req_id: Any, args: dict[str, Any]):
+    path = args.get("path")
+    output_format = args.get("format", "json")
+    if path is not None and not isinstance(path, str):
+        return _json_error(req_id, -32602, "Invalid params: path must be a string.")
+    if output_format not in maturity.OUTPUT_FORMATS:
+        return _json_error(req_id, -32602, "Invalid params: format must be json or prompt.")
+    try:
+        repo_root = _repo_root()
+    except ValueError as exc:
+        return _json_error(req_id, -32000, str(exc), 503)
+    try:
+        evaluation = maturity.evaluate_repository(repo_root, path)
+    except maturity.MaturityError as exc:
+        return _maturity_error(req_id, exc)
+    if output_format == "prompt":
+        return _tool_text_result(req_id, maturity.render_mitigation_prompt(evaluation))
+    return _tool_text_result(req_id, json.dumps(evaluation, ensure_ascii=False))
+
+
+def _maturity_error(req_id: Any, exc: maturity.MaturityError):
+    if exc.code == maturity.ENGINE_UNAVAILABLE:
+        return _json_error(req_id, exc.code, exc.message, 503)
+    return _json_error(req_id, exc.code, f"Invalid params: {exc.message}")
 
 
 @app.route("/.well-known/oauth-protected-resource")
