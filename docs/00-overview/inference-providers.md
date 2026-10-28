@@ -72,6 +72,10 @@ Para voltar ao Ollama, remova `AIDF_CHAT_PROVIDER` (ou deixe vazio). As demais v
 
    O alvo cria `./models` se faltar, sobe o serviço `localai` em segundo plano e só devolve o terminal quando o healthcheck (`GET /readyz`) responde. Se o tempo estourar, o comando falha e você pode consultar `docker compose -f docker-compose.localai.yml logs`.
 
+   Na primeira execução, o LocalAI baixa os modelos AIO (~2 GB) e os backends de inferência (llama-cpp, piper, stablediffusion-ggml, cerca de 430 MB). Os modelos ficam em `./models`, e os backends ficam no volume nomeado `localai-backends`, montado em `/backends`. Por isso, depois de `make workspace-localai-down` (que não remove volumes), a próxima subida não baixa os backends de novo. Só `docker compose -f docker-compose.localai.yml down -v` apaga o volume, e a próxima subida baixa tudo de novo.
+
+Mesmo sem download, a subida a quente ainda leva cerca de 7 minutos: a cada start, o LocalAI reimporta os modelos AIO pré-configurados (um por vez, de 35 a 70 s cada). Esse custo não é de rede e não é coberto pelo volume de backends.
+
 2. **Verificar a API.**
 
    ```bash
