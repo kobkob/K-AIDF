@@ -15,6 +15,9 @@
 /.kaidf/
 /mentor-workflow.json
 
+# LocalAI model weights and configs (mounted by docker-compose.localai.yml)
+/models/
+
 # Local-only, never commit or push
 /columns.json
 /issues.json

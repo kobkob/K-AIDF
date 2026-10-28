@@ -1,0 +1,46 @@
+# LocalAI stack: OpenAI-compatible inference API on http://localhost:8080/v1
+#
+# Usage (from the workspace root):
+#   make workspace-localai        # start and wait until /readyz answers
+#   make workspace-localai-down   # stop and remove the container
+#
+# Models live on the host in ./models (mounted at /build/models). Drop GGUF
+# files and their LocalAI YAML configs there; `GET http://localhost:8080/v1/models`
+# lists what the server currently exposes.
+#
+# Port 8080 is also used by the mcp-server in docker-compose.local.yml. Do not
+# run both stacks at the same time without changing one of the host ports.
+#
+# CPU (default): runs on any host without a GPU, using the all-in-one CPU image.
+#
+# GPU (NVIDIA), to enable CUDA:
+#   1. Install the NVIDIA driver and the NVIDIA Container Toolkit on the host,
+#      then configure it for Docker (`nvidia-ctk runtime configure --runtime=docker`).
+#   2. Change `image` below to `localai/localai:latest-aio-gpu-nvidia-cuda-12`.
+#   3. Uncomment the `deploy` block under `localai` below.
+#   Without step 1, `docker compose up` fails with an error about the missing
+#   "nvidia" device driver. Switch back to the CPU image to recover.
+services:
+  localai:
+    image: localai/localai:latest-aio-cpu
+    container_name: aidf-localai
+    restart: unless-stopped
+    environment:
+      - MODELS_PATH=/build/models
+    volumes:
+      - ./models:/build/models
+    ports:
+      - "8080:8080"
+    # deploy:                              # GPU: uncomment together with the GPU image above
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
