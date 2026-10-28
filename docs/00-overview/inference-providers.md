@@ -115,7 +115,7 @@ A primeira subida baixa a imagem do Docker Hub, e modelos baixados por galeria t
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| `make workspace-localai` falha por tempo esgotado | Primeira execução baixando imagem ou modelo, ou CPU lenta | Veja `docker compose -f docker-compose.localai.yml logs localai`; aumente `--wait-timeout` no Makefile se necessário |
+| `make workspace-localai` falha com "unhealthy" | Primeiro boot ainda baixando os modelos AIO (~2 GB) em um link lento, ou CPU lenta | Veja `docker compose -f docker-compose.localai.yml logs localai`; o container segue baixando e vira `healthy` sozinho. Se estourar o limite, aumente `start_period` no compose e `--wait-timeout` no Makefile |
 | `kob` responde com erro de conexão em `localhost:8080` | Stack parada ou porta ocupada | `docker ps`; confirme que `mcp-aidf-server` não usa a 8080 |
 | `kob` continua usando Ollama | `AIDF_CHAT_PROVIDER` não está como `openai` | Ajuste o `.env` e reinicie o `kob` |
 | `kob` retorna 404 em `/responses` | A versão do LocalAI não implementa a Responses API | Atualize a imagem ou use Ollama até a compatibilidade estar confirmada |

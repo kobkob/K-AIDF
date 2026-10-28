@@ -171,7 +171,7 @@ workspace-logs:
 
 workspace-localai:
 	@mkdir -p models && \
-	docker compose -f docker-compose.localai.yml up -d --wait --wait-timeout 600 && \
+	docker compose -f docker-compose.localai.yml up -d --wait --wait-timeout 1800 && \
 	echo "LocalAI ready: http://localhost:8080/v1 (models in ./models)"
 
 workspace-localai-down:

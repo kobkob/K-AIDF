@@ -38,9 +38,12 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
+    # The AIO image downloads its preloaded models (about 2 GB) on first boot,
+    # before the API listens on 8080. start_period must cover that download;
+    # later boots reuse ./models and are ready in seconds.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/readyz"]
       interval: 10s
       timeout: 5s
       retries: 30
-      start_period: 60s
+      start_period: 1200s
