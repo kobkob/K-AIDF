@@ -6,8 +6,17 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.6.0-rc1] - 2026-10-28
+
 ### Added
 
+- `agent-aidf` `kob audit`: a read-only KAIDF-AMM v1.0 scorecard for a repository (five dimensions, per-check severities, `--severity`, `--json`, `--fail-under`, `--fail-on-critical`), also available as `audit [path]` in the shell. The generator ships the `kaidf-audit` skill manifest it checks (see `agent-aidf` and `kobkob-kaidf-generator` changelogs)
+- `mcp-aidf` maturity tools: `get_maturity_scorecard` and `evaluate_repository_maturity`, built on the `agent-aidf` audit engine, with path confinement under `AIDF_REPO_ROOT`, primary-token-only evaluation, and a `503` when `agent-aidf` is not installed (see `mcp-aidf`'s own changelog)
+- `agent-aidf` runtime extension system: kob scans the built-in `ext/` directory and `$KOB_EXTENSIONS_DIR` at boot, extensions can add flags, subcommands and handlers, `kob -x <source>` installs a `.tgz` from a local path or `https://` URL, and the core `Words` extension answers presentation questions
+- `agent-aidf` `kob --model <name>` picks the model for a single run across `mentor`, `shell`, `ui` and `serve`; the web UI header shows the kob logo
+- `kobkob-kaidf-generator` bootstrap falls back to cloud environments (Kaggle/Colab) when the default path is unavailable
+- `docker-compose.localai.yml` and `make workspace-localai` / `make workspace-localai-down`: a LocalAI stack with an OpenAI-compatible API on port 8080. The first boot downloads the AIO models and backends; the `/readyz` healthcheck allows 20 minutes of `start_period` for that. Backends persist in the named volume `localai-backends`, so a recreated container does not download them again. Warm boots still take about 7 minutes because the AIO image re-imports its preloaded models on every start (see `docs/00-overview/inference-providers.md`)
+- `docs/00-overview/inference-providers.md`: provider architecture (Ollama vs. LocalAI vs. OpenAI/Groq), the `kob` environment variables that select and point the provider, and the on-premises deployment steps. `./models/` is ignored by Git
 - `kobkob-kaidf-generator` `0.1.5`: the 5 K-AIDF Basic delivery phases now have their own default-spec directories (`docs/01_intent_constraints/` … `docs/05_verification_transfer/`), and `kob init` ships the maturity-model and ethical-model packs by default (see `kobkob-kaidf-generator`'s own changelog)
 - `agent-aidf` `0.5.1`: the mentor workflow now always targets `.kaidf/mentor-workflow.json` across the CLI, TUI, shell, legacy CLI, and web UI, and `agent-aidf` is fully deprecated as a shell command name in favor of `kob` (see `agent-aidf`'s own changelog)
 - `agent-aidf` `0.5.2`: kob now states a stable identity and grounds KAIDF answers in the manifesto, `/shell`/default chat use an open unrestricted prompt (mentor remains the only path that mutates files), and both the TUI and web UI show a live status indicator (verb + elapsed time + token count) instead of a static "Thinking..." label (see `agent-aidf`'s own changelog)
