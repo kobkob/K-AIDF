@@ -16,6 +16,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - root workspace automation via `Makefile`, shared env scripts, and `.env.example`
 - `make workspace-up` now installs and starts a local OLMo-over-Ollama Docker stack sized to the host: `scripts/detect-ollama-model.sh` picks a model tag from detected RAM/disk/GPU (falling back between `olmo2:7b-1124-instruct-q4_K_M` and `olmo2:13b-1124-instruct-q4_K_M`, or erroring clearly if the machine can't run either), `scripts/workspace-up.sh` starts `docker-compose.local.yml` (now with a healthcheck and `restart: unless-stopped`, plus an optional `docker-compose.gpu.yml` NVIDIA overlay), pulls the model, and persists `AIDF_MODEL`/`OLLAMA_HOST`/`KAIDF_LOCAL_INFERENCE` into the workspace `.env`; `make workspace-down`/`workspace-logs` and a new `make agent-tui` round it out
 - `.env.example` documents `AIDF_CHAT_PROVIDER`, `OLLAMA_HOST`, `AIDF_MODEL`, and `AIDF_OLLAMA_MODEL` for the new local-inference path (see `agent-aidf`'s own changelog for the `kob`-side wiring)
+- `docker-compose.localai.yml` adds a LocalAI stack (OpenAI-compatible API on port 8080, models mounted from `./models`, CPU image by default with documented NVIDIA GPU activation, and a `/readyz` healthcheck); `make workspace-localai` starts it and waits until the API is ready, and `make workspace-localai-down` stops it
+- `docs/00-overview/inference-providers.md` documents the plug-and-play inference architecture (Ollama vs. LocalAI vs. OpenAI/Groq cloud), the `kob` environment variables that select and point the provider, and the on-premises deployment steps; `./models/` is ignored by Git
 
 ### Security
 

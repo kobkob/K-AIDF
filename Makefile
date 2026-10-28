@@ -10,7 +10,7 @@ export PROMPT
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs \
-	workspace-up workspace-down workspace-logs
+	workspace-up workspace-down workspace-logs workspace-localai workspace-localai-down
 
 help:
 	@echo "K-AIDF workspace automation"
@@ -47,6 +47,8 @@ help:
 	@echo "make workspace-up     Install/start the local OLMo-over-Ollama Docker stack, sized to this machine"
 	@echo "make workspace-down   Stop the local OLMo/Ollama stack"
 	@echo "make workspace-logs   Tail the local OLMo/Ollama stack logs"
+	@echo "make workspace-localai Start the LocalAI (OpenAI-compatible) stack and wait until its API is ready"
+	@echo "make workspace-localai-down Stop the LocalAI stack"
 
 env-agent:
 	@source ./scripts/load-agent-env.sh
@@ -166,3 +168,11 @@ workspace-down:
 
 workspace-logs:
 	@docker compose -f docker-compose.local.yml logs -f
+
+workspace-localai:
+	@mkdir -p models && \
+	docker compose -f docker-compose.localai.yml up -d --wait --wait-timeout 600 && \
+	echo "LocalAI ready: http://localhost:8080/v1 (models in ./models)"
+
+workspace-localai-down:
+	@docker compose -f docker-compose.localai.yml down
