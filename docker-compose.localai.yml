@@ -29,6 +29,10 @@ services:
       - MODELS_PATH=/build/models
     volumes:
       - ./models:/build/models
+      # Backends (llama-cpp, piper, stablediffusion-ggml, ...) are downloaded at
+      # runtime into /backends. Keeping them in a named volume means a recreated
+      # container reuses them instead of downloading them again.
+      - localai-backends:/backends
     ports:
       - "8080:8080"
     # deploy:                              # GPU: uncomment together with the GPU image above
@@ -47,3 +51,6 @@ services:
       timeout: 5s
       retries: 30
       start_period: 1200s
+
+volumes:
+  localai-backends:
