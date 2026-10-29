@@ -18,8 +18,11 @@ cleanup() {
 
 trap cleanup EXIT
 
-if [[ ! -f "${STAMP_FILE}" ]] || [[ requirements.txt -nt "${STAMP_FILE}" ]]; then
+if [[ ! -f "${STAMP_FILE}" ]] || [[ requirements.txt -nt "${STAMP_FILE}" ]] || [[ pyproject.toml -nt "${STAMP_FILE}" ]]; then
   .venv/bin/python -m pip install --upgrade pip >/dev/null
   .venv/bin/python -m pip install -r requirements.txt
+  # Dev extras (test tooling) are declared once in pyproject.toml and installed here.
+  .venv/bin/python -c 'import tomllib; print("\n".join(tomllib.load(open("pyproject.toml", "rb"))["project"]["optional-dependencies"]["dev"]))' \
+    | xargs -d '\n' .venv/bin/python -m pip install
   touch "${STAMP_FILE}"
 fi
