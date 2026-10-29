@@ -325,7 +325,7 @@ def test_kob_version_flag_prints_version_and_exits_zero(
 
     out = capsys.readouterr().out
     assert excinfo.value.code == 0
-    assert re.search(r"^kob \d+\.\d+\.\d+$", out.strip()), out
+    assert re.search(r"^kob \d+\.\d+\.\d+(rc\d+)?$", out.strip()), out
 
 
 def test_audit_parser_accepts_severity_and_thresholds() -> None:
