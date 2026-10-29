@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.0-rc1] - 2026-10-28
+
 ### Added
 
 - `data/manifests/skills.yaml` in the default scaffold: registers the `kaidf-audit` skill (command `kob audit`) with its arguments and permissions (read-only filesystem, no network, no writes, no shell). The static audit's Methodology-as-Code dimension checks this file
