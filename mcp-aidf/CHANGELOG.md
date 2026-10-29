@@ -18,6 +18,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - `evaluate_repository_maturity` requires the primary token. Scoped tokens get `403`, because the report lists file paths
 - without the `agent-aidf` package the two tools return `503` with a clear message. `search` and `fetch` are unaffected. `Dockerfile` copies `maturity.py`, but the image does not install `agent-aidf`, so the evaluation tools are unavailable in the container until it is added
 
+### Changed
+
+- the server reports version `0.6.0rc1` in `serverInfo` (it reported `0.5.5`). `pyproject.toml` now declares the project and its `dev` extra (`pytest>=8.0`)
+- `scripts/bootstrap.sh` installs the `dev` extra, so `make test-mcp` runs on a clean checkout without a missing `pytest`
+
 ### Security
 
 - `/mcp` and `/` accept only `Authorization: Bearer <MCP_BEARER_TOKEN>`, compared in constant time. Before, any non-empty `Authorization` header was accepted (#11)
