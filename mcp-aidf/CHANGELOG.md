@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-30
+
 ### Added
 
 - tenant scoping: documents can declare a `namespace`, and `MCP_TOKEN_SCOPES` maps extra bearer tokens to the namespaces they may read. A scoped token gets the same visibility rules as before, plus its namespace list; a document with no namespace is shared with every tenant only when it is public; internal and private documents with no namespace are visible only to the primary token. Another tenant's document returns the same error as a missing one. Invalid configuration stops the server at startup
@@ -20,7 +22,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Changed
 
-- the server reports version `0.6.0rc1` in `serverInfo` (it reported `0.5.5`). `pyproject.toml` now declares the project and its `dev` extra (`pytest>=8.0`)
+- the server reports version `0.6.0` in `serverInfo` (it reported `0.5.5`). `pyproject.toml` now declares the project and its `dev` extra (`pytest>=8.0`)
 - `scripts/bootstrap.sh` installs the `dev` extra, so `make test-mcp` runs on a clean checkout without a missing `pytest`
 
 ### Security
