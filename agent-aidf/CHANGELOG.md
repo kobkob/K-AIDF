@@ -6,9 +6,9 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
-## [0.6.0-rc1] - 2026-10-28
+## [0.6.0] - 2026-10-30
 
-- release candidate. No package-level entries were added after `0.5.7`; the workspace `CHANGELOG.md` lists the release as a whole
+- general availability. No package-level entries were added after `0.5.7`; the workspace `CHANGELOG.md` lists the release as a whole
 
 ## [0.5.7] - 2026-10-26
 

@@ -6,7 +6,17 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
-## [0.6.0-rc1] - 2026-10-28
+## [0.6.0] - 2026-10-30
+
+General availability. This release consolidates the 0.6.0 milestones:
+
+### Highlights
+
+- **KAIDF-AMM Engine:** a deterministic governance audit engine with a dedicated taxonomy of dimensions, checks and severities, backed by a comprehensive unit test suite (`agent-aidf`, `kobkob-kaidf-generator`)
+- **MCP Maturity Tools:** `get_maturity_scorecard` and `evaluate_repository_maturity` for audit and automated generation of a mitigation backlog (`mcp-aidf`)
+- **Dynamic Extensions Runtime:** a dynamic module system under `ext/` supporting the core `Ext` and `Words` modules (`agent-aidf`)
+- **Model Flexibility:** dynamic support for local and remote models through `--model` and standardized environment variables (`agent-aidf`)
+- **Enterprise LocalAI Stack:** the `docker-compose.localai.yml` manifest, the `make workspace-localai` automation and B2B inference documentation
 
 ### Added
 
