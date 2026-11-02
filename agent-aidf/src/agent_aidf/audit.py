@@ -39,6 +39,11 @@ Severity = Literal["critical", "high", "medium", "low"]
 # Common credential shapes. A match is a finding, not proof: the report says what matched.
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("OpenAI-style secret key", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
+    ("OpenAI project key", re.compile(r"\bsk-proj-[A-Za-z0-9_-]{20,}")),
+    ("GitHub personal access token", re.compile(r"\bghp_[A-Za-z0-9]{20,}")),
+    ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}")),
+    ("Slack token", re.compile(r"\bxox[bap]-[A-Za-z0-9-]{10,}")),
+    ("Stripe live secret key", re.compile(r"\bsk_live_[A-Za-z0-9]{16,}")),
     ("AWS access key id", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}")),
     ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
@@ -299,6 +304,7 @@ def _check_no_credentials(root: Path) -> tuple[float, str]:
         # Nothing was inspected, so there is no evidence of absence.
         return 0.0, "no files to inspect"
     findings: list[str] = []
+    not_scanned: list[str] = []
     for path in files:
         relative = path.relative_to(root).as_posix()
         name = path.name
@@ -307,14 +313,27 @@ def _check_no_credentials(root: Path) -> tuple[float, str]:
         ):
             findings.append(f"{relative}: environment file is tracked")
             continue
+        if path.is_file() and path.stat().st_size > MAX_SCAN_BYTES:
+            not_scanned.append(relative)
+            continue
         text = _read_text(path)
         if text is None:
             continue
         for label, pattern in SECRET_PATTERNS:
             if pattern.search(text):
                 findings.append(f"{relative}: {label}")
+    # Oversized files are a blind spot, so the report names them even when nothing else fails.
+    skipped = (
+        f"not scanned, larger than {MAX_SCAN_BYTES} bytes: {', '.join(not_scanned[:5])}"
+        + (" ..." if len(not_scanned) > 5 else "")
+        if not_scanned
+        else ""
+    )
     if findings:
-        return 0.0, "; ".join(findings[:5]) + (" ..." if len(findings) > 5 else "")
+        detail = "; ".join(findings[:5]) + (" ..." if len(findings) > 5 else "")
+        return 0.0, f"{detail}; {skipped}" if skipped else detail
+    if skipped:
+        return 1.0, f"no credentials or environment files tracked; {skipped}"
     return 1.0, "no credentials or environment files tracked"
 
 

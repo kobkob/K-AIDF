@@ -6,9 +6,11 @@
 # Topics: prompt, presentation, catalog, offline
 """Core extension: answers presentation questions from words.json, without calling the model.
 
-A prompt matches an entry when one of its normalized patterns appears as whole words in the
-normalized prompt, so accents, case and punctuation do not matter. "Quem é você?" matches the
-pattern "quem e voce". Only general chat is intercepted; the mentor workflow is not.
+A prompt matches an entry when, after normalization (accents, case and punctuation do not matter),
+the whole prompt is one of the entry's patterns. A short greeting may come before the pattern
+("oi") and a short closing word after it ("mesmo", "por favor"). A pattern found in the middle of a
+longer request does not match, so "traduza 'how are you'" still reaches the model. "Quem é você?"
+matches the pattern "quem e voce". Only general chat is intercepted; the mentor workflow is not.
 """
 
 from __future__ import annotations
@@ -22,6 +24,12 @@ from pathlib import Path
 
 CATALOG_PATH = Path(__file__).with_name("words.json")
 _NON_WORD = re.compile(r"[^a-z0-9]+")
+# Normalized forms (see normalize) of the greetings that may precede a pattern, and of the closing
+# words that may follow it. Anything else around the pattern means a real request, not a greeting.
+_GREETING = r"(?:oi|ola|ei|hey|hi|hello|bom dia|boa tarde|boa noite|good morning|good evening)"
+_CLOSING = r"(?:mesmo|por favor|please)"
+_OPTIONAL_GREETING = rf"(?:{_GREETING} )?"
+_OPTIONAL_CLOSING = rf"(?: {_CLOSING})?"
 
 
 @dataclass(frozen=True)
@@ -61,7 +69,8 @@ def match_reply(prompt: str, catalog: tuple[WordEntry, ...]) -> str | None:
         return None
     for entry in catalog:
         for pattern in entry.patterns:
-            if re.search(rf"(?<!\w){re.escape(pattern)}(?!\w)", normalized):
+            anchored = rf"{_OPTIONAL_GREETING}{re.escape(pattern)}{_OPTIONAL_CLOSING}"
+            if re.fullmatch(anchored, normalized):
                 return entry.reply
     return None
 

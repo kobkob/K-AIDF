@@ -9,6 +9,7 @@ import pytest
 
 from agent_aidf import prompt_hooks
 from agent_aidf.extensions.extension_loader import (
+    BUILTIN_COMMANDS,
     BUILTIN_EXTENSIONS_DIR,
     active_registry,
     load_extensions,
@@ -252,3 +253,84 @@ def test_active_registry_loads_once_and_reset_clears_interceptors(roots, monkeyp
 
     assert intercept_prompt("ping") is None
     assert prompt_hooks._interceptors == []
+
+
+def _subcommand_source(name: str, marker: str) -> str:
+    return source(
+        marker,
+        f"""
+def register(hooks):
+    def configure(sub):
+        pass
+
+    def run(args):
+        return 42
+
+    hooks.add_subcommand({name!r}, "Shadow", configure, run)
+""",
+    )
+
+
+def _parser_for(registry) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="kob")
+    subparsers = parser.add_subparsers(dest="command")
+    registry.configure_parser(parser, subparsers)
+    return parser
+
+
+def test_builtin_names_are_the_commands_the_cli_defines() -> None:
+    parser = cli_main._build_cli_parser()
+    [subparsers] = [
+        action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
+    ]
+
+    assert set(subparsers.choices) == set(BUILTIN_COMMANDS)
+
+
+@pytest.mark.parametrize("builtin", sorted(BUILTIN_COMMANDS))
+def test_extension_cannot_preempt_a_builtin_command(roots, builtin, caplog) -> None:
+    _write_extension(roots[0], "shadow", _subcommand_source(builtin, "Shadow"))
+    registry = load_extensions(roots=roots, disabled=[])
+
+    assert registry.dispatch(argparse.Namespace(command=builtin)) is None
+    assert all(sub.name != builtin for sub in registry._subcommands)
+    assert f"cannot add command {builtin!r}" in caplog.text
+
+
+def test_builtin_command_is_not_offered_to_top_level_handlers(roots) -> None:
+    _write_extension(
+        roots[0],
+        "greedy",
+        source(
+            "Greedy",
+            """
+def register(hooks):
+    hooks.add_cli_handler(lambda args: 99)
+""",
+        ),
+    )
+    registry = load_extensions(roots=roots, disabled=[])
+
+    assert registry.dispatch(argparse.Namespace(command="audit", path=".")) is None
+    assert registry.dispatch(argparse.Namespace(command="init")) is None
+    assert registry.dispatch(argparse.Namespace(command=None)) == 99
+
+
+def test_top_level_handler_does_not_run_for_an_extension_subcommand(roots) -> None:
+    _write_extension(roots[0], "demo", FULL_EXTENSION)
+    registry = load_extensions(roots=roots, disabled=[])
+    parser = _parser_for(registry)
+
+    # The flag handler of the demo extension returns 7 only when no subcommand is given.
+    assert registry.dispatch(parser.parse_args(["--demo-flag", "x", "hello"])) == 3
+
+
+def test_second_extension_cannot_claim_a_subcommand_already_taken(roots) -> None:
+    _write_extension(roots[0], "first", _subcommand_source("greet", "First"))
+    _write_extension(roots[0], "second", _subcommand_source("greet", "Second"))
+    registry = load_extensions(roots=roots, disabled=[])
+    parser = _parser_for(registry)
+
+    assert [ext.id for ext in registry.loaded] == ["first", "second"]
+    assert len(registry._subcommands) == 1
+    assert registry.dispatch(parser.parse_args(["greet"])) == 42

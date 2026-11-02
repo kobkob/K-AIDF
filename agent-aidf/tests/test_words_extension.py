@@ -56,6 +56,10 @@ def test_normalize_drops_accents_case_and_punctuation() -> None:
         "who are you",
         "Como você está?",
         "O que é o kob?",
+        "Olá, quem é você?",
+        "Quem é você, por favor?",
+        "Hey, how are you?",
+        "Bom dia, tudo bem com você?",
     ],
 )
 def test_matches_presentation_phrases(prompt: str, words_loaded) -> None:
@@ -81,6 +85,11 @@ def test_english_prompt_gets_english_reply(words_loaded) -> None:
         "gere um contrato para a fase 2",
         "",
         "   ",
+        "traduza 'how are you'",  # a pattern inside a request is not the request
+        'traduza "quem é você" para o inglês',
+        "Quem é você e o que faz a fase 2?",  # the question continues into a real request
+        "explique what is kob em detalhes",
+        "how are you doing with the mentor workflow today",
     ],
 )
 def test_unrelated_prompts_pass_through(prompt: str, words_loaded) -> None:
