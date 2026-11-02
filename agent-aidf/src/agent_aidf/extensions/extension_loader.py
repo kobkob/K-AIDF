@@ -10,6 +10,11 @@ A broken extension is logged and skipped, so it never stops kob from starting. I
 are kept only if its `register()` returns cleanly.
 
 Set `KOB_DISABLE_EXTENSIONS=words,ext` to skip extensions by directory name.
+
+Extensions cannot preempt built-in commands. A subcommand whose name is in `BUILTIN_COMMANDS`, or
+one already claimed by an earlier extension, is refused with a warning. Top-level handlers
+(`add_cli_handler`) run only when no subcommand was given, and built-in commands never reach
+extension handlers at all.
 """
 
 from __future__ import annotations
@@ -31,6 +36,12 @@ logger = logging.getLogger(__name__)
 BUILTIN_EXTENSIONS_DIR = Path(__file__).resolve().parent.parent / "ext"
 EXTENSIONS_DIR_ENV = "KOB_EXTENSIONS_DIR"
 DISABLED_ENV = "KOB_DISABLE_EXTENSIONS"
+
+# Every subcommand the CLI defines itself (see cli/main.py). Extensions may not add or handle these.
+# tests/test_extension_loader.py checks this set against the real parser, so keep them in sync.
+BUILTIN_COMMANDS: frozenset[str] = frozenset(
+    {"init", "status", "mentor", "shell", "audit", "ui", "serve", "compile", "gen"}
+)
 
 ArgumentConfigurer = Callable[[ArgumentParser], None]
 CliHandler = Callable[[Namespace], "int | None"]
@@ -71,7 +82,8 @@ class ExtensionHooks:
         self.contributions.arguments.append((self._owner, configure))
 
     def add_cli_handler(self, handler: CliHandler) -> None:
-        """Run before built-in commands. Return an int to stop dispatch with that exit code."""
+        """Top-level flag handler, e.g. `kob -x`. Runs only when no subcommand was given.
+        Return an int to stop dispatch with that exit code."""
         self.contributions.handlers.append((self._owner, handler))
 
     def add_subcommand(
@@ -100,15 +112,25 @@ class ExtensionRegistry:
         self._arguments: list[tuple[str, ArgumentConfigurer]] = []
         self._handlers: list[tuple[str, CliHandler]] = []
         self._subcommands: list[_Subcommand] = []
+        self._claimed_commands: set[str] = set(BUILTIN_COMMANDS)
 
     def merge(self, loaded: LoadedExtension, contributions: _Contributions) -> None:
         self.loaded.append(loaded)
         self._arguments.extend(contributions.arguments)
-        self._handlers.extend(contributions.handlers)
-        for _owner, sub in contributions.subcommands:
+        for owner, handler in contributions.handlers:
+            self._handlers.append((owner, _top_level_gate(handler)))
+        for owner, sub in contributions.subcommands:
+            if sub.name in self._claimed_commands:
+                logger.warning(
+                    "extension %r cannot add command %r: the name is built in or already taken",
+                    owner,
+                    sub.name,
+                )
+                continue
+            self._claimed_commands.add(sub.name)
             self._subcommands.append(sub)
             # Subcommand handlers only fire for their own command name.
-            self._handlers.append((_owner, _command_gate(sub.name, sub.handler)))
+            self._handlers.append((owner, _command_gate(sub.name, sub.handler)))
         for owner, interceptor in contributions.interceptors:
             register_prompt_interceptor(owner, interceptor)
 
@@ -123,6 +145,9 @@ class ExtensionRegistry:
             _safely(sub.name, add)
 
     def dispatch(self, args: Namespace) -> int | None:
+        # Built-in commands are never offered to extension handlers.
+        if getattr(args, "command", None) in BUILTIN_COMMANDS:
+            return None
         for owner, handler in self._handlers:
             try:
                 result = handler(args)
@@ -137,6 +162,13 @@ class ExtensionRegistry:
 def _command_gate(name: str, handler: CliHandler) -> CliHandler:
     def gated(args: Namespace) -> int | None:
         return handler(args) if getattr(args, "command", None) == name else None
+
+    return gated
+
+
+def _top_level_gate(handler: CliHandler) -> CliHandler:
+    def gated(args: Namespace) -> int | None:
+        return handler(args) if getattr(args, "command", None) is None else None
 
     return gated
 

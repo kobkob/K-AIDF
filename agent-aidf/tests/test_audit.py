@@ -153,6 +153,69 @@ def test_known_credential_shapes_are_reported(tmp_path: Path, content: str, labe
     assert label in check.detail
 
 
+# Shapes are assembled at runtime so this file never contains a token-looking literal itself.
+@pytest.mark.parametrize(
+    ("content", "label"),
+    [
+        ("OPENAI = sk-proj-" + "aB3_-" * 5 + "\n", "OpenAI project key"),
+        ("gh = ghp_" + "A1b2C3d4" * 5 + "\n", "GitHub personal access token"),
+        ("gh = github_pat_" + "A1b2_C3d4" * 5 + "\n", "GitHub fine-grained token"),
+        ("slack = xoxb-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("slack = xoxp-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("slack = xoxa-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("stripe = sk_live_" + "51HxYzAbCdEfGhIj" + "\n", "Stripe live secret key"),
+    ],
+)
+def test_modern_token_shapes_are_reported(tmp_path: Path, content: str, label: str) -> None:
+    _write(tmp_path / "settings.env.txt", content)
+
+    check = _check(run_audit(tmp_path), "no-credentials")
+
+    assert check.points == 0
+    assert f"settings.env.txt: {label}" in check.detail
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "note: the sk-proj- prefix is used by OpenAI\n",
+        "xoxb is a Slack prefix\n",
+        "ghp_short\n",
+    ],
+)
+def test_prefixes_without_a_token_body_are_not_reported(tmp_path: Path, content: str) -> None:
+    _write(tmp_path / "docs.md", content)
+
+    assert _check(run_audit(tmp_path), "no-credentials").points == 10
+
+
+def test_oversized_files_are_named_in_the_credential_check_detail(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _write(tmp_path / "huge.log", "x" * 50 + "\n")
+    _write(tmp_path / "small.txt", "fine\n")
+    monkeypatch.setattr(audit, "MAX_SCAN_BYTES", 10)
+
+    check = _check(run_audit(tmp_path), "no-credentials")
+
+    assert check.points == 10
+    assert "huge.log" in check.detail
+    assert "not scanned" in check.detail
+    assert "small.txt" not in check.detail
+
+
+def test_oversized_file_is_named_next_to_a_real_finding(tmp_path: Path, monkeypatch) -> None:
+    _write(tmp_path / "huge.log", "x" * 200 + "\n")
+    _write(tmp_path / "config.py", 'api_key = "abcdefghijklmnop1234"\n')
+    monkeypatch.setattr(audit, "MAX_SCAN_BYTES", 100)
+
+    check = _check(run_audit(tmp_path), "no-credentials")
+
+    assert check.points == 0
+    assert "config.py: hard-coded credential assignment" in check.detail
+    assert "huge.log" in check.detail
+
+
 def test_findings_list_is_truncated_after_five_entries(tmp_path: Path) -> None:
     for index in range(7):
         _write(tmp_path / f"leak{index}.txt", 'password = "abcdefghijklmnop1234"\n')
