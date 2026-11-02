@@ -6,12 +6,18 @@ archive leaves the environment as it was.
 
 Validation does not execute the extension. It checks the archive layout, the metadata header, that
 `main.py` compiles, and that it defines `register`. Extension code runs only at boot, and only once
-it is installed. Installing a remote archive therefore means trusting its author.
+it is installed. Installing a remote archive therefore means trusting its author, so a remote
+install needs a `confirm` callback that shows the operator what will be installed and returns True
+only on approval. Without one, a remote install is refused.
+
+An expected SHA-256 digest can be given for any source. It is checked before the archive is
+extracted, and a mismatch aborts the install.
 """
 
 from __future__ import annotations
 
 import ast
+import hashlib
 import re
 import shutil
 import tarfile
@@ -19,6 +25,7 @@ import urllib.error
 import urllib.request
 import uuid
 import zlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
@@ -32,6 +39,7 @@ MAX_ENTRIES = 500
 DOWNLOAD_TIMEOUT_SECONDS = 30
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class InstallError(Exception):
@@ -45,12 +53,55 @@ class InstalledExtension:
     metadata: ExtensionMetadata
 
 
-def install_extension(source: str, target_root: Path) -> InstalledExtension:
+@dataclass(frozen=True)
+class InstallPreview:
+    """What the operator is asked to approve before a remote extension is written to disk."""
+
+    name: str
+    author: str
+    version: str
+    description: str
+    source: str
+    sha256: str
+
+
+ConsentCallback = Callable[[InstallPreview], bool]
+
+
+def normalize_sha256(value: str) -> str:
+    """Lowercase 64-character hex digest, with an optional 'sha256:' prefix."""
+    digest = value.strip().lower()
+    if digest.startswith("sha256:"):
+        digest = digest[len("sha256:") :]
+    if not _SHA256.match(digest):
+        raise InstallError("the SHA-256 value must be 64 hexadecimal characters")
+    return digest
+
+
+def install_extension(
+    source: str,
+    target_root: Path,
+    *,
+    expected_sha256: str | None = None,
+    confirm: ConsentCallback | None = None,
+) -> InstalledExtension:
+    expected = normalize_sha256(expected_sha256) if expected_sha256 else None
+    is_remote = "://" in source
+    if is_remote and urlsplit(source).scheme != "https":
+        raise InstallError("remote archives must use an https:// URL")
+    if is_remote and confirm is None:
+        raise InstallError("a remote install needs the operator's consent; none was given")
+
     target_root.mkdir(parents=True, exist_ok=True)
     staging = target_root / f".staging-{uuid.uuid4().hex}"
     staging.mkdir()
     try:
-        archive = _resolve_archive(source, staging)
+        archive, digest = _resolve_archive(source, staging)
+        if expected is not None and digest != expected:
+            raise InstallError(
+                f"SHA-256 mismatch: expected {expected}, the archive hashes to {digest}. "
+                "Nothing was installed."
+            )
         unpacked = staging / "unpacked"
         unpacked.mkdir()
         _extract(archive, unpacked)
@@ -64,6 +115,17 @@ def install_extension(source: str, target_root: Path) -> InstalledExtension:
         destination = target_root / name
         if destination.exists():
             raise InstallError(f"extension {name!r} is already installed at {destination}")
+        if is_remote and confirm is not None:
+            preview = InstallPreview(
+                name=name,
+                author=metadata.author,
+                version=metadata.version,
+                description=metadata.description,
+                source=source,
+                sha256=digest,
+            )
+            if not confirm(preview):
+                raise InstallError("installation cancelled by the operator")
         _move_into_place(source_dir, destination)
         return InstalledExtension(name=name, path=destination, metadata=metadata)
     finally:
@@ -81,7 +143,8 @@ def fetch_remote_archive(url: str) -> bytes:
         raise InstallError(f"download failed: {exc}") from exc
 
 
-def _resolve_archive(source: str, staging: Path) -> Path:
+def _resolve_archive(source: str, staging: Path) -> tuple[Path, str]:
+    """The archive on disk and its SHA-256 hex digest."""
     if "://" in source:
         if urlsplit(source).scheme != "https":
             raise InstallError("remote archives must use an https:// URL")
@@ -91,7 +154,7 @@ def _resolve_archive(source: str, staging: Path) -> Path:
             raise InstallError(f"archive is larger than {MAX_ARCHIVE_BYTES} bytes")
         archive = staging / "download.tgz"
         archive.write_bytes(data)
-        return archive
+        return archive, hashlib.sha256(data).hexdigest()
 
     path = Path(source).expanduser()
     _require_tgz_name(path.name)
@@ -99,7 +162,15 @@ def _resolve_archive(source: str, staging: Path) -> Path:
         raise InstallError(f"no such archive: {source}")
     if path.stat().st_size > MAX_ARCHIVE_BYTES:
         raise InstallError(f"archive is larger than {MAX_ARCHIVE_BYTES} bytes")
-    return path
+    return path, _file_sha256(path)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 16), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _require_tgz_name(name: str) -> None:

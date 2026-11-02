@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Security
 
+- `agent-aidf` `kob -x` (#68): a remote (`https://`) extension installs only after the operator approves a summary (name, author, version, source, SHA-256) with `[y/N]`, or with `--yes`. Without a terminal, a remote install fails unless `--yes` is given. `--sha256 <hash>` pins the archive digest for remote and local sources and is checked before extraction
 - `agent-aidf` extensions can no longer preempt built-in commands (#78): built-in subcommands are never offered to extension handlers, top-level extension handlers run only when no subcommand is given, and an extension subcommand that reuses a built-in or already-claimed name is refused with a warning
 - `agent-aidf` `kob audit` credential scan (#79) recognizes OpenAI project keys, GitHub tokens (`ghp_`, `github_pat_`), Slack tokens (`xox[bap]-`) and Stripe live keys. Files over 1 MB are named in the check detail as not scanned
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import io
+import sys
 import tarfile
 from pathlib import Path
 
@@ -48,6 +50,10 @@ def archives(tmp_path: Path) -> Path:
     directory = tmp_path / "archives"
     directory.mkdir()
     return directory
+
+
+def _approve(preview) -> bool:
+    return True
 
 
 def _leftovers(target: Path) -> list[str]:
@@ -229,7 +235,7 @@ def test_installs_from_https_url_using_fetched_bytes(archives, target, monkeypat
 
     monkeypatch.setattr(installer, "fetch_remote_archive", fake_fetch)
 
-    installed = install_extension("https://example.org/demo.tgz", target)
+    installed = install_extension("https://example.org/demo.tgz", target, confirm=_approve)
 
     assert requested == ["https://example.org/demo.tgz"]
     assert installed.path == target / "demo-pack"
@@ -240,7 +246,7 @@ def test_remote_archive_over_the_size_limit_is_rejected(target, monkeypatch) -> 
     monkeypatch.setattr(installer, "fetch_remote_archive", lambda url: b"x" * 64)
 
     with pytest.raises(InstallError, match="larger than"):
-        install_extension("https://example.org/huge.tgz", target)
+        install_extension("https://example.org/huge.tgz", target, confirm=_approve)
 
 
 def test_fetch_rejects_redirect_to_http(monkeypatch) -> None:
@@ -284,3 +290,206 @@ def test_cli_flag_reports_failure_without_touching_the_environment(
 
     assert "could not install extension" in capsys.readouterr().err
     assert _leftovers(target) == []
+
+
+# ---------------------------------------------------------------- SHA-256 and consent (#68)
+
+DEMO_URL = "https://example.org/demo.tgz"
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _serve(monkeypatch, path: Path, calls: list[str] | None = None) -> None:
+    def fake_fetch(url: str) -> bytes:
+        if calls is not None:
+            calls.append(url)
+        return path.read_bytes()
+
+    monkeypatch.setattr(installer, "fetch_remote_archive", fake_fetch)
+
+
+class _FakeStdin(io.StringIO):
+    def __init__(self, text: str, tty: bool) -> None:
+        super().__init__(text)
+        self._tty = tty
+
+    def isatty(self) -> bool:
+        return self._tty
+
+
+def _as_terminal(monkeypatch, answer: str = "") -> None:
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(answer + "\n", tty=True))
+    monkeypatch.setattr(sys, "stdout", _FakeStdin("", tty=True))
+
+
+def _as_pipe(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "stdin", _FakeStdin("", tty=False))
+
+
+def test_local_install_with_matching_sha256_succeeds(archives, target) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+
+    installed = install_extension(str(tgz), target, expected_sha256=_sha(tgz))
+
+    assert installed.path == target / "demo-pack"
+
+
+@pytest.mark.parametrize("form", ["upper", "prefixed"])
+def test_sha256_accepts_uppercase_and_prefixed_forms(archives, target, form: str) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    digest = _sha(tgz)
+    value = digest.upper() if form == "upper" else f"sha256:{digest}"
+
+    assert install_extension(str(tgz), target, expected_sha256=value).name == "demo-pack"
+
+
+def test_local_install_with_wrong_sha256_is_refused(archives, target) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+
+    with pytest.raises(InstallError, match="SHA-256 mismatch"):
+        install_extension(str(tgz), target, expected_sha256="0" * 64)
+
+    assert _leftovers(target) == []
+
+
+def test_malformed_sha256_is_rejected_before_anything_is_read(archives, target) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+
+    with pytest.raises(InstallError, match="64 hexadecimal"):
+        install_extension(str(tgz), target, expected_sha256="abc123")
+
+
+def test_remote_install_with_matching_hash_and_consent_shows_the_preview(
+    archives, target, monkeypatch
+) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    previews = []
+
+    def approve(preview) -> bool:
+        previews.append(preview)
+        return True
+
+    installed = install_extension(DEMO_URL, target, expected_sha256=_sha(tgz), confirm=approve)
+
+    assert installed.path == target / "demo-pack"
+    [preview] = previews
+    assert preview.name == "demo-pack"
+    assert preview.author == "Tests"
+    assert preview.version == "1.0.0"
+    assert preview.description == "a demo"
+    assert preview.source == DEMO_URL
+    assert preview.sha256 == _sha(tgz)
+
+
+def test_remote_install_with_wrong_hash_is_refused_before_the_operator_is_asked(
+    archives, target, monkeypatch
+) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    asked = []
+
+    with pytest.raises(InstallError, match="SHA-256 mismatch"):
+        install_extension(
+            DEMO_URL,
+            target,
+            expected_sha256="f" * 64,
+            confirm=lambda preview: asked.append(preview) or True,
+        )
+
+    assert asked == []
+    assert _leftovers(target) == []
+
+
+def test_remote_install_without_a_consent_callback_is_refused(
+    archives, target, monkeypatch
+) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    calls: list[str] = []
+    _serve(monkeypatch, tgz, calls)
+
+    with pytest.raises(InstallError, match="needs the operator's consent"):
+        install_extension(DEMO_URL, target)
+
+    assert calls == []
+    assert _leftovers(target) == []
+
+
+def test_remote_install_declined_by_the_operator_writes_nothing(
+    archives, target, monkeypatch
+) -> None:
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+
+    with pytest.raises(InstallError, match="cancelled by the operator"):
+        install_extension(DEMO_URL, target, confirm=lambda preview: False)
+
+    assert _leftovers(target) == []
+
+
+def test_cli_prompt_accepts_y_and_installs(archives, target, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("KOB_EXTENSIONS_DIR", str(target))
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    _as_terminal(monkeypatch, "y")
+
+    assert cli_main._run_cli(["-x", DEMO_URL]) == 0
+
+    out = sys.stdout.getvalue()  # _as_terminal swapped stdout for a fake that records it
+    assert "Autor:      Tests" in out and _sha(tgz) in out
+    assert (target / "demo-pack" / "main.py").is_file()
+
+
+def test_cli_prompt_defaults_to_no(archives, target, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("KOB_EXTENSIONS_DIR", str(target))
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    _as_terminal(monkeypatch, "")
+
+    assert cli_main._run_cli(["-x", DEMO_URL]) == 1
+
+    assert "cancelled by the operator" in capsys.readouterr().err
+    assert _leftovers(target) == []
+
+
+def test_cli_non_interactive_remote_install_fails_safely_without_yes(
+    archives, target, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("KOB_EXTENSIONS_DIR", str(target))
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    _as_pipe(monkeypatch)
+
+    assert cli_main._run_cli(["-x", DEMO_URL]) == 1
+
+    assert "--yes" in capsys.readouterr().err
+    assert _leftovers(target) == []
+
+
+def test_cli_yes_flag_installs_without_a_terminal(archives, target, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("KOB_EXTENSIONS_DIR", str(target))
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+    _serve(monkeypatch, tgz)
+    _as_pipe(monkeypatch)
+
+    assert cli_main._run_cli(["-x", DEMO_URL, "--yes"]) == 0
+
+    assert (target / "demo-pack" / "main.py").is_file()
+    assert "approving without a prompt" in capsys.readouterr().out
+
+
+def test_cli_sha256_flag_pins_a_local_archive(archives, target, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("KOB_EXTENSIONS_DIR", str(target))
+    tgz = make_tgz(archives / "demo.tgz", {"demo-pack/main.py": VALID_MAIN.encode()})
+
+    assert cli_main._run_cli(["-x", str(tgz), "--sha256", "0" * 64]) == 1
+
+    assert "SHA-256 mismatch" in capsys.readouterr().err
+    assert _leftovers(target) == []
+
+
+def test_cli_rejects_sha256_or_yes_without_a_source(monkeypatch, capsys) -> None:
+    assert cli_main._run_cli(["--yes"]) == 2
+    assert "apply only with -x" in capsys.readouterr().err
