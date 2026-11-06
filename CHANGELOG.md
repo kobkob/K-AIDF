@@ -6,15 +6,19 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-06
+
+Security hardening release. Consolidates PRs #85 and #86, which close #67, #68, #78 and #79.
+
 ### Security
 
-- `agent-aidf` `kob -x` (#68): a remote (`https://`) extension installs only after the operator approves a summary (name, author, version, source, SHA-256) with `[y/N]`, or with `--yes`. Without a terminal, a remote install fails unless `--yes` is given. `--sha256 <hash>` pins the archive digest for remote and local sources and is checked before extraction
-- `agent-aidf` extensions can no longer preempt built-in commands (#78): built-in subcommands are never offered to extension handlers, top-level extension handlers run only when no subcommand is given, and an extension subcommand that reuses a built-in or already-claimed name is refused with a warning
-- `agent-aidf` `kob audit` credential scan (#79) recognizes OpenAI project keys, GitHub tokens (`ghp_`, `github_pat_`), Slack tokens (`xox[bap]-`) and Stripe live keys. Files over 1 MB are named in the check detail as not scanned
+- `agent-aidf` `kob -x` (#68, PR #86): a remote (`https://`) extension installs only after the operator approves a summary (name, author, version, source, SHA-256) with `[y/N]`, or with `--yes`. Without a terminal, a remote install fails unless `--yes` is given. `--sha256 <hash>` pins the archive digest for remote and local sources and is checked before extraction
+- `agent-aidf` extensions can no longer preempt built-in commands (#78, PR #85): built-in subcommands are never offered to extension handlers, top-level extension handlers run only when no subcommand is given, and an extension subcommand that reuses a built-in or already-claimed name is refused with a warning
+- `agent-aidf` `kob audit` credential scan (#79, PR #85) recognizes OpenAI project keys, GitHub tokens (`ghp_`, `github_pat_`), Slack tokens (`xox[bap]-`) and Stripe live keys. Files over 1 MB are named in the check detail as not scanned
 
 ### Fixed
 
-- `agent-aidf` `Words` extension (#67) answers only when the whole prompt is a presentation question or greeting, with an optional short greeting before and closing word after. A phrase inside a request, such as `traduza 'how are you'`, now reaches the model
+- `agent-aidf` `Words` extension (#67, PR #85) answers only when the whole prompt is a presentation question or greeting, with an optional short greeting before and closing word after. A phrase inside a request, such as `traduza 'how are you'`, now reaches the model
 
 ## [0.6.0] - 2026-10-30
 

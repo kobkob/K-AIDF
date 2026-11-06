@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-06
+
+### Security
+
+- remote extension installs (`kob -x https://...`) require operator consent: a summary (name, author, version, source, SHA-256) and `[y/N]`, or `--yes`. Without a terminal, a remote install fails unless `--yes` is given. `--sha256 <hash>` pins the archive digest for remote and local sources and is checked before extraction (#68, PR #86)
+- extensions can no longer preempt built-in commands: built-in subcommands are never offered to extension handlers, top-level extension handlers run only when no subcommand is given, and an extension subcommand that reuses a built-in or already-claimed name is refused with a warning (#78, PR #85)
+- `kob audit` credential scan recognizes OpenAI project keys, GitHub tokens (`ghp_`, `github_pat_`), Slack tokens (`xox[bap]-`) and Stripe live keys. Files over 1 MB are named in the check detail as not scanned (#79, PR #85)
+
+### Fixed
+
+- `Words` extension answers only when the whole prompt is a presentation question or greeting, with an optional short greeting before and closing word after. A phrase inside a request now reaches the model (#67, PR #85)
+
 ## [0.6.0] - 2026-10-30
 
 - general availability. No package-level entries were added after `0.5.7`; the workspace `CHANGELOG.md` lists the release as a whole
