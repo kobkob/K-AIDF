@@ -2,13 +2,8 @@
 
 **Points:** 20 (the checks below add up to 20)
 
-The methodology lives in versioned, validated artifacts: the .kaidf/ scaffold, the mentor workflow state, the YAML specs and the phase deliverables.
+<!-- audit_matrix:summary methodology-as-code -->
 
-| Check | Criterion | Points | Evidence required |
-| --- | --- | --- | --- |
-| `kaidf-scaffold` | .kaidf/ matches the generator scaffold | 6 | Directory tree of .kaidf/ compared with the generated scaffold of the same spec version. |
-| `mentor-state-valid` | mentor-workflow.json is valid and current | 5 | .kaidf/mentor-workflow.json parses as JSON and its phase references exist. |
-| `specs-validate` | All YAML specs pass kaidf-gen validate | 5 | Output of kaidf-gen validate for every spec in the repository. |
-| `phase-artifacts-filled` | Phase deliverables are filled in, not left as scaffold | 4 | Deliverable files under docs/0N_*/ differ from the blank generator templates. |
+<!-- audit_matrix:checks methodology-as-code -->
 
-Score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv`. Record the evidence location in `auditor_notes`.
+`kob audit` scores these checks; the summary and the table above are rendered from the `audit_matrix` block of the spec that generated this repository. For a manual review, score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv` and record the evidence location in `auditor_notes`.

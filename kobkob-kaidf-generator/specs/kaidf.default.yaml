@@ -578,7 +578,7 @@ sections:
   - path: "docs/30-kaidf-amm"
     files:
       - path: "audit-matrix.csv"
-        content: "library:docs/30-kaidf-amm/audit-matrix.csv"
+        content: "audit_matrix:csv"
       - path: "README.md"
         content: "library:docs/30-kaidf-amm/README.md"
         front_matter:
@@ -655,99 +655,102 @@ sections:
       - path: "skills.yaml"
         content: "library:data/manifests/skills.yaml"
 
-# KAIDF-AMM 5-dimension audit matrix (v1.0). Declarative: validate_spec checks that each
-# dimension's checks add up to its max_points and that the dimensions add up to total_points.
-# The matrix documents are generated from the section above; scoring is done by the auditor.
+# KAIDF-AMM 5-dimension audit matrix (v1.0). This block mirrors the `kob audit` engine
+# (agent-aidf, audit.py DIMENSION_SPECS): same dimension ids, names and points, same check ids,
+# titles and points, in the same order. The engine is what scores a repository; in v1.0 it checks
+# the presence and parseability of the listed artifacts, not their substance, and each check's
+# `evidence` describes what the engine verifies. A cross-component test in agent-aidf
+# (tests/test_audit_matrix_contract.py) fails when either side changes an id or a point.
+# validate_spec checks that each dimension's checks add up to its max_points and that the
+# dimensions add up to total_points. docs/30-kaidf-amm/audit-matrix.csv (`audit_matrix:csv`) and
+# the summary and check table of each dimension page (`<!-- audit_matrix:summary <id> -->`,
+# `<!-- audit_matrix:checks <id> -->`) are rendered from this block, so they cannot drift from it.
 audit_matrix:
   version: "1.0"
   total_points: 100
   dimensions:
     - id: "data-sovereignty"
       name: "Data Sovereignty & Perimeter"
-      summary: "Personal data stays out of versioned content, no cloud credentials are committed, and the default execution path runs locally."
+      summary: "No credentials or environment files are tracked, and the masking rules for personal data are declared."
       max_points: 20
       checks:
-        - id: "pii-isolation"
-          title: "Personal data is kept out of versioned content"
-          points: 8
-          evidence: "Scan of committed docs and data files for personal identifiers; findings listed with file paths."
-        - id: "no-cloud-keys-in-git"
-          title: "No cloud API keys or credentials are committed"
-          points: 6
-          evidence: "Secret scan of the full history of the default branch; any hit fails the check."
-        - id: "local-execution"
-          title: "The default execution path runs entirely locally"
-          points: 6
-          evidence: "Configuration of the default model provider and endpoints; no outbound calls on the default path."
+        - id: "no-credentials"
+          title: "No API keys, secrets or .env files in tracked files"
+          points: 10
+          evidence: "Scan of tracked files for tracked .env files (other than .env.example and .env.sample) and credential patterns; files over 1 MB are listed as not scanned."
+        - id: "pii-masking-rules"
+          title: "PII masking rules defined"
+          points: 10
+          evidence: ".kaidf/policy/pii-masking-rules.yaml exists and parses as a non-empty YAML mapping."
     - id: "methodology-as-code"
       name: "Methodology-as-Code"
-      summary: "The methodology lives in versioned, validated artifacts: the .kaidf/ scaffold, the mentor workflow state, the YAML specs and the phase deliverables."
+      summary: "The methodology lives in versioned, parseable artifacts: the `.kaidf/` scaffold, the mentor workflow state, the YAML specs, Front Matter v2 on every Markdown document and the skills manifest."
       max_points: 20
       checks:
         - id: "kaidf-scaffold"
-          title: ".kaidf/ matches the generator scaffold"
-          points: 6
-          evidence: "Directory tree of .kaidf/ compared with the generated scaffold of the same spec version."
-        - id: "mentor-state-valid"
-          title: "mentor-workflow.json is valid and current"
-          points: 5
-          evidence: ".kaidf/mentor-workflow.json parses as JSON and its phase references exist."
-        - id: "specs-validate"
-          title: "All YAML specs pass kaidf-gen validate"
-          points: 5
-          evidence: "Output of kaidf-gen validate for every spec in the repository."
-        - id: "phase-artifacts-filled"
-          title: "Phase deliverables are filled in, not left as scaffold"
+          title: ".kaidf/ scaffold is present"
           points: 4
-          evidence: "Deliverable files under docs/0N_*/ differ from the blank generator templates."
+          evidence: ".kaidf/ contains README.md and a docs/ directory."
+        - id: "mentor-state"
+          title: "mentor-workflow.json is valid"
+          points: 4
+          evidence: ".kaidf/mentor-workflow.json parses as a JSON object."
+        - id: "specs-parse"
+          title: "YAML specs parse"
+          points: 4
+          evidence: "Every specs/*.yaml and specs/*.yml file parses as a non-empty YAML mapping; partial credit per spec."
+        - id: "front-matter-v2"
+          title: "Markdown documents carry Front Matter v2"
+          points: 4
+          evidence: "Every Markdown document (outside .git, .venv, node_modules, __pycache__ and out*/) has id, title, document_class, phase, visibility and status in its front matter; partial credit per document."
+        - id: "skills-manifest"
+          title: "skills.yaml registers valid skills"
+          points: 4
+          evidence: "data/manifests/skills.yaml has a version and a non-empty skills list; each skill has a unique id, a command and a permissions mapping."
     - id: "regulatory-compliance"
       name: "Regulatory Compliance"
-      summary: "Obligations from LGPD, GDPR, the NIST AI RMF and the EU AI Act are mapped to controls and evidence in the ethical model pack."
+      summary: "The governance artifacts of the ethical model are present: risk assessment, explicability schema, human-in-the-loop configuration and dataset audit manifest. Presence is what v1.0 scores; mapping obligations (LGPD/GDPR, NIST AI RMF, EU AI Act) to controls is planned for v1.1 and is not legal advice either way."
       max_points: 20
       checks:
-        - id: "lgpd-gdpr-mapping"
-          title: "LGPD and GDPR obligations are mapped to controls"
-          points: 7
-          evidence: "Mapping table in docs/20-ethical-model/ linking each obligation to a control and an evidence file."
-        - id: "nist-ai-rmf-mapping"
-          title: "NIST AI RMF functions are mapped to controls"
-          points: 7
-          evidence: "Mapping table linking Govern, Map, Measure and Manage to controls and evidence files."
-        - id: "eu-ai-act-mapping"
-          title: "EU AI Act obligations are mapped to controls"
-          points: 6
-          evidence: "Mapping table with the risk class of the system and the controls applied to it."
+        - id: "risk-assessment"
+          title: "Risk assessment artifact"
+          points: 5
+          evidence: "docs/20-ethical-model/risk-assessment.json exists and is not empty."
+        - id: "explicability-schema"
+          title: "Explicability schema artifact"
+          points: 5
+          evidence: "docs/20-ethical-model/explicability-schema.json exists and is not empty."
+        - id: "hitl-config"
+          title: "Human-in-the-loop configuration"
+          points: 5
+          evidence: ".kaidf/policy/hitl-config.yaml exists and is not empty."
+        - id: "dataset-audit"
+          title: "Dataset audit manifest"
+          points: 5
+          evidence: "data/manifests/dataset-audit.yaml exists and is not empty."
     - id: "deterministic-guardrails"
       name: "Deterministic Guardrails"
-      summary: "Checks run automatically and block merges: CI gates, pre-commit hooks and security gates that do not depend on a person remembering to run them."
+      summary: "CI workflows exist and no step is allowed to fail silently, so a failing gate does not depend on a person remembering to look."
       max_points: 20
       checks:
-        - id: "ci-blocking-gates"
-          title: "CI gates for tests and lint block merges"
-          points: 7
-          evidence: "Workflow files in .github/workflows/ with lint and test steps not marked continue-on-error."
-        - id: "pre-commit-hooks"
-          title: "Pre-commit hooks run formatting and secret checks"
-          points: 5
-          evidence: "Hook configuration in the repository and proof that it is installed in the developer setup."
-        - id: "security-gates"
-          title: "Security gates run in CI and block on findings"
-          points: 8
-          evidence: "Dependency pinning and secret scanning enabled in CI, with the gate set to fail the build."
+        - id: "ci-workflows"
+          title: "CI workflows present"
+          points: 10
+          evidence: "At least one *.yml or *.yaml file under .github/workflows/."
+        - id: "blocking-gates"
+          title: "CI gates cannot fail silently"
+          points: 10
+          evidence: "No workflow file under .github/workflows/ sets continue-on-error: true; fails when there are no workflows."
     - id: "cost-infrastructure-health"
       name: "Cost & Infrastructure Health"
-      summary: "Consumption is bounded: hard token caps, request timeouts, and a documented local fallback when the remote model is unavailable."
+      summary: "Consumption is bounded in `.kaidf/policy/budget.yaml`: a token cap, a request timeout and a local fallback for when the remote model is unavailable."
       max_points: 20
       checks:
-        - id: "token-hard-caps"
-          title: "Hard caps on tokens per request are configured"
-          points: 8
-          evidence: "Configured maximum output and context sizes for each provider, enforced in code."
-        - id: "request-timeouts"
-          title: "Network calls to models have timeouts"
-          points: 6
-          evidence: "Timeout values for every outbound model request, set in code or configuration."
+        - id: "budget-caps"
+          title: "Token cap and request timeout configured"
+          points: 10
+          evidence: ".kaidf/policy/budget.yaml has a positive integer max_tokens and a positive request_timeout_seconds."
         - id: "local-fallback"
-          title: "A local fallback is documented and tested"
-          points: 6
-          evidence: "Documented fallback to the local model and a test that exercises the switch."
+          title: "Local fallback configured"
+          points: 10
+          evidence: ".kaidf/policy/budget.yaml sets local_fallback: true."

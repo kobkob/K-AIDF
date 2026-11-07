@@ -84,6 +84,7 @@
             "required": [
               "id",
               "name",
+              "summary",
               "max_points",
               "checks"
             ],
@@ -97,7 +98,8 @@
                 "type": "string"
               },
               "summary": {
-                "type": "string"
+                "type": "string",
+                "description": "Narrative paragraph of the dimension, rendered as written where a template has `<!-- audit_matrix:summary <dimension-id> -->`."
               },
               "max_points": {
                 "const": 20
@@ -150,7 +152,7 @@
         },
         "content": {
           "type": "string",
-          "description": "Use `library:<key>` to pull from bundled template library."
+          "description": "Use `library:<key>` to pull from bundled template library, or `audit_matrix:csv` to render the audit matrix CSV from the spec's audit_matrix block."
         },
         "inline": {
           "type": [

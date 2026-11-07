@@ -2,12 +2,8 @@
 
 **Points:** 20 (the checks below add up to 20)
 
-Consumption is bounded: hard token caps, request timeouts, and a documented local fallback when the remote model is unavailable.
+<!-- audit_matrix:summary cost-infrastructure-health -->
 
-| Check | Criterion | Points | Evidence required |
-| --- | --- | --- | --- |
-| `token-hard-caps` | Hard caps on tokens per request are configured | 8 | Configured maximum output and context sizes for each provider, enforced in code. |
-| `request-timeouts` | Network calls to models have timeouts | 6 | Timeout values for every outbound model request, set in code or configuration. |
-| `local-fallback` | A local fallback is documented and tested | 6 | Documented fallback to the local model and a test that exercises the switch. |
+<!-- audit_matrix:checks cost-infrastructure-health -->
 
-Score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv`. Record the evidence location in `auditor_notes`.
+`kob audit` scores these checks; the summary and the table above are rendered from the `audit_matrix` block of the spec that generated this repository. For a manual review, score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv` and record the evidence location in `auditor_notes`.

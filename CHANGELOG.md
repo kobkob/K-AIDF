@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Added
+
+- `agent-aidf`: `tests/test_audit_matrix_contract.py` loads the generator's `specs/kaidf.default.yaml` and asserts its `audit_matrix` block equals `audit.py` `DIMENSION_SPECS` exactly (dimension ids, names and points; check ids, titles and points, in order), skipping with a reason when the sibling checkout is missing; the `agent-aidf` CI workflow now also runs on changes to that spec
+
+### Changed
+
+- `kobkob-kaidf-generator`: the `audit_matrix` block of `specs/kaidf.default.yaml` mirrors the `kob audit` engine exactly: the same five dimensions and the engine's 15 checks with their ids, titles and points, each with an `evidence` line describing what the engine verifies. The previous 16-check declarative matrix shared the KAIDF-AMM v1.0 name with the engine but was never scored by any tool; its dropped checks (regulatory mappings, pre-commit hooks, security gates, filled phase deliverables, request timeouts) are listed as planned for v1.1 in the generated `docs/30-kaidf-amm/README.md`
+- `kobkob-kaidf-generator`: `docs/30-kaidf-amm/audit-matrix.csv` and the summaries and check tables of the dimension pages are rendered from the `audit_matrix` block (`content: "audit_matrix:csv"`, `<!-- audit_matrix:summary <dimension-id> -->` and `<!-- audit_matrix:checks <dimension-id> -->` markers) instead of being static templates, so they cannot drift from it. The generated README, dimension pages and report template say that v1.0 scores the presence and parseability of the listed artifacts, not their substance
+
 ## [0.6.1] - 2026-11-06
 
 Security hardening release. Consolidates PRs #85 and #86, which close #67, #68, #78 and #79.

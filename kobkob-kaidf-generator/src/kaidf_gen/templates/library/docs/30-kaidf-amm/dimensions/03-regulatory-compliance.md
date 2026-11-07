@@ -2,12 +2,8 @@
 
 **Points:** 20 (the checks below add up to 20)
 
-Obligations from LGPD, GDPR, the NIST AI RMF and the EU AI Act are mapped to controls and evidence in the ethical model pack.
+<!-- audit_matrix:summary regulatory-compliance -->
 
-| Check | Criterion | Points | Evidence required |
-| --- | --- | --- | --- |
-| `lgpd-gdpr-mapping` | LGPD and GDPR obligations are mapped to controls | 7 | Mapping table in docs/20-ethical-model/ linking each obligation to a control and an evidence file. |
-| `nist-ai-rmf-mapping` | NIST AI RMF functions are mapped to controls | 7 | Mapping table linking Govern, Map, Measure and Manage to controls and evidence files. |
-| `eu-ai-act-mapping` | EU AI Act obligations are mapped to controls | 6 | Mapping table with the risk class of the system and the controls applied to it. |
+<!-- audit_matrix:checks regulatory-compliance -->
 
-Score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv`. Record the evidence location in `auditor_notes`.
+`kob audit` scores these checks; the summary and the table above are rendered from the `audit_matrix` block of the spec that generated this repository. For a manual review, score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv` and record the evidence location in `auditor_notes`.

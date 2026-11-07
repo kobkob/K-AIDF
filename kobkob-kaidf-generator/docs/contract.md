@@ -322,6 +322,36 @@ Recommended ethical-model fields:
   - `privacy-and-security`
   - `social-impact`
 
+## KAIDF-AMM Audit Matrix Pack
+
+The default spec also ships the KAIDF-AMM audit matrix pack under:
+
+- `docs/30-kaidf-amm/`
+
+Layout:
+
+- `docs/30-kaidf-amm/README.md`
+- `docs/30-kaidf-amm/audit-matrix.csv`
+- `docs/30-kaidf-amm/dimensions/01-data-sovereignty.md`
+- `docs/30-kaidf-amm/dimensions/02-methodology-as-code.md`
+- `docs/30-kaidf-amm/dimensions/03-regulatory-compliance.md`
+- `docs/30-kaidf-amm/dimensions/04-deterministic-guardrails.md`
+- `docs/30-kaidf-amm/dimensions/05-cost-infrastructure-health.md`
+- `docs/30-kaidf-amm/templates/audit-report.md`
+
+Pack rules:
+
+- the matrix has one definition: the `audit_matrix` block of the spec (`version: "1.0"`, five dimensions of 20 points, 100 in total). It mirrors the `kob audit` engine in `agent-aidf` (`audit.py`, `DIMENSION_SPECS`): the same dimension ids, names and points and the same check ids, titles and points, in the same order. The engine is the source of truth, because it is what measures a repository
+- `agent-aidf/tests/test_audit_matrix_contract.py` loads the spec from the sibling checkout and fails when either side changes an id, a name, a title or a point; the `agent-aidf` CI workflow runs on changes to that spec as well as to `agent-aidf/**`
+- `audit-matrix.csv` and the summary and check table of each dimension page are rendered from the block by the generator (`content: "audit_matrix:csv"`, `<!-- audit_matrix:summary <dimension-id> -->` and `<!-- audit_matrix:checks <dimension-id> -->` markers), never kept as static copies
+- in v1.0 the engine scores the presence and parseability of the listed artifacts, not their substance, and the `evidence` of each check describes exactly what it verifies. The matrix does not certify compliance
+- `mcp-aidf` indexes the pack like any other `docs/` content; `agent-aidf` reads the engine, not the generated documents, when it scores
+
+Recommended pack field:
+
+- `pack`
+  Example: `kaidf-amm`
+
 ## Stable ID Rules
 
 Until explicit front matter IDs are introduced, the stable ID for a document is its repository-relative path.
