@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Fixed
+
+- `mcp-aidf`: spec-compliant handshake over the MCP Streamable HTTP transport. JSON-RPC notifications such as `notifications/initialized`, and JSON-RPC responses sent by the client, are acknowledged with HTTP `202` and an empty body instead of a `-32601` error, `ping` returns an empty result, `initialize` negotiates `2024-11-05`, `2025-03-26` and `2025-06-18` (the newest on an unknown request), and an unsupported `MCP-Protocol-Version` header is refused with HTTP `400`. The official MCP SDK clients, which failed right after `initialize`, now complete the handshake; an integration test drives the official `mcp` Python SDK client against the server (see `mcp-aidf`'s own changelog)
+
 ## [0.6.1] - 2026-11-06
 
 Security hardening release. Consolidates PRs #85 and #86, which close #67, #68, #78 and #79.
