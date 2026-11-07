@@ -1,0 +1,13 @@
+# Cost and infrastructure budget for model calls.
+#
+# PLACEHOLDER. `kob audit` (dimension 5, Cost & Infrastructure Health, checks budget-caps and
+# local-fallback) scores this file 0 while `placeholder: true` is set. Review each value, set
+# `local_fallback` to true once a local model takes over when the remote provider is unavailable
+# and that switch has been tested, then remove the `placeholder` key.
+placeholder: true
+# Hard cap on tokens per request (output plus context). A positive integer.
+max_tokens: 4096
+# Timeout for every outbound model request, in seconds. A positive number.
+request_timeout_seconds: 60
+# true only when the fallback to a local model is configured and tested.
+local_fallback: false

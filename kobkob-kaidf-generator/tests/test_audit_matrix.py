@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import csv
+import json
 import re
 from pathlib import Path
 
@@ -328,3 +329,37 @@ def test_generated_scaffold_registers_the_kaidf_audit_skill(tmp_path: Path) -> N
     assert skills["kaidf-audit"]["command"] == "kob audit"
     assert skills["kaidf-audit"]["permissions"]["writes"] == "none"
     assert skills["kaidf-audit"]["permissions"]["network"] == "none"
+
+
+# The artifacts the static audit (`kob audit`) reads, relative to the generated root. They ship
+# as placeholders: a mapping with `placeholder: true`, which the audit scores 0 until filled in.
+AUDIT_PLACEHOLDERS = (
+    "policy/pii-masking-rules.yaml",
+    "policy/hitl-config.yaml",
+    "policy/budget.yaml",
+    "docs/20-ethical-model/risk-assessment.json",
+    "docs/20-ethical-model/explicability-schema.json",
+    "data/manifests/dataset-audit.yaml",
+)
+
+
+def test_generated_scaffold_ships_the_audit_artifacts_as_marked_placeholders(
+    tmp_path: Path,
+) -> None:
+    import yaml
+
+    target = generate(
+        load_yaml("specs/kaidf.default.yaml"), tmp_path / "out", GenerateOptions(force=False)
+    )
+
+    for relative in AUDIT_PLACEHOLDERS:
+        path = target / relative
+        text = path.read_text(encoding="utf-8")
+        data = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
+        assert isinstance(data, dict) and data["placeholder"] is True, relative
+        # Non-Markdown files get no front matter, so the audit can parse them as they are.
+        assert not text.startswith("---\n"), relative
+    budget = yaml.safe_load((target / "policy/budget.yaml").read_text(encoding="utf-8"))
+    assert budget["max_tokens"] > 0
+    assert budget["request_timeout_seconds"] > 0
+    assert budget["local_fallback"] is False

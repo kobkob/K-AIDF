@@ -6,8 +6,15 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Fixed
+
+- `agent-aidf` `kob audit` scores the layouts `kob init` and the generator actually produce: the scaffold is `<root>/.kaidf/` when it exists, else the audited root itself, and scaffold-owned artifacts (`README.md` and `docs/`, `mentor-workflow.json`, `policy/*.yaml`, `specs/*.yaml`, `docs/20-ethical-model/*.json`, `data/manifests/*.yaml`) are looked up there first and then at the root, while the credential scan and CI checks stay on the root. Before, a fresh `kob init` project could not reach 100 and a standalone generated repository could not earn 43 points. Details and remediations name the path that was checked, and the report and JSON output state the scaffold path. In a repository audited without `.kaidf/` the `mentor-state` remediation no longer asks to run `kob mentor`, which only runs inside a project (related: #16)
+
 ### Added
 
+- `agent-aidf` placeholder rule in `kob audit`: a YAML or JSON artifact whose top-level key `placeholder` is `true` scores 0 with a "fill in" remediation instead of a "create" one; `kob init` records the spec it used as `.kaidf/specs/kaidf.yaml`
+- `kobkob-kaidf-generator` default scaffold ships `policy/pii-masking-rules.yaml`, `policy/hitl-config.yaml`, `policy/budget.yaml`, `docs/20-ethical-model/risk-assessment.json`, `docs/20-ethical-model/explicability-schema.json` and `data/manifests/dataset-audit.yaml` as marked placeholders with guidance, so every `kob audit` check is reachable from a generated repository; `docs/contract.md` and the `docs/30-kaidf-amm/` pages describe the layout and placeholder rules (related: #16)
+- `mcp-aidf` `evaluate_repository_maturity` reports `scaffold_path`, where the engine looked for the scaffold-owned artifacts (`<repo_root>/.kaidf` in a `kob init` project, `repo_root` itself for a generated repository audited directly), since every remediation path in the backlog depends on it (related: #16)
 - `agent-aidf`: `tests/test_audit_matrix_contract.py` loads the generator's `specs/kaidf.default.yaml` and asserts its `audit_matrix` block equals `audit.py` `DIMENSION_SPECS` exactly (dimension ids, names and points; check ids, titles and points, in order), skipping with a reason when the sibling checkout is missing; the `agent-aidf` CI workflow now also runs on changes to that spec
 
 ### Changed

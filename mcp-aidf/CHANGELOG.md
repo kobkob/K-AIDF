@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `evaluate_repository_maturity` reports `scaffold_path`: where the audit engine looked for the scaffold-owned artifacts (`<repo_root>/.kaidf` in a `kob init` project, `repo_root` itself for a generated repository audited directly). Every remediation path in the backlog depends on that layout. It is `null` with an engine that does not report it (related: #16)
+
 ## [0.6.0] - 2026-10-30
 
 ### Added

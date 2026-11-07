@@ -139,6 +139,10 @@ def evaluate_repository(repo_root: Path, requested: str | None = None) -> dict[s
 
     return {
         "repo_root": result.repo_path,
+        # Where the scaffold-owned checks looked: <repo_root>/.kaidf in a `kob init` project,
+        # repo_root itself for a generated repository audited directly. Every remediation path
+        # depends on it. None with an engine that does not report it.
+        "scaffold_path": getattr(result, "scaffold_path", None),
         "score": result.score,
         "max_score": result.max_score,
         "tier": result.tier,

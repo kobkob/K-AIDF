@@ -1,0 +1,16 @@
+# Dataset audit manifest.
+#
+# PLACEHOLDER. `kob audit` (dimension 3, Regulatory Compliance, check dataset-audit) scores
+# this file 0 while `placeholder: true` is set. List every dataset the system is trained on,
+# retrieves from or evaluates against, with its source, licence, personal-data status and the
+# date and result of its last audit, then remove the `placeholder` key.
+placeholder: true
+version: "1.0"
+# One entry per dataset.
+datasets:
+  - id: ""
+    source: ""
+    license: ""
+    contains_personal_data: false
+    last_audited: ""
+    audit_status: "pending"

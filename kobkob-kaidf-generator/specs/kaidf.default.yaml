@@ -650,10 +650,32 @@ sections:
           status: "active"
           pack: "kaidf-amm"
 
+  # Artifacts the static audit (`kob audit`, KAIDF-AMM) checks. The ethical-model JSON files
+  # go in their own section because the pack's metadata_defaults would give them front matter.
+  # Each of these ships as a placeholder (`placeholder: true`) that the audit scores 0 until it
+  # is filled in; skills.yaml is complete as generated.
+  - path: "docs/20-ethical-model"
+    files:
+      - path: "risk-assessment.json"
+        content: "library:docs/20-ethical-model/risk-assessment.json"
+      - path: "explicability-schema.json"
+        content: "library:docs/20-ethical-model/explicability-schema.json"
+
+  - path: "policy"
+    files:
+      - path: "pii-masking-rules.yaml"
+        content: "library:policy/pii-masking-rules.yaml"
+      - path: "hitl-config.yaml"
+        content: "library:policy/hitl-config.yaml"
+      - path: "budget.yaml"
+        content: "library:policy/budget.yaml"
+
   - path: "data/manifests"
     files:
       - path: "skills.yaml"
         content: "library:data/manifests/skills.yaml"
+      - path: "dataset-audit.yaml"
+        content: "library:data/manifests/dataset-audit.yaml"
 
 # KAIDF-AMM 5-dimension audit matrix (v1.0). This block mirrors the `kob audit` engine
 # (agent-aidf, audit.py DIMENSION_SPECS): same dimension ids, names and points, same check ids,
@@ -690,7 +712,7 @@ audit_matrix:
         - id: "kaidf-scaffold"
           title: ".kaidf/ scaffold is present"
           points: 4
-          evidence: ".kaidf/ contains README.md and a docs/ directory."
+          evidence: ".kaidf/ contains README.md and a docs/ directory; a repository audited directly (no .kaidf/) must have README.md and docs/00-overview/ at its root."
         - id: "mentor-state"
           title: "mentor-workflow.json is valid"
           points: 4
@@ -702,7 +724,7 @@ audit_matrix:
         - id: "front-matter-v2"
           title: "Markdown documents carry Front Matter v2"
           points: 4
-          evidence: "Every Markdown document (outside .git, .venv, node_modules, __pycache__ and out*/) has id, title, document_class, phase, visibility and status in its front matter; partial credit per document."
+          evidence: "Every Markdown document in the scaffold (outside .git, .venv, node_modules, __pycache__ and out*/) has id, title, document_class, phase, visibility and status in its front matter; partial credit per document."
         - id: "skills-manifest"
           title: "skills.yaml registers valid skills"
           points: 4

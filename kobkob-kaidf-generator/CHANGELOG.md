@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- the default scaffold ships the artifacts the static audit (`kob audit`, KAIDF-AMM) checks, as marked placeholders with guidance comments: `policy/pii-masking-rules.yaml`, `policy/hitl-config.yaml`, `policy/budget.yaml` (with `max_tokens`, `request_timeout_seconds` and `local_fallback`), `docs/20-ethical-model/risk-assessment.json`, `docs/20-ethical-model/explicability-schema.json` and `data/manifests/dataset-audit.yaml`. Each is a YAML or JSON mapping with `placeholder: true`, which the audit scores 0 until the content is filled in and the key removed. Non-Markdown files get no front matter, so the audit parses them as generated. `docs/contract.md` and the `docs/30-kaidf-amm/` pages describe where `kob audit` looks (`.kaidf/` in a `kob init` project, the repository root when audited directly) and the placeholder rule (related: #16)
+
 ### Changed
 
 - the `audit_matrix` block of `specs/kaidf.default.yaml` mirrors the `kob audit` engine (`agent-aidf` `audit.py` `DIMENSION_SPECS`) exactly: the same five dimensions and the engine's 15 checks with their ids, titles and points (`no-credentials` 10, `pii-masking-rules` 10, `kaidf-scaffold` 4, `mentor-state` 4, `specs-parse` 4, `front-matter-v2` 4, `skills-manifest` 4, `risk-assessment` 5, `explicability-schema` 5, `hitl-config` 5, `dataset-audit` 5, `ci-workflows` 10, `blocking-gates` 10, `budget-caps` 10, `local-fallback` 10). Each check's `evidence` describes what the engine verifies. The previous 16-check declarative matrix (`pii-isolation`, `lgpd-gdpr-mapping`, `security-gates`, `token-hard-caps`, ...) shared the KAIDF-AMM v1.0 name with the engine but was never scored by any tool; its dropped checks are listed as planned for v1.1 in the generated `docs/30-kaidf-amm/README.md`
