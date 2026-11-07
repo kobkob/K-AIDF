@@ -1,0 +1,117 @@
+name: Release
+
+# One tag vX.Y.Z at the repository root releases the three components
+# (agent-aidf, kobkob-kaidf-generator, mcp-aidf). RELEASING.md has the steps.
+#
+# Every third-party action is pinned to a commit SHA; the trailing comment is
+# the release tag that SHA was resolved from.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-version:
+    name: Verify version and changelogs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The tag without its "v" must equal the version in the three
+      # pyproject.toml files and SERVER_VERSION in mcp-aidf/app.py, and the
+      # four CHANGELOG.md files must have a "## [<version>]" heading.
+      - name: Check the tag against the version sources and changelogs
+        run: bash scripts/check-version.sh "${GITHUB_REF_NAME#v}"
+
+  agent-aidf:
+    name: agent-aidf
+    needs: verify-version
+    uses: ./.github/workflows/agent-aidf-ci.yml
+
+  kobkob-kaidf-generator:
+    name: kobkob-kaidf-generator
+    needs: verify-version
+    uses: ./.github/workflows/kobkob-kaidf-generator-ci.yml
+
+  mcp-aidf:
+    name: mcp-aidf
+    needs: verify-version
+    uses: ./.github/workflows/mcp-aidf-ci.yml
+
+  build:
+    name: Build release assets
+    needs: [agent-aidf, kobkob-kaidf-generator, mcp-aidf]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Install build
+        run: python -m pip install --upgrade pip build
+
+      - name: Build agent-aidf (sdist and wheel)
+        run: python -m build --outdir dist agent-aidf
+
+      - name: Build kobkob-kaidf-generator (sdist and wheel)
+        run: python -m build --outdir dist kobkob-kaidf-generator
+
+      - name: Package mcp-aidf
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          stage="$(mktemp -d)"
+          mkdir -p "${stage}/mcp-aidf-${version}" dist
+          cp mcp-aidf/app.py mcp-aidf/maturity.py mcp-aidf/requirements.txt \
+            mcp-aidf/Dockerfile mcp-aidf/docker-compose.yml mcp-aidf/README.md \
+            mcp-aidf/CHANGELOG.md mcp-aidf/LICENSE "${stage}/mcp-aidf-${version}/"
+          tar -czf "dist/mcp-aidf-${version}.tar.gz" -C "${stage}" "mcp-aidf-${version}"
+
+      - name: List assets
+        run: ls -l dist
+
+      - name: Upload assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist
+
+      - name: Create release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          generate_release_notes: true
+          # Any tag with a "-" in it (v0.7.0-rc1) is published as a prerelease.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*
+
+  # PyPI publishing is deliberately not part of this workflow: no trusted
+  # publisher is registered for agent-aidf or kobkob-kaidf-generator. When one
+  # is (pypi.org -> project -> Publishing -> add a pending publisher for
+  # kobkob/K-AIDF, workflow "release.yml", environment "pypi"), add a job after
+  # "release" with `environment: pypi` and `permissions: { id-token: write }`,
+  # download the "release-assets" artifact, keep only the *.whl and *.tar.gz of
+  # the two packages, and run pypa/gh-action-pypi-publish pinned by SHA.

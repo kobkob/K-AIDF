@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Removed
+
+- the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`
+
+## [0.6.1] - 2026-11-06
+
+### Changed
+
+- version aligned with the workspace release `v0.6.1`: `pyproject.toml` and `SERVER_VERSION` in `app.py` (reported in `serverInfo`) say `0.6.1`. No functional changes; the root `CHANGELOG.md` lists the release as a whole
+
 ## [0.6.0] - 2026-10-30
 
 ### Added

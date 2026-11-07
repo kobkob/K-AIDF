@@ -7,6 +7,8 @@
 .venv/
 /scripts/*.env
 /.env
+# Release assets built by .github/workflows/release.yml or a local `python -m build --outdir dist`
+/dist/
 /kobkob-kaidf-generator/out/
 /kobkob-kaidf-generator/out-ethical/
 /kobkob-kaidf-generator/out-maturity/

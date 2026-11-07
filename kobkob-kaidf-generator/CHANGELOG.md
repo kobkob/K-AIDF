@@ -6,6 +6,20 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Fixed
+
+- `kaidf_gen.__version__` is read from the installed package metadata (`importlib.metadata.version("kobkob-kaidf-generator")`), with `"unknown"` as the fallback when the package is not installed, instead of the hard-coded `"0.1.0"` that had drifted from the released version (#81). The `dev` extra declares `packaging`, which the version test uses to compare the metadata version with `pyproject.toml`
+
+### Removed
+
+- the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`
+
+## [0.6.1] - 2026-11-06
+
+### Changed
+
+- version aligned with the workspace release `v0.6.1`: `pyproject.toml` says `0.6.1`. No functional changes; the root `CHANGELOG.md` lists the release as a whole
+
 ## [0.6.0] - 2026-10-30
 
 ### Added

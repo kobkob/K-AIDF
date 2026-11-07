@@ -1,6 +1,9 @@
 name: kobkob-kaidf-generator CI
 
 on:
+  # Called by .github/workflows/release.yml on tag pushes; the push and
+  # pull_request triggers below are unchanged.
+  workflow_call:
   push:
     branches:
       - main
