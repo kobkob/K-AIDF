@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Fixed
+
+- `kobkob-kaidf-generator`: `kaidf_gen.__version__` is read from the package metadata instead of a hard-coded `0.1.0`; the `dev` extra declares `packaging` for the test that checks it (#81)
+- CLA check (`.github/workflows/cla-check.yml`): `signatures/cla.json` is the object the CLA Assistant reads (`{"signedContributors": []}`) instead of an empty list, which made the action crash on every pull request; the `pull_request_target` activity type is `synchronize` (the previous `synchronized` does not exist, so new pushes never re-ran the check); an `issue_comment` trigger lets contributors sign with the standard comment; the action is `contributor-assistant/github-action` pinned by SHA (v2.6.1) running with explicit `GITHUB_TOKEN` permissions instead of the unset `KOBKOB_CLA_PAT` secret; `eltonaquino` joins the allowlist
+
 ### Added
 
 - `.github/workflows/release.yml`: one release workflow at the repository root, run on `v*` tags. `verify-version` checks the tag against the version in the three `pyproject.toml` files and `SERVER_VERSION` in `mcp-aidf/app.py`, and requires a `## [<version>]` heading in the four changelogs; the three component CI workflows then run through `workflow_call`; `build` makes the `agent-aidf` and `kobkob-kaidf-generator` sdists and wheels and a versioned `mcp-aidf` tarball; `release` publishes them in a GitHub Release with generated notes, as a prerelease for tags that contain a `-` (for example `-rcN`). Every action is pinned by commit SHA. PyPI publishing is left out until a trusted publisher exists
@@ -20,10 +25,6 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 ### Removed
 
 - the nested `agent-aidf/.github/`, `kobkob-kaidf-generator/.github/` and `mcp-aidf/.github/` directories. GitHub Actions only reads the root `.github/workflows/`, so their `release.yml` never ran: tags `v0.5.5`, `v0.5.6`, `v0.6.0-rc1`, `v0.6.0` and `v0.6.1` produced no build, no GitHub Release and no tag-time verification
-
-### Fixed
-
-- `kobkob-kaidf-generator`: `kaidf_gen.__version__` is read from the package metadata instead of a hard-coded `0.1.0`; the `dev` extra declares `packaging` for the test that checks it (#81)
 
 ## [0.6.1] - 2026-11-06
 
