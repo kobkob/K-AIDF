@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
+import threading
 import unittest
 import unittest.mock
 from pathlib import Path
 
+import werkzeug.serving
+
 import app
 
 TEST_BEARER_TOKEN = "test-bearer-token-0123456789abcdef"
+LATEST_PROTOCOL_VERSION = "2025-06-18"
 FULL_ACCESS = app.Principal(namespaces=None)
 _token_patch = None
 
@@ -426,34 +431,47 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
     def _post(self, body: object = None, **kwargs):
         return self.client.post("/mcp", headers=self.headers, json=body, **kwargs)
 
-    def test_initialize_echoes_supported_protocol_version(self) -> None:
-        response = self._post(
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {"protocolVersion": "2024-11-05"},
-            }
+    def test_supported_protocol_versions_are_the_three_published_revisions(self) -> None:
+        self.assertEqual(
+            app.SUPPORTED_PROTOCOL_VERSIONS, ("2024-11-05", "2025-03-26", "2025-06-18")
         )
+        self.assertEqual(app.SUPPORTED_PROTOCOL_VERSIONS[-1], LATEST_PROTOCOL_VERSION)
 
-        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+    def test_initialize_echoes_each_supported_protocol_version(self) -> None:
+        for version in app.SUPPORTED_PROTOCOL_VERSIONS:
+            with self.subTest(version=version):
+                response = self._post(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "initialize",
+                        "params": {"protocolVersion": version},
+                    }
+                )
 
-    def test_initialize_negotiates_unknown_protocol_version_to_supported_one(self) -> None:
-        response = self._post(
-            {
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "initialize",
-                "params": {"protocolVersion": "1999-01-01"},
-            }
-        )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.get_json()["result"]["protocolVersion"], version)
 
-        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+    def test_initialize_negotiates_unknown_protocol_version_to_the_latest_one(self) -> None:
+        for requested in ("1999-01-01", "2025-11-25"):
+            with self.subTest(requested=requested):
+                response = self._post(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "initialize",
+                        "params": {"protocolVersion": requested},
+                    }
+                )
 
-    def test_initialize_without_protocol_version_returns_supported_one(self) -> None:
+                self.assertEqual(
+                    response.get_json()["result"]["protocolVersion"], LATEST_PROTOCOL_VERSION
+                )
+
+    def test_initialize_without_protocol_version_returns_the_latest_one(self) -> None:
         response = self._post({"jsonrpc": "2.0", "id": 3, "method": "initialize", "params": {}})
 
-        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], LATEST_PROTOCOL_VERSION)
 
     def test_initialize_ignores_non_string_protocol_version(self) -> None:
         response = self._post(
@@ -465,7 +483,7 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], LATEST_PROTOCOL_VERSION)
 
     def test_unexpected_exception_returns_sanitized_json_rpc_error(self) -> None:
         secret = "/srv/secret/internal-path leaked-detail"
@@ -549,6 +567,148 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
         )
 
         self.assertEqual(response.get_json()["error"]["code"], -32602)
+
+
+class McpStreamableHttpTransportTests(unittest.TestCase):
+    """Notifications, ping, the MCP-Protocol-Version header and GET on the HTTP transport."""
+
+    def setUp(self) -> None:
+        self.client = app.app.test_client()
+        self.headers = {"Authorization": f"Bearer {TEST_BEARER_TOKEN}"}
+
+    def _post(self, body: object, headers: dict[str, str] | None = None):
+        return self.client.post("/mcp", headers={**self.headers, **(headers or {})}, json=body)
+
+    def test_notification_is_accepted_with_202_and_an_empty_body(self) -> None:
+        for method in (
+            "notifications/initialized",
+            "notifications/cancelled",
+            "notifications/progress",
+            "notifications/some-future-extension",
+        ):
+            with self.subTest(method=method):
+                response = self._post({"jsonrpc": "2.0", "method": method, "params": {}})
+
+                self.assertEqual(response.status_code, 202)
+                self.assertEqual(response.get_data(), b"")
+                self.assertNotIn("Content-Type", response.headers)
+
+    def test_notification_with_invalid_params_is_still_not_answered(self) -> None:
+        # JSON-RPC 2.0 forbids any reply to a notification, an error included.
+        response = self._post(
+            {"jsonrpc": "2.0", "method": "notifications/initialized", "params": ["bad"]}
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_data(), b"")
+
+    def test_client_response_is_accepted_with_202_and_an_empty_body(self) -> None:
+        # The Streamable HTTP transport treats a JSON-RPC response from the client like a
+        # notification. This server never sends requests, so none is expected, but the answer
+        # must not be a -32601 error.
+        for body in (
+            {"jsonrpc": "2.0", "id": 5, "result": {}},
+            {"jsonrpc": "2.0", "id": 5, "error": {"code": -32000, "message": "declined"}},
+        ):
+            with self.subTest(body=body):
+                response = self._post(body)
+
+                self.assertEqual(response.status_code, 202)
+                self.assertEqual(response.get_data(), b"")
+
+    def test_notification_without_token_is_rejected_with_401(self) -> None:
+        response = self.client.post(
+            "/mcp", json={"jsonrpc": "2.0", "method": "notifications/initialized"}
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("resource_metadata=", response.headers["WWW-Authenticate"])
+        self.assertEqual(response.get_json()["error"]["message"], "authorization_required")
+
+    def test_ping_returns_an_empty_result(self) -> None:
+        response = self._post({"jsonrpc": "2.0", "id": "ping-1", "method": "ping"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"jsonrpc": "2.0", "id": "ping-1", "result": {}})
+
+    def test_unknown_method_with_an_id_returns_method_not_found(self) -> None:
+        response = self._post({"jsonrpc": "2.0", "id": 9, "method": "resources/list"})
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertEqual(payload["id"], 9)
+        self.assertEqual(payload["error"]["code"], -32601)
+        self.assertEqual(payload["error"]["message"], "Method not found: resources/list")
+
+    def test_supported_protocol_version_header_is_accepted(self) -> None:
+        for version in app.SUPPORTED_PROTOCOL_VERSIONS:
+            with self.subTest(version=version):
+                response = self._post(
+                    {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                    {"MCP-Protocol-Version": version},
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.get_json()["result"], {})
+
+    def test_unsupported_protocol_version_header_is_rejected_with_400(self) -> None:
+        response = self._post(
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"}, {"MCP-Protocol-Version": "1999-01-01"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertEqual(payload["id"], 1)
+        self.assertEqual(payload["error"]["code"], -32600)
+        for version in app.SUPPORTED_PROTOCOL_VERSIONS:
+            self.assertIn(version, payload["error"]["message"])
+
+    def test_unsupported_protocol_version_header_also_rejects_notifications(self) -> None:
+        # The header check is transport-level, like the official SDK server does it, so the
+        # 400 wins over the 202 a notification would otherwise get.
+        response = self._post(
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"MCP-Protocol-Version": "1999-01-01"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"]["code"], -32600)
+
+    def test_missing_protocol_version_header_is_served(self) -> None:
+        response = self._post({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("tools", response.get_json()["result"])
+
+    def test_initialize_negotiates_regardless_of_the_protocol_version_header(self) -> None:
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            },
+            {"MCP-Protocol-Version": "1999-01-01"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2025-03-26")
+
+    def test_authentication_is_checked_before_the_protocol_version_header(self) -> None:
+        response = self.client.post(
+            "/mcp",
+            headers={"MCP-Protocol-Version": "1999-01-01"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_mcp_is_not_allowed(self) -> None:
+        # No server-to-client SSE stream and no session: the spec answer is 405.
+        response = self.client.get("/mcp", headers=self.headers)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertIn("POST", response.headers["Allow"])
 
 
 CONTRACT_ROOT = Path(__file__).resolve().parents[2] / "contracts" / "index-contract"
@@ -705,7 +865,7 @@ class McpBearerAuthTests(unittest.TestCase):
         response = self._initialize({"Authorization": f"Bearer {TEST_BEARER_TOKEN}"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["result"]["protocolVersion"], "2024-11-05")
+        self.assertEqual(response.get_json()["result"]["protocolVersion"], LATEST_PROTOCOL_VERSION)
 
     def test_non_bearer_scheme_with_the_right_secret_is_rejected(self) -> None:
         response = self._initialize({"Authorization": f"Basic {TEST_BEARER_TOKEN}"})
@@ -1070,6 +1230,114 @@ def _namespaced_doc(namespace: str | None, visibility: str | None, title: str) -
         lines.append(f"visibility: {visibility}")
     body = f"marker-{title.lower().replace(' ', '-')}"
     return "\n".join(lines) + f"\n---\n\n# {title}\n\n{body}\n"
+
+
+class _QuietRequestHandler(werkzeug.serving.WSGIRequestHandler):
+    def log_request(self, *args: object, **kwargs: object) -> None:
+        pass
+
+
+class McpSdkClientIntegrationTests(unittest.TestCase):
+    """The official MCP Python SDK client, over real HTTP, against this server.
+
+    The SDK sends ``initialize``, then the ``notifications/initialized`` notification (it fails
+    on a non-2xx answer), then stamps every request with ``MCP-Protocol-Version``. werkzeug
+    serves the Flask app on a loopback port in a background thread for the duration.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        repo_root = Path(cls.tmpdir.name)
+        _write(repo_root / "README.md", "# Demo\n")
+        _write(
+            repo_root / "docs/00-overview/governance.md",
+            "---\n"
+            "id: docs/00-overview/governance.md\n"
+            "title: Governance\n"
+            "visibility: internal\n"
+            "---\n\n"
+            "# Governance\n\n"
+            "Governance rules.\n",
+        )
+        cls.previous_repo_root = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = str(repo_root)
+        cls.server = werkzeug.serving.make_server(
+            "127.0.0.1", 0, app.app, threaded=True, request_handler=_QuietRequestHandler
+        )
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.url = f"http://127.0.0.1:{cls.server.server_port}/mcp"
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.server.shutdown()
+        cls.thread.join(timeout=5)
+        if cls.previous_repo_root is None:
+            os.environ.pop("AIDF_REPO_ROOT", None)
+        else:
+            os.environ["AIDF_REPO_ROOT"] = cls.previous_repo_root
+        cls.tmpdir.cleanup()
+
+    def test_sdk_client_initializes_lists_tools_and_searches(self) -> None:
+        # `mcp` is a dev extra (pyproject.toml). Imported here so a missing package fails
+        # this test alone instead of the whole module.
+        from mcp import ClientSession
+        from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+
+        async def scenario():
+            headers = {"Authorization": f"Bearer {TEST_BEARER_TOKEN}"}
+            async with create_mcp_http_client(headers=headers) as http_client:
+                async with streamable_http_client(self.url, http_client=http_client) as streams:
+                    read_stream, write_stream = streams
+                    async with ClientSession(read_stream, write_stream) as session:
+                        initialized = await session.initialize()
+                        tools = await session.list_tools()
+                        search = await session.call_tool("search", {"query": "governance"})
+                        return initialized, tools, search
+
+        initialized, tools, search = asyncio.run(scenario())
+
+        self.assertEqual(initialized.protocol_version, LATEST_PROTOCOL_VERSION)
+        self.assertEqual(initialized.server_info.name, "mcp-aidf")
+        self.assertEqual(initialized.server_info.version, app.SERVER_VERSION)
+        self.assertEqual(
+            {tool.name for tool in tools.tools},
+            {"search", "fetch", "get_maturity_scorecard", "evaluate_repository_maturity"},
+        )
+        self.assertFalse(search.is_error)
+        payload = json.loads(search.content[0].text)
+        self.assertEqual(payload["results"][0]["path"], "docs/00-overview/governance.md")
+
+    def test_sdk_client_without_the_bearer_token_is_rejected(self) -> None:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamable_http_client
+        from mcp.shared.exceptions import MCPError
+
+        async def scenario():
+            async with streamable_http_client(self.url) as streams:
+                read_stream, write_stream = streams
+                async with ClientSession(read_stream, write_stream) as session:
+                    return await session.initialize()
+
+        # The SDK runs the transport in anyio task groups, so the server's JSON-RPC error
+        # surfaces as an MCPError nested in ExceptionGroups, possibly next to other
+        # exceptions from the same task group. Only the server's contract is asserted here
+        # (the 401 code); the exact error message and the shape of the SDK's exception tree
+        # are the SDK's business and are pinned by the plain HTTP tests instead.
+        with self.assertRaises(Exception) as caught:
+            asyncio.run(scenario())
+
+        leaves = _leaf_exceptions(caught.exception)
+        mcp_errors = [leaf for leaf in leaves if isinstance(leaf, MCPError)]
+        self.assertTrue(mcp_errors, leaves)
+        self.assertIn(401, {error.code for error in mcp_errors})
+
+
+def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
+    if isinstance(exc, BaseExceptionGroup):
+        return [leaf for sub in exc.exceptions for leaf in _leaf_exceptions(sub)]
+    return [exc]
 
 
 if __name__ == "__main__":
