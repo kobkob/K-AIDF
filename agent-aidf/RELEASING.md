@@ -1,17 +1,5 @@
 # Releasing
 
-## Versioning
+`agent-aidf` is released together with the other K-AIDF components from the repository root: one tag `vX.Y.Z` covers `agent-aidf`, `kobkob-kaidf-generator` and `mcp-aidf`, and components are not tagged or released on their own.
 
-This project uses SemVer during `0.y.z` development:
-
-- increment `z` for documentation or implementation fixes
-- increment `y` for new CLI, orchestration, or web capabilities
-- move to `1.0.0` when the agent behavior and external interfaces are stable
-
-## Release Steps
-
-1. Update `CHANGELOG.md`.
-2. Confirm the repository baseline still passes in CI.
-3. Commit the release notes.
-4. Create and push a tag like `v0.1.1`.
-5. Let GitHub Actions publish the release from the tag.
+The steps, the version sites that `scripts/bump-version.sh` updates and what the release workflow verifies and builds are in the root [`RELEASING.md`](../RELEASING.md).

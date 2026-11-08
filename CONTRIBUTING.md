@@ -5,8 +5,8 @@
 This repository is the coordination layer for the K-AIDF workspace.
 
 - keep cross-repository structure and documentation here
-- do not duplicate implementation history from the child repositories
-- make child-project code changes in the corresponding nested repository
+- do not duplicate component implementation history here; the root `CHANGELOG.md` names the component in backticks and the details live in the component's own `CHANGELOG.md`
+- make component code changes in the corresponding component directory (`agent-aidf/`, `kobkob-kaidf-generator/`, `mcp-aidf/`); they are part of this repository, not separate repositories
 
 ## Branch Policy
 
@@ -16,7 +16,10 @@ This repository is the coordination layer for the K-AIDF workspace.
 
 ## Before Push
 
-- confirm the workspace documentation matches the current state of the child repositories
-- confirm each child repository has its own committed state before pushing coordination updates here
+- confirm the workspace documentation matches the current state of the components
+- add a `## [Unreleased]` entry to the component `CHANGELOG.md` you touched and to the root `CHANGELOG.md`
 - update `CONTEXT.md` when the recommended next step changes
 
+## Releasing
+
+- components are not tagged or released on their own: one `vX.Y.Z` tag at the repository root releases `agent-aidf`, `kobkob-kaidf-generator` and `mcp-aidf` together, see `RELEASING.md`

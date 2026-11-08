@@ -1,2 +1,8 @@
+from importlib.metadata import PackageNotFoundError, version
+
 __all__ = ["__version__"]
-__version__ = "0.1.0"
+
+try:
+    __version__ = version("kobkob-kaidf-generator")
+except PackageNotFoundError:
+    __version__ = "unknown"
