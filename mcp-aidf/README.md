@@ -26,9 +26,22 @@ The current implementation uses the simplest useful content model:
 
 ### MCP Protocol
 
-- `POST /mcp` - Main MCP JSON-RPC endpoint
-  - Methods: `initialize`, `tools/list`, `tools/call`
-  - Tools: `search`, `fetch`
+- `POST /mcp` - Main MCP JSON-RPC endpoint (Streamable HTTP transport, stateless)
+  - Methods: `initialize`, `ping`, `tools/list`, `tools/call`
+  - Notifications (a JSON-RPC message with no `id`, such as `notifications/initialized`) and JSON-RPC responses sent by the client are accepted with HTTP `202` and an empty body
+  - Tools: `search`, `fetch`, `get_maturity_scorecard`, `evaluate_repository_maturity`
+- `GET /mcp` - `405 Method Not Allowed`. The server opens no server-to-client SSE stream and keeps no session, so `Mcp-Session-Id` is neither issued nor required
+
+### Handshake And Protocol Versions
+
+Every message is one `POST /mcp`; a request is answered with a single JSON object, a notification with an empty `202`. Bearer authentication runs first: a message without a valid token, notifications included, gets `401`.
+
+1. `initialize` negotiates the protocol revision. Supported revisions are `2024-11-05`, `2025-03-26` and `2025-06-18`. A supported `protocolVersion` is echoed back; any other value, or none, is answered with the newest supported revision, `2025-06-18`.
+2. The client then sends the `notifications/initialized` notification. Like every notification (no `id`), it is answered with HTTP `202` and an empty body: JSON-RPC 2.0 forbids replying to a notification. A JSON-RPC response sent by the client (`result` or `error`, no `method`) gets the same `202`.
+3. Later requests may carry the negotiated revision in the `MCP-Protocol-Version` header. An unsupported value is refused with a JSON-RPC `-32600` error and HTTP `400` that names the supported revisions; a request without the header is served.
+4. `ping` returns an empty result (`{}`). A request with an unknown method returns `-32601` with HTTP `400`.
+
+The test suite drives this handshake with the official `mcp` Python SDK client (`initialize`, `tools/list`, `tools/call`).
 
 ### Indexed Content Model
 
@@ -75,12 +88,19 @@ The earlier OAuth 2.1 endpoints (`/oauth/authorize`, `/oauth/token`, `/oauth/reg
 # Initialize MCP session
 curl -X POST -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
+  https://mcp-aidf.kobkob.org/mcp
+
+# Acknowledge the handshake (a notification: HTTP 202 with an empty body)
+curl -i -X POST -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   https://mcp-aidf.kobkob.org/mcp
 
 # List available tools
 curl -X POST -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
   https://mcp-aidf.kobkob.org/mcp
 ```
@@ -116,7 +136,7 @@ Docker Compose also expects:
 
 ## Compliance
 
-- **MCP Specification**: 2025-03-26
+- **MCP Specification**: 2025-06-18 (negotiates `2025-03-26` and `2024-11-05` too), stateless Streamable HTTP transport. JSON-RPC batch requests (a JSON array body) are not accepted and get a `-32600` error, including under `2025-03-26`, the one revision whose spec lists batching
 - **Authentication**: static bearer token (RFC 6750) and protected resource metadata (RFC 9728). No OAuth 2.1 authorization server
 - **JSON-RPC 2.0**: Request/response protocol
 - **OpenAI Requirements**: Search/fetch tools, proper error handling

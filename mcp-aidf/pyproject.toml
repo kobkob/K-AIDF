@@ -7,6 +7,8 @@ requires-python = ">=3.11"
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
+  # Official MCP Python SDK: its client drives the handshake integration test.
+  "mcp>=2,<3",
 ]
 
 [tool.ruff]

@@ -10,7 +10,8 @@ export PROMPT
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs \
-	workspace-up workspace-down workspace-logs workspace-localai workspace-localai-down
+	workspace-up workspace-down workspace-logs workspace-localai workspace-localai-down \
+	check-version bump-version
 
 help:
 	@echo "K-AIDF workspace automation"
@@ -49,6 +50,8 @@ help:
 	@echo "make workspace-logs   Tail the local OLMo/Ollama stack logs"
 	@echo "make workspace-localai Start the LocalAI (OpenAI-compatible) stack and wait until its API is ready"
 	@echo "make workspace-localai-down Stop the LocalAI stack"
+	@echo "make check-version    Check the four version sites and changelogs against VERSION=x.y.z (what the release workflow verifies)"
+	@echo "make bump-version     Set VERSION=x.y.z in the four version sites and report the changelogs still to update"
 
 env-agent:
 	@source ./scripts/load-agent-env.sh
@@ -176,3 +179,11 @@ workspace-localai:
 
 workspace-localai-down:
 	@docker compose -f docker-compose.localai.yml down
+
+check-version:
+	@if [[ -z "$(VERSION)" ]]; then echo "Usage: make check-version VERSION=x.y.z"; exit 2; fi
+	@bash scripts/check-version.sh "$(VERSION)"
+
+bump-version:
+	@if [[ -z "$(VERSION)" ]]; then echo "Usage: make bump-version VERSION=x.y.z"; exit 2; fi
+	@bash scripts/bump-version.sh "$(VERSION)"
