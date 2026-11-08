@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Fixed
+
+- CLA check (`.github/workflows/cla-check.yml`): `signatures/cla.json` is the object the CLA Assistant reads (`{"signedContributors": []}`) instead of an empty list, which made the action crash on every pull request; the `pull_request_target` activity type is `synchronize` (the previous `synchronized` does not exist, so new pushes never re-ran the check); an `issue_comment` trigger lets contributors sign with the standard comment; the action is `contributor-assistant/github-action` pinned by SHA (v2.6.1) running with explicit `GITHUB_TOKEN` permissions instead of the unset `KOBKOB_CLA_PAT` secret; `eltonaquino` joins the allowlist
+
 ## [0.6.1] - 2026-11-06
 
 Security hardening release. Consolidates PRs #85 and #86, which close #67, #68, #78 and #79.
