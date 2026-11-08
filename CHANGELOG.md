@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Fixed
+
+- CLA check (`.github/workflows/cla-check.yml`): `signatures/cla.json` is the object the CLA Assistant reads (`{"signedContributors": []}`) instead of an empty list, which made the action crash on every pull request; the `pull_request_target` activity type is `synchronize` (the previous `synchronized` does not exist, so new pushes never re-ran the check); an `issue_comment` trigger lets contributors sign with the standard comment; the action is `contributor-assistant/github-action` pinned by SHA (v2.6.1) running with explicit `GITHUB_TOKEN` permissions instead of the unset `KOBKOB_CLA_PAT` secret; `eltonaquino` joins the allowlist
+
 ### Added
 
 - `agent-aidf`: `tests/test_audit_matrix_contract.py` loads the generator's `specs/kaidf.default.yaml` and asserts its `audit_matrix` block equals `audit.py` `DIMENSION_SPECS` exactly (dimension ids, names and points; check ids, titles and points, in order), skipping with a reason when the sibling checkout is missing; the `agent-aidf` CI workflow now also runs on changes to that spec
