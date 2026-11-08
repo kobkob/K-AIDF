@@ -1,0 +1,19 @@
+# Human-in-the-loop configuration.
+#
+# PLACEHOLDER. `kob audit` (dimension 3, Regulatory Compliance, check hitl-config) scores this
+# file 0 while `placeholder: true` is set. List the decisions a person must approve before they
+# take effect, who approves them and how long they may wait, then remove the `placeholder` key.
+placeholder: true
+version: "1.0"
+# One entry per class of decision that needs human review.
+review_required:
+  - decision: "publish-generated-content"
+    reviewer_role: "editor"
+    max_wait_hours: 24
+  - decision: "change-to-governance-documents"
+    reviewer_role: "governance-owner"
+    max_wait_hours: 72
+# What happens when a review is not done in time: `block` keeps the decision pending.
+on_timeout: "block"
+# Role that receives escalations about pending or disputed reviews.
+escalation_role: "governance-owner"

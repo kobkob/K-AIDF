@@ -96,6 +96,32 @@ def test_init_project_repo_uses_generator_output(tmp_path: Path, monkeypatch) ->
     assert (project / ".kaidf" / "README.md").is_file()
 
 
+def test_init_project_repo_records_the_spec_it_used_under_dot_kaidf_specs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    generator_repo = tmp_path / "generator"
+    (generator_repo / "specs").mkdir(parents=True)
+    spec = "version: '1.0'\nrepo:\n  name: demo\n  files: []\nsections: []\n"
+    (generator_repo / "specs/kaidf.default.yaml").write_text(spec, encoding="utf-8")
+    monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
+
+    def _fake_run(command, **kwargs):
+        generated = Path(command[command.index("--out") + 1]) / "demo"
+        generated.mkdir()
+        (generated / "README.md").write_text("# Demo\n", encoding="utf-8")
+        return None
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+
+    init_project_repo(project)
+
+    recorded = project / ".kaidf" / project_module.SCAFFOLD_SPEC_PATH
+    assert recorded == project / ".kaidf/specs/kaidf.yaml"
+    assert recorded.read_text(encoding="utf-8") == spec
+
+
 def _generator_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "kobkob-kaidf-generator"
     (repo / "scripts").mkdir(parents=True)

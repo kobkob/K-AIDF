@@ -35,3 +35,9 @@ The declarative matrix described these checks before it was aligned with the eng
 - timeouts enforced on every outbound model request (v1.0 only checks the configured value in `.kaidf/policy/budget.yaml`)
 
 The matrix version is `1.0`. Its machine-readable definition is the `audit_matrix` block of the spec that generated this repository; `audit-matrix.csv` and the summaries and check tables in `dimensions/` are rendered from that block.
+
+## Static audit with `kob audit`
+
+`kob audit` is the read-only, file-based counterpart of this matrix. The directory it audits is the root: the credential scan over tracked files and the CI checks (`.github/workflows/`) run there. The scaffold is `.kaidf/` when that directory exists (a project set up with `kob init`) and the root itself otherwise (this repository audited directly). Scaffold-owned artifacts (`README.md` and `docs/`, `mentor-workflow.json`, `policy/*.yaml`, `specs/*.yaml`, `docs/20-ethical-model/*.json`, `data/manifests/*.yaml`) are read from the scaffold first and then from the root, and every finding names the path that was checked. The Front Matter v2 scan covers the scaffold's Markdown documents only.
+
+Placeholder rule: `policy/pii-masking-rules.yaml`, `policy/hitl-config.yaml`, `policy/budget.yaml`, `docs/20-ethical-model/risk-assessment.json`, `docs/20-ethical-model/explicability-schema.json` and `data/manifests/dataset-audit.yaml` are generated as placeholders, each a YAML or JSON mapping whose top-level key `placeholder` is `true`. `kob audit` scores a placeholder 0 and asks for it to be filled in. Replace the example content with this project's own and remove the key to earn the points.

@@ -46,6 +46,22 @@ A generated K-AIDF repository is expected to contain:
 
 The generator may add more files over time, but consumers should treat the root files above as the baseline contract.
 
+## Governance Artifacts
+
+The default scaffold also ships the files that the static audit in `agent-aidf` (`kob audit`, the KAIDF-AMM scorecard) reads:
+
+- `policy/pii-masking-rules.yaml`
+- `policy/hitl-config.yaml`
+- `policy/budget.yaml` (`max_tokens`, `request_timeout_seconds`, `local_fallback`)
+- `docs/20-ethical-model/risk-assessment.json`
+- `docs/20-ethical-model/explicability-schema.json`
+- `data/manifests/skills.yaml` (complete as generated: it registers the `kaidf-audit` skill)
+- `data/manifests/dataset-audit.yaml`
+
+Except for `skills.yaml`, these are generated as placeholders: a YAML or JSON mapping whose top-level key `placeholder` is `true`. The audit scores a placeholder 0 and asks for it to be filled in; projects replace the example content with their own and remove the key. Non-Markdown files carry no front matter.
+
+Layout rule: `kob init` moves the generated repository to `<project>/.kaidf/` and records the spec it used as `.kaidf/specs/kaidf.yaml`. The audit resolves scaffold-owned paths (the ones above, plus `README.md`, `docs/`, `mentor-workflow.json` and `specs/*.yaml`) against `.kaidf/` when that directory exists and against the audited root otherwise, which is how a generated repository audited directly (for example through `mcp-aidf`) is scored.
+
 ## Required Directories
 
 At minimum, generated repositories should support:

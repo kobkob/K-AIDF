@@ -1,0 +1,19 @@
+{
+  "placeholder": true,
+  "guidance": "PLACEHOLDER. kob audit (dimension 3, Regulatory Compliance, check risk-assessment) scores this file 0 while placeholder is true. Describe the system, classify its risk (for example the EU AI Act risk class), list each identified risk with its likelihood, impact, mitigation and owner, then remove the placeholder key.",
+  "version": "1.0",
+  "system": "",
+  "risk_class": "",
+  "assessed_on": "",
+  "assessed_by_role": "",
+  "risks": [
+    {
+      "id": "",
+      "description": "",
+      "likelihood": "",
+      "impact": "",
+      "mitigation": "",
+      "owner_role": ""
+    }
+  ]
+}

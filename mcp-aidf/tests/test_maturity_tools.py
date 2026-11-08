@@ -171,6 +171,18 @@ def test_failing_repository_lists_violations_gaps_and_backlog(
     assert gaps["critical"] >= 1, "an empty repository fails the critical credential check"
 
 
+def test_evaluation_states_the_scaffold_path_of_the_layout_it_scored(
+    client, engine, repo_root: Path
+) -> None:
+    # Remediation paths depend on the layout: <root>/.kaidf when it exists, else the root.
+    standalone = _payload(_call(client, "evaluate_repository_maturity"))
+    assert standalone["scaffold_path"] == str(repo_root.resolve())
+
+    _compliant_repo(repo_root)
+    project = _payload(_call(client, "evaluate_repository_maturity"))
+    assert project["scaffold_path"] == str((repo_root / ".kaidf").resolve())
+
+
 def test_backlog_follows_the_violation_order(client, engine, repo_root: Path) -> None:
     evaluation = _payload(_call(client, "evaluate_repository_maturity"))
 

@@ -1,0 +1,24 @@
+# PII masking rules for this K-AIDF repository.
+#
+# PLACEHOLDER. `kob audit` (dimension 1, Data Sovereignty & Perimeter, check pii-masking-rules)
+# scores this file 0 while `placeholder: true` is set. Describe the personal data the system
+# handles and how each kind is masked before it reaches a model, a log or a versioned file,
+# then remove the `placeholder` key.
+placeholder: true
+version: "1.0"
+# One rule per kind of personal data. `strategy` says what replaces the value: `redact`
+# (remove it), `hash` (keep a stable pseudonym) or `partial` (keep part of it, e.g. a domain).
+rules:
+  - field: "email"
+    applies_to: ["prompts", "logs", "versioned-files"]
+    strategy: "hash"
+  - field: "phone"
+    applies_to: ["prompts", "logs", "versioned-files"]
+    strategy: "redact"
+  - field: "national-id"
+    applies_to: ["prompts", "logs", "versioned-files"]
+    strategy: "redact"
+# Who reviews these rules and when they were last reviewed.
+review:
+  owner_role: "data-protection-officer"
+  last_reviewed: ""

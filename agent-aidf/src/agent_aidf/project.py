@@ -13,6 +13,8 @@ from .mentor import load_mentor_state
 from .repo import list_packs, load_documents, resolve_repo_root
 
 KAIDF_DIRNAME = ".kaidf"
+# Where `kob init` records the spec that generated the scaffold, inside .kaidf/.
+SCAFFOLD_SPEC_PATH = "specs/kaidf.yaml"
 
 
 @dataclass(frozen=True)
@@ -245,4 +247,11 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
                 f"Expected one generated repository in {temp_path}, found {len(generated_roots)}"
             )
         shutil.move(str(generated_roots[0]), str(target))
+    # Record which spec produced the scaffold, so `kob audit` can parse it (specs-parse) and a
+    # later regeneration knows where it came from. A missing spec would already have failed the
+    # generator above, so the guard only keeps that error from being masked by a second one.
+    if spec_path.is_file():
+        recorded_spec = target / SCAFFOLD_SPEC_PATH
+        recorded_spec.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(spec_path, recorded_spec)
     return target

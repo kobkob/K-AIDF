@@ -777,3 +777,190 @@ def test_extension_state_is_redirected_into_tmp_path(tmp_path: Path) -> None:
     import os
 
     assert os.environ["KOB_EXTENSIONS_DIR"].startswith(str(tmp_path))
+
+
+# --- layout and placeholder rules -------------------------------------------------------------
+# The audited directory is the root. The scaffold is root/.kaidf when it exists, else the root
+# itself. Scaffold-owned artifacts are looked up in the scaffold first, then at the root.
+
+PLACEHOLDER_YAML = "placeholder: true\nversion: '1.0'\n"
+
+
+def test_project_layout_resolves_scaffold_artifacts_under_dot_kaidf(tmp_path: Path) -> None:
+    _write(tmp_path / ".kaidf/README.md", FRONT_MATTER)
+    _write(tmp_path / ".kaidf/docs/00-overview/kaidf.md", FRONT_MATTER)
+    _write(tmp_path / ".kaidf/data/manifests/skills.yaml", VALID_SKILLS)
+    _write(tmp_path / ".kaidf/specs/kaidf.yaml", "version: '1.0'\n")
+    _write(tmp_path / ".kaidf/docs/20-ethical-model/risk-assessment.json", '{"risk": "low"}')
+
+    result = run_audit(tmp_path)
+
+    assert result.scaffold_path == str(tmp_path / ".kaidf")
+    assert _check(result, "skills-manifest").points == 4
+    assert _check(result, "skills-manifest").detail == (
+        "1 skill(s) registered in .kaidf/data/manifests/skills.yaml"
+    )
+    assert _check(result, "specs-parse").points == 4
+    assert _check(result, "risk-assessment").points == 5
+    assert _check(result, "risk-assessment").detail == (
+        ".kaidf/docs/20-ethical-model/risk-assessment.json present"
+    )
+
+
+def test_scaffold_location_wins_over_the_root_and_globs_are_unioned(tmp_path: Path) -> None:
+    _write(tmp_path / ".kaidf/policy/budget.yaml", GOOD_BUDGET)
+    _write(tmp_path / "policy/budget.yaml", "max_tokens: 0\n")
+    _write(tmp_path / ".kaidf/specs/a.yaml", "version: '1.0'\n")
+    _write(tmp_path / "specs/b.yaml", "- a list\n")
+
+    result = run_audit(tmp_path)
+
+    budget = _check(result, "budget-caps")
+    assert budget.points == 10
+    assert budget.detail == "token cap and request timeout configured in .kaidf/policy/budget.yaml"
+    assert _check(result, "specs-parse").detail == "1 of 2 YAML specs parse as mappings"
+
+
+def test_root_location_is_accepted_when_the_scaffold_lacks_the_artifact(tmp_path: Path) -> None:
+    (tmp_path / ".kaidf").mkdir()
+    _write(tmp_path / SKILLS_FIXTURE_PATH, VALID_SKILLS)
+
+    check = _check(run_audit(tmp_path), "skills-manifest")
+
+    assert check.points == 4
+    assert check.detail == "1 skill(s) registered in data/manifests/skills.yaml"
+
+
+def test_standalone_root_with_readme_and_docs_counts_as_the_scaffold(tmp_path: Path) -> None:
+    _write(tmp_path / "README.md", "# repo\n")
+    assert _check(run_audit(tmp_path), "kaidf-scaffold").points == 0
+
+    # Any repository with a README and a docs/ folder is not a K-AIDF scaffold.
+    _write(tmp_path / "docs/notes.md", "# project notes\n")
+    assert _check(run_audit(tmp_path), "kaidf-scaffold").points == 0
+
+    _write(tmp_path / "docs/00-overview/kaidf.md", FRONT_MATTER)
+    check = _check(run_audit(tmp_path), "kaidf-scaffold")
+
+    assert check.points == 4
+    assert "standalone scaffold" in check.detail
+
+
+def test_remediations_name_the_checked_path_for_each_layout(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    (project / ".kaidf").mkdir(parents=True)
+    standalone = tmp_path / "standalone"
+    standalone.mkdir()
+
+    in_project = run_audit(project)
+    in_standalone = run_audit(standalone)
+
+    assert _check(in_project, "budget-caps").remediation == (
+        "Set max_tokens and request_timeout_seconds in .kaidf/policy/budget.yaml."
+    )
+    assert _check(in_standalone, "budget-caps").remediation == (
+        "Set max_tokens and request_timeout_seconds in policy/budget.yaml."
+    )
+    assert _check(in_project, "skills-manifest").remediation.startswith(
+        "Create .kaidf/data/manifests/skills.yaml"
+    )
+    assert _check(in_standalone, "skills-manifest").remediation.startswith(
+        "Create data/manifests/skills.yaml"
+    )
+    assert _check(in_project, "specs-parse").remediation.startswith(
+        "Add a YAML spec under .kaidf/specs/"
+    )
+    assert _check(in_standalone, "specs-parse").remediation.startswith(
+        "Add a YAML spec under specs/"
+    )
+    assert _check(in_project, "mentor-state").detail == (
+        ".kaidf/mentor-workflow.json missing or not a valid JSON object"
+    )
+    assert _check(in_project, "mentor-state").remediation == (
+        "Run `kob mentor` so .kaidf/mentor-workflow.json is written as a valid JSON object."
+    )
+    # `kob mentor` only runs inside a project with .kaidf/, so a standalone repository is not
+    # told to run it.
+    assert _check(in_standalone, "mentor-state").remediation == (
+        "Audit this repository from the project that contains it as .kaidf/, or write "
+        "mentor-workflow.json as a valid JSON object."
+    )
+
+
+def test_generic_remediations_cover_every_check_with_scaffold_relative_paths() -> None:
+    from agent_aidf.audit import REMEDIATIONS, SEVERITIES, remediation
+
+    check_ids = {check_id for _, _, checks in DIMENSION_SPECS for check_id, *_ in checks}
+
+    assert set(REMEDIATIONS) == set(SEVERITIES) == check_ids
+    assert REMEDIATIONS["budget-caps"] == (
+        "Set max_tokens and request_timeout_seconds in policy/budget.yaml."
+    )
+    assert REMEDIATIONS["kaidf-scaffold"] == (
+        "Run `kob init` in the project to create .kaidf/ with README.md and docs/."
+    )
+    assert REMEDIATIONS["mentor-state"] == (
+        "Run `kob mentor` so mentor-workflow.json is written as a valid JSON object."
+    )
+    assert remediation("hitl-config", ".kaidf/policy/hitl-config.yaml") == (
+        "Add .kaidf/policy/hitl-config.yaml defining which decisions need human review."
+    )
+    assert remediation("hitl-config", ".kaidf/policy/hitl-config.yaml", placeholder=True) == (
+        "Fill in .kaidf/policy/hitl-config.yaml with the decisions that need human review, then "
+        "remove placeholder: true."
+    )
+
+
+@pytest.mark.parametrize(
+    ("check_id", "relative", "content"),
+    [
+        ("pii-masking-rules", "policy/pii-masking-rules.yaml", PLACEHOLDER_YAML),
+        ("hitl-config", "policy/hitl-config.yaml", PLACEHOLDER_YAML),
+        ("budget-caps", "policy/budget.yaml", "placeholder: true\n" + GOOD_BUDGET),
+        ("local-fallback", "policy/budget.yaml", "placeholder: true\n" + GOOD_BUDGET),
+        (
+            "risk-assessment",
+            "docs/20-ethical-model/risk-assessment.json",
+            '{"placeholder": true, "risks": []}',
+        ),
+        (
+            "explicability-schema",
+            "docs/20-ethical-model/explicability-schema.json",
+            '{"placeholder": true}',
+        ),
+        ("dataset-audit", "data/manifests/dataset-audit.yaml", PLACEHOLDER_YAML),
+    ],
+)
+def test_placeholder_artifacts_score_zero_and_ask_to_be_filled_in(
+    tmp_path: Path, check_id: str, relative: str, content: str
+) -> None:
+    _write(tmp_path / ".kaidf" / relative, content)
+
+    check = _check(run_audit(tmp_path), check_id)
+
+    assert check.points == 0
+    assert check.detail == f".kaidf/{relative} is still the generator placeholder"
+    assert check.remediation.startswith(f"Fill in .kaidf/{relative}")
+
+
+def test_placeholder_rule_needs_a_top_level_key_that_is_exactly_true(tmp_path: Path) -> None:
+    rules = tmp_path / ".kaidf/policy/pii-masking-rules.yaml"
+    for content in [
+        "placeholder: false\nrules: [email]\n",
+        "placeholder: 'true'\nrules: [email]\n",
+        "rules:\n  placeholder: true\n",
+    ]:
+        _write(rules, content)
+        assert _check(run_audit(tmp_path), "pii-masking-rules").points == 10, content
+
+
+def test_scaffold_path_is_in_the_json_export_and_the_report(tmp_path: Path) -> None:
+    (tmp_path / ".kaidf").mkdir()
+
+    project = run_audit(tmp_path)
+    standalone = run_audit(tmp_path / ".kaidf")
+
+    assert project.to_dict()["scaffold_path"] == str(tmp_path / ".kaidf")
+    assert "Scaffold: .kaidf/" in render_audit_report(project)
+    assert standalone.to_dict()["scaffold_path"] == str(tmp_path / ".kaidf")
+    assert "Scaffold: repository root (no .kaidf/)" in render_audit_report(standalone)

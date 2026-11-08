@@ -1,0 +1,14 @@
+{
+  "placeholder": true,
+  "guidance": "PLACEHOLDER. kob audit (dimension 3, Regulatory Compliance, check explicability-schema) scores this file 0 while placeholder is true. For each kind of decision the system takes or supports, say what is explained, to whom, in which fields and through which channel, then remove the placeholder key.",
+  "version": "1.0",
+  "decision_types": [
+    {
+      "id": "",
+      "description": "",
+      "audience": "",
+      "explanation_fields": [],
+      "delivered_through": ""
+    }
+  ]
+}

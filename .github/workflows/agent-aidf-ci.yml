@@ -10,13 +10,17 @@ on:
     paths:
       - "agent-aidf/**"
       - "contracts/**"
-      - "kobkob-kaidf-generator/specs/kaidf.default.yaml"
+      # tests/test_audit_layouts.py generates the default scaffold from the sibling
+      # generator checkout, so its spec and templates are inputs of this suite.
+      - "kobkob-kaidf-generator/specs/**"
+      - "kobkob-kaidf-generator/src/kaidf_gen/**"
       - ".github/workflows/agent-aidf-ci.yml"
   pull_request:
     paths:
       - "agent-aidf/**"
       - "contracts/**"
-      - "kobkob-kaidf-generator/specs/kaidf.default.yaml"
+      - "kobkob-kaidf-generator/specs/**"
+      - "kobkob-kaidf-generator/src/kaidf_gen/**"
       - ".github/workflows/agent-aidf-ci.yml"
 
 jobs:
