@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 
+from .audit_matrix import CSV_CONTENT_KEY, expand_markers, render_csv
 from .errors import GenerationError
 from .schema import validate_spec
 from .template_loader import load_template_by_key
@@ -32,16 +33,20 @@ def _ensure_empty_or_force(out_dir: Path, force: bool) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _resolve_content(file_spec: dict[str, Any]) -> str:
+def _resolve_content(file_spec: dict[str, Any], audit_matrix: dict[str, Any] | None) -> str:
     content_spec = file_spec.get("content")
     content_inline = file_spec.get("inline")
 
     if content_inline is not None:
-        return str(content_inline)
-    if isinstance(content_spec, str) and content_spec.startswith("library:"):
+        content = str(content_inline)
+    elif content_spec == CSV_CONTENT_KEY:
+        return render_csv(audit_matrix)
+    elif isinstance(content_spec, str) and content_spec.startswith("library:"):
         key = content_spec.split("library:", 1)[1].strip()
-        return load_template_by_key(key)
-    return ""
+        content = load_template_by_key(key)
+    else:
+        return ""
+    return expand_markers(content, audit_matrix)
 
 
 def _resolve_front_matter(
@@ -84,13 +89,14 @@ def _write_file(
     file_spec: dict[str, Any],
     repo_metadata_defaults: dict[str, Any],
     section_metadata_defaults: dict[str, Any],
+    audit_matrix: dict[str, Any] | None,
 ) -> None:
     rel_path = file_spec["path"]
     out_path = safe_join(out_dir, rel_path)
     front_matter = _resolve_front_matter(
         rel_path, repo_metadata_defaults, section_metadata_defaults, file_spec
     )
-    content = _resolve_content(file_spec)
+    content = _resolve_content(file_spec, audit_matrix)
     if front_matter and content.startswith("---\n"):
         raise GenerationError(f"Content already contains front matter: {rel_path}")
     content = _render_front_matter(front_matter) + content
@@ -113,10 +119,11 @@ def generate(spec: dict[str, Any], out_dir: str | Path, options: GenerateOptions
 
     _ensure_empty_or_force(target, options.force)
     repo_metadata_defaults = repo.get("metadata_defaults") or {}
+    audit_matrix = spec.get("audit_matrix")
 
     # Root files
     for f in repo.get("files", []):
-        _write_file(target, f, repo_metadata_defaults, {})
+        _write_file(target, f, repo_metadata_defaults, {}, audit_matrix)
 
     # Sections
     for section in spec.get("sections", []):
@@ -125,6 +132,6 @@ def generate(spec: dict[str, Any], out_dir: str | Path, options: GenerateOptions
         for f in section.get("files", []):
             f2 = dict(f)
             f2["path"] = base + f["path"].lstrip("/")
-            _write_file(target, f2, repo_metadata_defaults, section_metadata_defaults)
+            _write_file(target, f2, repo_metadata_defaults, section_metadata_defaults, audit_matrix)
 
     return target

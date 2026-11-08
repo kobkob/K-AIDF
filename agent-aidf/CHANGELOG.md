@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `tests/test_audit_matrix_contract.py`: a cross-component test that loads `kobkob-kaidf-generator/specs/kaidf.default.yaml` from the sibling checkout and asserts its `audit_matrix` block equals `audit.py` `DIMENSION_SPECS` exactly: dimension ids, names and points, and check ids, titles and points, in order. The generator's previous 16-check declarative matrix was never scored by any tool and did not match the 15 checks the engine measures. The test skips with a reason when the sibling checkout is missing. `.github/workflows/agent-aidf-ci.yml` now also runs on changes to that spec, so a spec-only pull request cannot drift from the engine with green CI
+
 ### Removed
 
 - the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`

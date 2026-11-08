@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Changed
+
+- the `audit_matrix` block of `specs/kaidf.default.yaml` mirrors the `kob audit` engine (`agent-aidf` `audit.py` `DIMENSION_SPECS`) exactly: the same five dimensions and the engine's 15 checks with their ids, titles and points (`no-credentials` 10, `pii-masking-rules` 10, `kaidf-scaffold` 4, `mentor-state` 4, `specs-parse` 4, `front-matter-v2` 4, `skills-manifest` 4, `risk-assessment` 5, `explicability-schema` 5, `hitl-config` 5, `dataset-audit` 5, `ci-workflows` 10, `blocking-gates` 10, `budget-caps` 10, `local-fallback` 10). Each check's `evidence` describes what the engine verifies. The previous 16-check declarative matrix (`pii-isolation`, `lgpd-gdpr-mapping`, `security-gates`, `token-hard-caps`, ...) shared the KAIDF-AMM v1.0 name with the engine but was never scored by any tool; its dropped checks are listed as planned for v1.1 in the generated `docs/30-kaidf-amm/README.md`
+- `docs/30-kaidf-amm/audit-matrix.csv` is rendered from the `audit_matrix` block (`content: "audit_matrix:csv"`, same columns as before) instead of being a static template, and each dimension page's summary and check table are rendered where its template has a `<!-- audit_matrix:summary <dimension-id> -->` or `<!-- audit_matrix:checks <dimension-id> -->` line, so the pages hold no hand-written copy of the block (`summary` is now required for every dimension). Generation fails with `GenerationError` when the spec has no `audit_matrix` block or a marker names an unknown dimension or kind; Markdown punctuation in titles and evidence is escaped in the tables, the summary is inserted as written
+- the generated `docs/30-kaidf-amm/README.md`, dimension pages and audit report template say that the matrix mirrors `kob audit`, that v1.0 scores the presence and parseability of the listed artifacts rather than their substance, and that a cross-component test in `agent-aidf` keeps the block and the engine identical. `README.md` and `docs/contract.md` document the pack and the two content sources
+
 ### Fixed
 
 - `kaidf_gen.__version__` is read from the installed package metadata (`importlib.metadata.version("kobkob-kaidf-generator")`), with `"unknown"` as the fallback when the package is not installed, instead of the hard-coded `"0.1.0"` that had drifted from the released version (#81). The `dev` extra declares `packaging`, which the version test uses to compare the metadata version with `pyproject.toml`

@@ -10,11 +10,13 @@ on:
     paths:
       - "agent-aidf/**"
       - "contracts/**"
+      - "kobkob-kaidf-generator/specs/kaidf.default.yaml"
       - ".github/workflows/agent-aidf-ci.yml"
   pull_request:
     paths:
       - "agent-aidf/**"
       - "contracts/**"
+      - "kobkob-kaidf-generator/specs/kaidf.default.yaml"
       - ".github/workflows/agent-aidf-ci.yml"
 
 jobs:

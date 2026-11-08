@@ -9,6 +9,7 @@ A small Python CLI to generate a K-AIDF methodology repository scaffold from a d
 - Writes files from:
   - built-in template library (`templates/library/*`)
   - inline content in the spec
+  - the spec's `audit_matrix` block (the KAIDF-AMM CSV and dimension check tables, see below)
 - Can emit version 2-style YAML front matter for markdown files through spec metadata fields
 
 ## Operational Scripts
@@ -105,6 +106,17 @@ The main specs currently in the repository are:
 
 - `specs/contract.example.yaml`
   Purpose: machine-readable description of the repository contract
+
+## Audit matrix content
+
+`specs/kaidf.default.yaml` carries an `audit_matrix` block: the KAIDF-AMM v1.0 matrix, five dimensions of 20 points and 15 checks. The block mirrors the `kob audit` engine (`agent-aidf`'s `audit.py`, `DIMENSION_SPECS`), which is what scores a repository; in v1.0 the engine checks the presence and parseability of the listed artifacts, not their substance. `agent-aidf/tests/test_audit_matrix_contract.py` fails when the block and the engine differ in any id, name, title or point, and the `agent-aidf` CI workflow runs it whenever that spec changes.
+
+The matrix documents under `docs/30-kaidf-amm/` are rendered from the block, so they cannot drift from it:
+
+- `content: "audit_matrix:csv"` renders `audit-matrix.csv` (columns `dimension_id,dimension,check_id,check,points,evidence,status,auditor_notes`, one row per check, `status` and `auditor_notes` empty)
+- a line `<!-- audit_matrix:summary <dimension-id> -->` in a library template, or in inline content, is replaced by that dimension's `summary` as written (Markdown allowed), and a line `<!-- audit_matrix:checks <dimension-id> -->` by its check table (`Check | Criterion | Points | Evidence required`, cells escaped). The dimension pages in `templates/library/docs/30-kaidf-amm/dimensions/` carry both markers, so their narrative has a single source too
+
+All of them fail with `GenerationError` when the spec has no `audit_matrix` block, a marker names an unknown dimension or kind, or a dimension has no `summary`. `validate_spec` still checks that each dimension's checks add up to its `max_points` and that the dimensions add up to `total_points`.
 
 ## Contracts
 

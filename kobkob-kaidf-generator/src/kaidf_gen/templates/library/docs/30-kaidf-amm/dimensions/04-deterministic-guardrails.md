@@ -2,12 +2,8 @@
 
 **Points:** 20 (the checks below add up to 20)
 
-Checks run automatically and block merges: CI gates, pre-commit hooks and security gates that do not depend on a person remembering to run them.
+<!-- audit_matrix:summary deterministic-guardrails -->
 
-| Check | Criterion | Points | Evidence required |
-| --- | --- | --- | --- |
-| `ci-blocking-gates` | CI gates for tests and lint block merges | 7 | Workflow files in .github/workflows/ with lint and test steps not marked continue-on-error. |
-| `pre-commit-hooks` | Pre-commit hooks run formatting and secret checks | 5 | Hook configuration in the repository and proof that it is installed in the developer setup. |
-| `security-gates` | Security gates run in CI and block on findings | 8 | Dependency pinning and secret scanning enabled in CI, with the gate set to fail the build. |
+<!-- audit_matrix:checks deterministic-guardrails -->
 
-Score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv`. Record the evidence location in `auditor_notes`.
+`kob audit` scores these checks; the summary and the table above are rendered from the `audit_matrix` block of the spec that generated this repository. For a manual review, score each check as `pass`, `partial` or `fail` in `../audit-matrix.csv` and record the evidence location in `auditor_notes`.
