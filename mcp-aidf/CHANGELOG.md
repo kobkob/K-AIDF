@@ -10,6 +10,14 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`
 
+### Fixed
+
+- spec-compliant handshake over the MCP Streamable HTTP transport. A JSON-RPC notification (a message with no `id`, such as `notifications/initialized` or `notifications/cancelled`) is acknowledged with HTTP `202` and an empty body; it was answered with a `-32601` error and HTTP `400`, which JSON-RPC 2.0 forbids and which made the official MCP SDK clients fail right after `initialize`. A JSON-RPC response sent by the client (`result` or `error`, no `method`) gets the same `202`, as the transport requires. `ping` returns an empty result. `initialize` negotiates `2024-11-05`, `2025-03-26` and `2025-06-18`: a supported requested revision is echoed and any other one gets the newest, `2025-06-18` (only `2024-11-05` was offered, while the README claimed `2025-03-26`). After the handshake, a request whose `MCP-Protocol-Version` header names an unsupported revision gets a `-32600` error with HTTP `400` that lists the supported ones; a request without the header is served. Unchanged: bearer authentication runs first (an unauthenticated notification still gets `401`), a request with an `id` and an unknown method still gets `-32601` with HTTP `400`, `GET /mcp` is `405`, JSON-RPC batch requests are still refused with `-32600`, and the server stays stateless (no `Mcp-Session-Id`)
+
+### Added
+
+- an integration test drives the official `mcp` Python SDK client (`streamable_http_client` and `ClientSession`) over HTTP against the Flask app, served by werkzeug on a loopback port: `initialize`, `tools/list` and a `search` call, plus the `401` an unauthenticated client gets. `mcp>=2,<3` is a `dev` extra, installed by `scripts/bootstrap.sh` and by CI
+
 ## [0.6.1] - 2026-11-06
 
 ### Changed

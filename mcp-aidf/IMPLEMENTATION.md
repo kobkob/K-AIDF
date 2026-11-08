@@ -18,8 +18,9 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 
 ### MCP Protocol
 
-- JSON-RPC 2.0 over HTTP POST
-- Protocol version negotiation (echoes client's requested version)
+- JSON-RPC 2.0 over HTTP POST: the MCP Streamable HTTP transport in its stateless form (no `Mcp-Session-Id`, no server-to-client SSE stream; `GET /mcp` answers `405`)
+- Protocol version negotiation: `2024-11-05`, `2025-03-26` and `2025-06-18` are supported. `initialize` echoes a supported requested revision and answers the newest one otherwise. After the handshake, an unsupported `MCP-Protocol-Version` header is refused with HTTP `400` (`-32600`); a missing header is served
+- Notifications (no `id`, for example `notifications/initialized`) and JSON-RPC responses sent by the client are acknowledged with HTTP `202` and an empty body, never with a JSON-RPC reply; `ping` returns an empty result. JSON-RPC batch requests are not accepted
 - Proper error handling with `_meta["mcp/www_authenticate"]` for OAuth triggers
 - WWW-Authenticate headers on 401 responses
 
@@ -38,6 +39,7 @@ This is a **Model Context Protocol (MCP) server** that integrates with ChatGPT v
 - ✅ Doctrine-aware classification over generic indexed documents
 - ✅ Rigid ranking for canonical doctrine files under `docs/00-overview/`
 - ✅ Automated tests for repository indexing, doctrine ranking, canonical fetch, and MCP search responses
+- ✅ Spec-compliant handshake verified against the official `mcp` Python SDK client (`initialize`, `tools/list`, `tools/call`)
 - ✅ Explicit starter-variant ranking for domain-specific best-practice queries
 - ✅ Explicit maturity-pack classification and ranking for level and assessment queries
 - ✅ Explicit ethical-pack classification and ranking for ethical domain, control, and risk queries
