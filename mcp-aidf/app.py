@@ -121,7 +121,9 @@ def _www_authenticate(auth_header: str | None) -> str:
 SERVER_VERSION = "0.6.1"
 # Protocol revisions this server implements, oldest first. A client asking for any other
 # revision gets the newest one back, as the MCP version negotiation rules describe.
-SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05",)
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
+# Streamable HTTP: after initialize, a client names the negotiated revision in this header.
+PROTOCOL_VERSION_HEADER = "MCP-Protocol-Version"
 INTERNAL_ERROR_MESSAGE = "Internal error."
 DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
@@ -638,6 +640,23 @@ def _negotiate_protocol_version(requested: Any) -> str:
     return SUPPORTED_PROTOCOL_VERSIONS[-1]
 
 
+def _unsupported_protocol_version(req_id: Any, version: str) -> tuple[Any, int]:
+    supported = ", ".join(SUPPORTED_PROTOCOL_VERSIONS)
+    return _json_error(
+        req_id,
+        -32600,
+        f"Unsupported {PROTOCOL_VERSION_HEADER}: {version}. Supported versions: {supported}.",
+    )
+
+
+def _accepted():
+    """HTTP 202 with no body: the Streamable HTTP answer to a JSON-RPC notification."""
+    response = make_response("", 202)
+    # Nothing is sent, so no content type is announced (Flask would default to text/html).
+    del response.headers["Content-Type"]
+    return response
+
+
 @app.route("/mcp", methods=["POST"])
 def mcp_endpoint():
     try:
@@ -684,6 +703,24 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
         return resp
 
     method = data.get("method")
+
+    # After the handshake a client may name the negotiated revision in a header. An
+    # unsupported value is refused; a missing header is served as is (the spec's
+    # backwards-compatibility rule). initialize is the negotiation itself, so it is exempt.
+    if method != "initialize":
+        header_version = request.headers.get(PROTOCOL_VERSION_HEADER)
+        if header_version is not None and header_version not in SUPPORTED_PROTOCOL_VERSIONS:
+            return _unsupported_protocol_version(req_id, header_version)
+
+    # A JSON-RPC notification (notifications/initialized, notifications/cancelled, ...) has no
+    # id, and JSON-RPC 2.0 forbids replying to it. A JSON-RPC response from the client (result
+    # or error, no method) answers a request this server never sends. The Streamable HTTP
+    # transport acknowledges both with 202 and no body.
+    is_notification = "id" not in data
+    is_response = "method" not in data and ("result" in data or "error" in data)
+    if is_notification or is_response:
+        return _accepted()
+
     params = data.get("params") or {}
     if not isinstance(params, dict):
         return _json_error(req_id, -32602, "Invalid params: expected an object.")
@@ -700,6 +737,9 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                 },
             }
         )
+
+    if method == "ping":
+        return jsonify({"jsonrpc": "2.0", "id": req_id, "result": {}})
 
     if method == "tools/list":
         return jsonify(

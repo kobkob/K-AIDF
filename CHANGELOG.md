@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Fixed
 
+- `mcp-aidf`: spec-compliant handshake over the MCP Streamable HTTP transport. JSON-RPC notifications such as `notifications/initialized`, and JSON-RPC responses sent by the client, are acknowledged with HTTP `202` and an empty body instead of a `-32601` error, `ping` returns an empty result, `initialize` negotiates `2024-11-05`, `2025-03-26` and `2025-06-18` (the newest on an unknown request), and an unsupported `MCP-Protocol-Version` header is refused with HTTP `400`. The official MCP SDK clients, which failed right after `initialize`, now complete the handshake; an integration test drives the official `mcp` Python SDK client against the server (see `mcp-aidf`'s own changelog)
 - CLA check (`.github/workflows/cla-check.yml`): `signatures/cla.json` is the object the CLA Assistant reads (`{"signedContributors": []}`) instead of an empty list, which made the action crash on every pull request; the `pull_request_target` activity type is `synchronize` (the previous `synchronized` does not exist, so new pushes never re-ran the check); an `issue_comment` trigger lets contributors sign with the standard comment; the action is `contributor-assistant/github-action` pinned by SHA (v2.6.1) running with explicit `GITHUB_TOKEN` permissions instead of the unset `KOBKOB_CLA_PAT` secret; `eltonaquino` joins the allowlist
 
 ## [0.6.1] - 2026-11-06
