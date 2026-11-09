@@ -31,6 +31,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from .extension_loader import BUILTIN_EXTENSIONS_DIR
+from .integrity import write_install_record
 from .metadata import ExtensionMetadata, MetadataError, read_metadata
 
 MAX_ARCHIVE_BYTES = 20 * 1024 * 1024
@@ -126,6 +127,8 @@ def install_extension(
             )
             if not confirm(preview):
                 raise InstallError("installation cancelled by the operator")
+        # The record is written before the move, so an installed directory always has one.
+        write_install_record(source_dir, name=name, source=source, archive_sha256=digest)
         _move_into_place(source_dir, destination)
         return InstalledExtension(name=name, path=destination, metadata=metadata)
     finally:

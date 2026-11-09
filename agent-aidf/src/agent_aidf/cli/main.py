@@ -22,6 +22,7 @@ from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
 from .. import __version__
+from ..appliance import ApplianceError, apply_notebook, write_template
 from ..audit import SEVERITY_ORDER, has_critical_findings, print_audit_report, run_audit
 from ..controller import (
     OllamaChatController,
@@ -29,7 +30,7 @@ from ..controller import (
     build_controller,
     explicit_local_model,
 )
-from ..extensions.extension_loader import active_registry
+from ..extensions.extension_loader import active_registry, inventory, render_inventory_text
 from ..i18n import _
 from ..maturity import phase_progress
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
@@ -675,6 +676,39 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         gen_parser.add_argument("--out", default="./out")
         gen_parser.add_argument("--force", action="store_true")
 
+    ext_parser = subparsers.add_parser("ext", help=_("Inspect installed extensions."))
+    ext_commands = ext_parser.add_subparsers(dest="ext_command", required=True)
+    ext_list = ext_commands.add_parser(
+        "list",
+        help=_("List extensions, what they registered, and their install integrity."),
+    )
+    ext_list.add_argument("--json", action="store_true", help=_("Print the inventory as JSON."))
+
+    appliance_parser = subparsers.add_parser(
+        "appliance", help=_("Bootstrap a K-AIDF appliance from a notebook.")
+    )
+    appliance_commands = appliance_parser.add_subparsers(dest="appliance_command", required=True)
+    appliance_init = appliance_commands.add_parser(
+        "init",
+        help=_("Configure .kaidf/ from the kaidf-config cell of a notebook."),
+    )
+    appliance_init.add_argument(
+        "--from-notebook",
+        required=True,
+        metavar="FILE.ipynb",
+        help=_("Notebook whose kaidf-config cell holds the workspace settings."),
+    )
+    appliance_init.add_argument(
+        "--force",
+        action="store_true",
+        help=_("Recreate .kaidf/ from scratch instead of keeping an existing one."),
+    )
+    appliance_template = appliance_commands.add_parser(
+        "template", help=_("Write a starter notebook for Google Colab, Kaggle and JupyterLab.")
+    )
+    appliance_template.add_argument("out", metavar="FILE.ipynb")
+    appliance_template.add_argument("--force", action="store_true")
+
     # Extensions come last so an extension that clashes with a built-in name is skipped, not fatal.
     active_registry().configure_parser(parser, subparsers)
     return parser
@@ -737,6 +771,37 @@ def _print_already_initialized(target: Path) -> None:
     )
 
 
+def _run_ext_list(*, as_json: bool) -> int:
+    data = inventory()
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+    else:
+        print(render_inventory_text(data))
+    return 0
+
+
+def _run_appliance_command(args: argparse.Namespace, project_root: Path) -> int:
+    try:
+        if args.appliance_command == "template":
+            out = write_template(Path(args.out), force=args.force)
+            print(f"Wrote appliance notebook template to {out}")
+            return 0
+        result = apply_notebook(Path(args.from_notebook), project_root, force=args.force)
+    except (ApplianceError, RuntimeError) as exc:
+        print(f"kob appliance: {exc}", file=sys.stderr)
+        return 1
+    boot = result.bootstrap
+    settings = ", ".join(f"{k}={v}" for k, v in boot.settings.items()) or "none"
+    workspace = "created" if result.created_workspace else "kept existing"
+    print(f"Configured {result.repo_root} from {boot.notebook_name}")
+    if boot.title:
+        print(f"  title:     {boot.title}")
+    print(f"  workspace: {workspace}")
+    print(f"  settings:  {settings}")
+    print(f"  record:    {result.record_path}")
+    return 0
+
+
 def _run_cli(argv: list[str]) -> int:
     parser = _build_cli_parser()
     args = parser.parse_args(argv)
@@ -769,6 +834,12 @@ def _run_cli(argv: list[str]) -> int:
             fail_under=args.fail_under,
             fail_on_critical=args.fail_on_critical,
         )
+
+    if args.command == "ext":
+        return _run_ext_list(as_json=args.json)
+
+    if args.command == "appliance":
+        return _run_appliance_command(args, project_root)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 
