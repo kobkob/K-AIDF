@@ -903,11 +903,13 @@ class McpBearerAuthTests(unittest.TestCase):
         )
 
     def test_protected_resource_metadata_is_kept_without_an_authorization_server(self) -> None:
-        response = self.client.get("/.well-known/oauth-protected-resource")
+        with unittest.mock.patch.dict(os.environ):
+            os.environ.pop("MCP_PUBLIC_URL", None)
+            response = self.client.get("/.well-known/oauth-protected-resource")
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["resource"], app.DEFAULT_RESOURCE)
+        self.assertEqual(payload["resource"], app.DEFAULT_PUBLIC_URL)
         self.assertNotIn("authorization_servers", payload)
 
     def test_resolve_bearer_token_uses_the_configured_value(self) -> None:
@@ -919,6 +921,78 @@ class McpBearerAuthTests(unittest.TestCase):
 
         self.assertGreaterEqual(len(first), 40)
         self.assertNotEqual(first, second)
+
+
+class McpPublicUrlTests(unittest.TestCase):
+    CUSTOM_URL = "https://mcp.example.test"
+
+    def setUp(self) -> None:
+        self.client = app.app.test_client()
+        env_patch = unittest.mock.patch.dict(os.environ)
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+
+    def _unauthenticated_initialize(self, headers: dict[str, str] | None = None):
+        return self.client.post(
+            "/mcp",
+            headers=headers or {},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+
+    def test_401_points_at_the_configured_public_url(self) -> None:
+        os.environ["MCP_PUBLIC_URL"] = self.CUSTOM_URL
+        metadata = f"{self.CUSTOM_URL}/.well-known/oauth-protected-resource"
+
+        response = self._unauthenticated_initialize()
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn(f'resource_metadata="{metadata}"', response.headers["WWW-Authenticate"])
+        body_challenge = response.get_json()["error"]["data"]["_meta"]["mcp/www_authenticate"]
+        self.assertIn(f'resource_metadata="{metadata}"', body_challenge)
+        self.assertNotIn("kobkob.org", response.headers["WWW-Authenticate"] + body_challenge)
+
+    def test_root_401_points_at_the_configured_public_url(self) -> None:
+        os.environ["MCP_PUBLIC_URL"] = f"{self.CUSTOM_URL}/"
+
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn(
+            f'resource_metadata="{self.CUSTOM_URL}/.well-known/oauth-protected-resource"',
+            response.headers["WWW-Authenticate"],
+        )
+
+    def test_protected_resource_metadata_uses_the_configured_public_url(self) -> None:
+        os.environ["MCP_PUBLIC_URL"] = f"{self.CUSTOM_URL}/"
+
+        payload = self.client.get("/.well-known/oauth-protected-resource").get_json()
+
+        self.assertEqual(payload["resource"], self.CUSTOM_URL)
+        self.assertEqual(payload["resource_documentation"], f"{self.CUSTOM_URL}/docs")
+
+    def test_falls_back_to_local_url_when_the_variable_is_unset(self) -> None:
+        os.environ.pop("MCP_PUBLIC_URL", None)
+        metadata = f"{app.DEFAULT_PUBLIC_URL}/.well-known/oauth-protected-resource"
+
+        response = self._unauthenticated_initialize()
+        payload = self.client.get("/.well-known/oauth-protected-resource").get_json()
+
+        self.assertEqual(app.DEFAULT_PUBLIC_URL, "http://localhost:7777")
+        self.assertIn(f'resource_metadata="{metadata}"', response.headers["WWW-Authenticate"])
+        self.assertEqual(payload["resource"], app.DEFAULT_PUBLIC_URL)
+
+    def test_falls_back_to_local_url_when_the_variable_is_blank(self) -> None:
+        os.environ["MCP_PUBLIC_URL"] = "   "
+
+        self.assertEqual(app._public_url(), app.DEFAULT_PUBLIC_URL)
+
+    def test_request_host_header_is_never_reflected(self) -> None:
+        os.environ.pop("MCP_PUBLIC_URL", None)
+
+        response = self._unauthenticated_initialize({"Host": "attacker.example"})
+
+        self.assertNotIn("attacker.example", response.headers["WWW-Authenticate"])
+        self.assertNotIn("attacker.example", response.get_data(as_text=True))
 
 
 def _visibility_doc(visibility: str | None, title: str) -> str:

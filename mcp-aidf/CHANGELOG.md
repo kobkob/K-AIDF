@@ -8,15 +8,18 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Fixed
 
+- the public URL is no longer hardcoded to `https://mcp-aidf.kobkob.org`. The `WWW-Authenticate` challenge, the `_meta` of the 401 JSON body and the `/.well-known/oauth-protected-resource` metadata (`resource`, `resource_documentation`) now use the `MCP_PUBLIC_URL` environment variable, read per request. Unset, they use `http://localhost:7777`. The request `Host` header is deliberately not used, since clients control it (#28)
 - spec-compliant handshake over the MCP Streamable HTTP transport. A JSON-RPC notification (a message with no `id`, such as `notifications/initialized` or `notifications/cancelled`) is acknowledged with HTTP `202` and an empty body; it was answered with a `-32601` error and HTTP `400`, which JSON-RPC 2.0 forbids and which made the official MCP SDK clients fail right after `initialize`. A JSON-RPC response sent by the client (`result` or `error`, no `method`) gets the same `202`, as the transport requires. `ping` returns an empty result. `initialize` negotiates `2024-11-05`, `2025-03-26` and `2025-06-18`: a supported requested revision is echoed and any other one gets the newest, `2025-06-18` (only `2024-11-05` was offered, while the README claimed `2025-03-26`). After the handshake, a request whose `MCP-Protocol-Version` header names an unsupported revision gets a `-32600` error with HTTP `400` that lists the supported ones; a request without the header is served. Unchanged: bearer authentication runs first (an unauthenticated notification still gets `401`), a request with an `id` and an unknown method still gets `-32601` with HTTP `400`, `GET /mcp` is `405`, JSON-RPC batch requests are still refused with `-32600`, and the server stays stateless (no `Mcp-Session-Id`)
 
 ### Added
 
+- `MCP_PUBLIC_URL` environment variable, the public base URL of the server (a trailing `/` is ignored). Documented in `README.md` and `.env.example` (#28)
 - `evaluate_repository_maturity` reports `scaffold_path`: where the audit engine looked for the scaffold-owned artifacts (`<repo_root>/.kaidf` in a `kob init` project, `repo_root` itself for a generated repository audited directly). Every remediation path in the backlog depends on that layout. It is `null` with an engine that does not report it (related: #16)
 - an integration test drives the official `mcp` Python SDK client (`streamable_http_client` and `ClientSession`) over HTTP against the Flask app, served by werkzeug on a loopback port: `initialize`, `tools/list` and a `search` call, plus the `401` an unauthenticated client gets. `mcp>=2,<3` is a `dev` extra, installed by `scripts/bootstrap.sh` and by CI
 
 ### Removed
 
+- the unused `MATURITY_LEVEL_PRIORITY` constant in `app.py` (#28)
 - the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`
 
 ## [0.6.1] - 2026-11-06

@@ -129,6 +129,7 @@ Environment variables in `docker-compose.yml`:
 - `MCP_BEARER_TOKEN` - the bearer token every client must present. Required by `docker-compose.yml` (no default). Use a long random value, for example `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Outside Docker, if it is unset, the server starts with a random token for that process only and logs it at startup; that token changes on every restart and is not shared between gunicorn workers.
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
 - `MCP_TOKEN_SCOPES` - optional JSON object of tokens limited to namespaces (see Tenant Scopes)
+- `MCP_PUBLIC_URL` - optional public base URL the server is reached at (for example `https://mcp.example.org`). It is written into the `WWW-Authenticate` challenge, the 401 body and the `/.well-known/oauth-protected-resource` metadata. Unset, it defaults to `http://localhost:7777`. The `Host` request header is never used for this.
 
 Docker Compose also expects:
 
