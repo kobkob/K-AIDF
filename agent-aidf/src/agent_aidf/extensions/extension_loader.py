@@ -7,7 +7,8 @@ An extension is a directory holding a `main.py` with the metadata header (see me
 - the user extensions directory (`$KOB_EXTENSIONS_DIR`, default `~/.kob/extensions`).
 
 A broken extension is logged and skipped, so it never stops kob from starting. Its registrations
-are kept only if its `register()` returns cleanly.
+are kept only if its `register()` returns cleanly. Every candidate directory, including the failed,
+disabled and shadowed ones, is recorded as an `ExtensionStatus` so `kob ext list` can report it.
 
 Set `KOB_DISABLE_EXTENSIONS=words,ext` to skip extensions by directory name.
 
@@ -29,6 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..prompt_hooks import clear_prompt_interceptors, register_prompt_interceptor
+from .integrity import verify_install
 from .metadata import ExtensionMetadata, read_metadata
 
 logger = logging.getLogger(__name__)
@@ -37,10 +39,30 @@ BUILTIN_EXTENSIONS_DIR = Path(__file__).resolve().parent.parent / "ext"
 EXTENSIONS_DIR_ENV = "KOB_EXTENSIONS_DIR"
 DISABLED_ENV = "KOB_DISABLE_EXTENSIONS"
 
+ORIGIN_BUILTIN = "built-in"
+ORIGIN_USER = "user"
+
+STATE_LOADED = "loaded"
+STATE_FAILED = "failed"
+STATE_DISABLED = "disabled"
+STATE_SHADOWED = "shadowed"
+
 # Every subcommand the CLI defines itself (see cli/main.py). Extensions may not add or handle these.
 # tests/test_extension_loader.py checks this set against the real parser, so keep them in sync.
 BUILTIN_COMMANDS: frozenset[str] = frozenset(
-    {"init", "status", "mentor", "shell", "audit", "ui", "serve", "compile", "gen"}
+    {
+        "init",
+        "status",
+        "mentor",
+        "shell",
+        "audit",
+        "ui",
+        "serve",
+        "compile",
+        "gen",
+        "ext",
+        "appliance",
+    }
 )
 
 ArgumentConfigurer = Callable[[ArgumentParser], None]
@@ -106,19 +128,44 @@ class LoadedExtension:
     metadata: ExtensionMetadata
 
 
+@dataclass(frozen=True)
+class Registration:
+    """What an extension contributed once its registrations were accepted."""
+
+    arguments: int = 0
+    cli_handlers: int = 0
+    subcommands: tuple[str, ...] = ()
+    prompt_interceptors: int = 0
+
+
+@dataclass(frozen=True)
+class ExtensionStatus:
+    """One candidate directory and what happened to it at boot."""
+
+    id: str
+    path: Path
+    origin: str
+    state: str
+    metadata: ExtensionMetadata | None = None
+    error: str | None = None
+    registered: Registration = field(default_factory=Registration)
+
+
 class ExtensionRegistry:
     def __init__(self) -> None:
         self.loaded: list[LoadedExtension] = []
+        self.statuses: list[ExtensionStatus] = []
         self._arguments: list[tuple[str, ArgumentConfigurer]] = []
         self._handlers: list[tuple[str, CliHandler]] = []
         self._subcommands: list[_Subcommand] = []
         self._claimed_commands: set[str] = set(BUILTIN_COMMANDS)
 
-    def merge(self, loaded: LoadedExtension, contributions: _Contributions) -> None:
+    def merge(self, loaded: LoadedExtension, contributions: _Contributions) -> Registration:
         self.loaded.append(loaded)
         self._arguments.extend(contributions.arguments)
         for owner, handler in contributions.handlers:
             self._handlers.append((owner, _top_level_gate(handler)))
+        accepted: list[str] = []
         for owner, sub in contributions.subcommands:
             if sub.name in self._claimed_commands:
                 logger.warning(
@@ -129,10 +176,17 @@ class ExtensionRegistry:
                 continue
             self._claimed_commands.add(sub.name)
             self._subcommands.append(sub)
+            accepted.append(sub.name)
             # Subcommand handlers only fire for their own command name.
             self._handlers.append((owner, _command_gate(sub.name, sub.handler)))
         for owner, interceptor in contributions.interceptors:
             register_prompt_interceptor(owner, interceptor)
+        return Registration(
+            arguments=len(contributions.arguments),
+            cli_handlers=len(contributions.handlers),
+            subcommands=tuple(accepted),
+            prompt_interceptors=len(contributions.interceptors),
+        )
 
     def configure_parser(self, parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
         for owner, configure in self._arguments:
@@ -213,6 +267,22 @@ def _candidate_dirs(roots: Iterable[Path]) -> list[Path]:
     return found
 
 
+def _origin(directory: Path) -> str:
+    builtin = directory.parent.resolve() == BUILTIN_EXTENSIONS_DIR.resolve()
+    return ORIGIN_BUILTIN if builtin else ORIGIN_USER
+
+
+def _header_or_none(main: Path) -> ExtensionMetadata | None:
+    try:
+        return read_metadata(main)
+    except Exception:
+        return None
+
+
+def _error_text(exc: BaseException) -> str:
+    return str(exc) or type(exc).__name__
+
+
 def load_extensions(
     roots: Iterable[Path] | None = None, disabled: Iterable[str] | None = None
 ) -> ExtensionRegistry:
@@ -224,12 +294,32 @@ def load_extensions(
     seen: set[str] = set()
     for directory in _candidate_dirs(roots):
         ext_id = directory.name
+        origin = _origin(directory)
+        main = directory / "main.py"
         if ext_id.lower() in skip:
+            registry.statuses.append(
+                ExtensionStatus(
+                    ext_id,
+                    directory,
+                    origin,
+                    STATE_DISABLED,
+                    metadata=_header_or_none(main),
+                )
+            )
             continue
         if ext_id in seen:
             logger.warning("extension %r at %s shadows an earlier one; skipped", ext_id, directory)
+            registry.statuses.append(
+                ExtensionStatus(
+                    ext_id,
+                    directory,
+                    origin,
+                    STATE_SHADOWED,
+                    metadata=_header_or_none(main),
+                    error="an earlier extension with the same directory name is loaded",
+                )
+            )
             continue
-        main = directory / "main.py"
         try:
             metadata = read_metadata(main)
             module = _import_main(main, f"agent_aidf_extension_{ext_id}")
@@ -240,10 +330,119 @@ def load_extensions(
             register(hooks)
         except Exception as exc:
             logger.warning("skipping extension %r: %s", ext_id, exc)
+            registry.statuses.append(
+                ExtensionStatus(
+                    ext_id,
+                    directory,
+                    origin,
+                    STATE_FAILED,
+                    metadata=_header_or_none(main),
+                    error=_error_text(exc),
+                )
+            )
             continue
         seen.add(ext_id)
-        registry.merge(LoadedExtension(ext_id, directory, metadata), hooks.contributions)
+        registered = registry.merge(
+            LoadedExtension(ext_id, directory, metadata), hooks.contributions
+        )
+        registry.statuses.append(
+            ExtensionStatus(
+                ext_id,
+                directory,
+                origin,
+                STATE_LOADED,
+                metadata=metadata,
+                registered=registered,
+            )
+        )
     return registry
+
+
+def inventory(registry: ExtensionRegistry | None = None) -> dict:
+    """JSON-ready inventory of every extension found at boot, with install integrity.
+
+    Built-in extensions ship inside the package, so they have no install record to check.
+    """
+    registry = registry or active_registry()
+    rows = []
+    for status in registry.statuses:
+        meta = status.metadata
+        if status.origin == ORIGIN_USER:
+            integrity = verify_install(status.path).as_dict()
+        else:
+            integrity = {"status": "not-applicable", "archive_sha256": None, "changes": []}
+        rows.append(
+            {
+                "id": status.id,
+                "origin": status.origin,
+                "state": status.state,
+                "error": status.error,
+                "path": str(status.path),
+                "name": meta.name if meta else None,
+                "version": meta.version if meta else None,
+                "author": meta.author if meta else None,
+                "description": meta.description if meta else None,
+                "entrypoints": list(meta.entrypoints) if meta else [],
+                "topics": list(meta.topics) if meta else [],
+                "registered": {
+                    "arguments": status.registered.arguments,
+                    "cli_handlers": status.registered.cli_handlers,
+                    "subcommands": list(status.registered.subcommands),
+                    "prompt_interceptors": status.registered.prompt_interceptors,
+                },
+                "integrity": integrity,
+            }
+        )
+    return {
+        "schema_version": 1,
+        "builtin_dir": str(BUILTIN_EXTENSIONS_DIR),
+        "user_dir": str(user_extensions_dir()),
+        "extensions": rows,
+    }
+
+
+def _integrity_text(integrity: dict) -> str:
+    status = integrity["status"]
+    if status == "verified":
+        return f"verified (archive sha256:{integrity['archive_sha256'][:12]}…)"
+    if status == "modified":
+        return "MODIFIED since install: " + "; ".join(integrity["changes"])
+    if status == "no-record":
+        return "no install record (installed before integrity records existed)"
+    if status == "unreadable":
+        return "install record is unreadable"
+    return "not applicable (built-in)"
+
+
+def render_inventory_text(data: dict) -> str:
+    lines = [
+        f"Built-in extensions: {data['builtin_dir']}",
+        f"User extensions:     {data['user_dir']}",
+    ]
+    if not data["extensions"]:
+        lines.append("")
+        lines.append("No extensions found.")
+        return "\n".join(lines)
+    for row in data["extensions"]:
+        version = row["version"] or "-"
+        author = row["author"] or "-"
+        lines.append("")
+        lines.append(f"{row['id']}  {version}  {author}  [{row['origin']}, {row['state']}]")
+        if row["name"]:
+            lines.append(f"    name:        {row['name']}")
+        if row["description"]:
+            lines.append(f"    description: {row['description']}")
+        lines.append(f"    integrity:   {_integrity_text(row['integrity'])}")
+        reg = row["registered"]
+        subs = ", ".join(reg["subcommands"]) or "none"
+        lines.append(
+            f"    registered:  {reg['arguments']} CLI argument(s), "
+            f"{reg['cli_handlers']} top-level handler(s), subcommands: {subs}, "
+            f"{reg['prompt_interceptors']} prompt interceptor(s)"
+        )
+        if row["error"]:
+            lines.append(f"    error:       {row['error']}")
+    return "\n".join(lines)
 
 
 _active: ExtensionRegistry | None = None
