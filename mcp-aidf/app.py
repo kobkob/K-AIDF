@@ -106,12 +106,20 @@ def _check_bearer(auth_header: str | None) -> bool:
     return _resolve_principal(auth_header) is not None
 
 
+def _public_url() -> str:
+    # The URL clients reach this server at. It is published in the WWW-Authenticate challenge and
+    # in the protected-resource metadata, so it comes from configuration, never from the request:
+    # the Host header is client-controlled and must not be echoed into those responses.
+    configured = os.environ.get("MCP_PUBLIC_URL", "").strip().rstrip("/")
+    return configured or DEFAULT_PUBLIC_URL
+
+
+def _resource_metadata_url() -> str:
+    return f"{_public_url()}/.well-known/oauth-protected-resource"
+
+
 def _www_authenticate(auth_header: str | None) -> str:
-    challenge = (
-        "Bearer "
-        'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/oauth-protected-resource", '
-        'scope="mcp"'
-    )
+    challenge = f'Bearer resource_metadata="{_resource_metadata_url()}", scope="mcp"'
     if auth_header:
         # RFC 6750: a credential was presented but it is not valid.
         return challenge + ', error="invalid_token"'
@@ -125,7 +133,8 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
 # Streamable HTTP: after initialize, a client names the negotiated revision in this header.
 PROTOCOL_VERSION_HEADER = "MCP-Protocol-Version"
 INTERNAL_ERROR_MESSAGE = "Internal error."
-DEFAULT_RESOURCE = "https://mcp-aidf.kobkob.org"
+# Local fallback when MCP_PUBLIC_URL is unset; 7777 is the port this server listens on.
+DEFAULT_PUBLIC_URL = "http://localhost:7777"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
 CANONICAL_DOCTRINE_FILES = {
@@ -151,13 +160,6 @@ STARTER_VARIANT_DOMAINS = {
     "docs/00-overview/best-practices/seo.md": "seo",
     "docs/00-overview/best-practices/content.md": "content",
     "docs/00-overview/best-practices/research.md": "research",
-}
-MATURITY_LEVEL_PRIORITY = {
-    "experimental": 100,
-    "assisted": 200,
-    "operational": 300,
-    "managed": 400,
-    "transformative": 500,
 }
 
 
@@ -688,9 +690,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                 "data": {
                     "_meta": {
                         "mcp/www_authenticate": (
-                            "Bearer "
-                            'resource_metadata="https://mcp-aidf.kobkob.org/.well-known/'
-                            'oauth-protected-resource", '
+                            f'Bearer resource_metadata="{_resource_metadata_url()}", '
                             'scope="mcp", error="authorization_required", '
                             'error_description="Provide a valid bearer token."'
                         )
@@ -901,11 +901,12 @@ def _maturity_error(req_id: Any, exc: maturity.MaturityError):
 
 @app.route("/.well-known/oauth-protected-resource")
 def protected_resource_metadata():
+    public_url = _public_url()
     return jsonify(
         {
-            "resource": DEFAULT_RESOURCE,
+            "resource": public_url,
             "scopes_supported": ["mcp"],
-            "resource_documentation": f"{DEFAULT_RESOURCE}/docs",
+            "resource_documentation": f"{public_url}/docs",
         }
     )
 
