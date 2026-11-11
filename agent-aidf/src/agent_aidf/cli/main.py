@@ -53,6 +53,7 @@ from ..project import (
 from ..shell import run_shell
 from ..tools import is_yolo_enabled
 from ..webui import run_webui
+from .help import command_parser, main_epilog, run_help
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
 DEFAULT_LOCAL_MODEL = "OLMo 3.1 local"
@@ -616,6 +617,8 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kob",
         description=_("Run a kob command non-interactively instead of launching the TUI."),
+        epilog=main_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-v", "--version", action="version", version=f"kob {__version__}")
     parser.add_argument("--project", default=None, help=_("Path to the creator project."))
@@ -624,25 +627,27 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     # Not required: `kob --model X` with no subcommand launches the TUI with that model.
     subparsers = parser.add_subparsers(dest="command")
 
-    init_parser = subparsers.add_parser("init", help=_("Create .kaidf/ in the current project."))
+    init_parser = command_parser(
+        subparsers, "init", help=_("Create .kaidf/ in the current project.")
+    )
     init_parser.add_argument("--force", action="store_true")
 
-    subparsers.add_parser("status", help=_("Show current project and .kaidf runtime status."))
+    command_parser(subparsers, "status", help=_("Show current project and .kaidf runtime status."))
 
     mentor_help = _("Continue the persisted mentor workflow.")
-    mentor_parser = subparsers.add_parser("mentor", help=mentor_help)
+    mentor_parser = command_parser(subparsers, "mentor", help=mentor_help)
     mentor_parser.add_argument("answer", nargs="?")
     mentor_parser.add_argument("--status", dest="show_status", action="store_true")
     mentor_parser.add_argument("--reset", action="store_true")
     _add_model_option(mentor_parser)
 
-    shell_parser = subparsers.add_parser(
-        "shell", help=_("Start the interactive OLMo-backed shell.")
+    shell_parser = command_parser(
+        subparsers, "shell", help=_("Start the interactive OLMo-backed shell.")
     )
     _add_model_option(shell_parser)
 
-    audit_parser = subparsers.add_parser(
-        "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
+    audit_parser = command_parser(
+        subparsers, "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
     )
     audit_parser.add_argument("path", nargs="?", default=".")
     audit_parser.add_argument(
@@ -666,30 +671,34 @@ def _build_cli_parser() -> argparse.ArgumentParser:
 
     ui_help = _("Launch the mentor web UI (Maturity Model phases + mentor chat).")
     for name in ("ui", "serve"):
-        ui_parser = subparsers.add_parser(name, help=ui_help)
+        ui_parser = command_parser(subparsers, name, help=ui_help)
         ui_parser.add_argument("--port", type=tcp_port_argument, default=ui_port())
         _add_model_option(ui_parser)
 
     for name in ("compile", "gen"):
-        gen_parser = subparsers.add_parser(name, help=_("Run the K-AIDF generator against a spec."))
+        gen_parser = command_parser(
+            subparsers, name, help=_("Run the K-AIDF generator against a spec.")
+        )
         gen_parser.add_argument("spec", nargs="?")
         gen_parser.add_argument("--out", default="./out")
         gen_parser.add_argument("--force", action="store_true")
 
-    ext_parser = subparsers.add_parser("ext", help=_("Inspect installed extensions."))
+    ext_parser = command_parser(subparsers, "ext", help=_("Inspect and install extensions."))
     ext_commands = ext_parser.add_subparsers(dest="ext_command", required=True)
-    ext_list = ext_commands.add_parser(
-        "list",
+    ext_list = command_parser(
+        ext_commands,
+        "ext list",
         help=_("List extensions, what they registered, and their install integrity."),
     )
     ext_list.add_argument("--json", action="store_true", help=_("Print the inventory as JSON."))
 
-    appliance_parser = subparsers.add_parser(
-        "appliance", help=_("Bootstrap a K-AIDF appliance from a notebook.")
+    appliance_parser = command_parser(
+        subparsers, "appliance", help=_("Bootstrap a K-AIDF appliance from a notebook.")
     )
     appliance_commands = appliance_parser.add_subparsers(dest="appliance_command", required=True)
-    appliance_init = appliance_commands.add_parser(
-        "init",
+    appliance_init = command_parser(
+        appliance_commands,
+        "appliance init",
         help=_("Configure .kaidf/ from the kaidf-config cell of a notebook."),
     )
     appliance_init.add_argument(
@@ -703,11 +712,23 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=_("Recreate .kaidf/ from scratch instead of keeping an existing one."),
     )
-    appliance_template = appliance_commands.add_parser(
-        "template", help=_("Write a starter notebook for Google Colab, Kaggle and JupyterLab.")
+    appliance_template = command_parser(
+        appliance_commands,
+        "appliance template",
+        help=_("Write a starter notebook for Google Colab, Kaggle and JupyterLab."),
     )
     appliance_template.add_argument("out", metavar="FILE.ipynb")
     appliance_template.add_argument("--force", action="store_true")
+
+    help_parser = command_parser(
+        subparsers, "help", help=_("Show the command list, or the help of one command.")
+    )
+    help_parser.add_argument(
+        "topic",
+        nargs="*",
+        metavar="command",
+        help=_("Command to explain, for example `audit` or `ext list`."),
+    )
 
     # Extensions come last so an extension that clashes with a built-in name is skipped, not fatal.
     active_registry().configure_parser(parser, subparsers)
@@ -814,6 +835,8 @@ def _run_cli(argv: list[str]) -> int:
     if args.command is None:
         KobAgentApp(yolo=is_yolo_enabled()).run()
         return 0
+    if args.command == "help":
+        return run_help(parser, args.topic)
     project_root = resolve_project_root(args.project)
 
     if args.command == "init":

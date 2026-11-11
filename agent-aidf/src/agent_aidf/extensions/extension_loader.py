@@ -62,6 +62,7 @@ BUILTIN_COMMANDS: frozenset[str] = frozenset(
         "gen",
         "ext",
         "appliance",
+        "help",
     }
 )
 

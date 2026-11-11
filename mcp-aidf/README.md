@@ -193,6 +193,8 @@ Documents may declare a `namespace` in their front matter. A token can be limite
 
 The canonical doctrine package is expected under `docs/00-overview/`.
 
+The workspace's own `docs/` tree is organised in numbered sections (`01-basics`, `02-architecture`, `03-commands`, `04-interfaces`, `05-models`). Those documents are indexed like any other, with the section name as their `phase`, and `fetch` resolves them by path or front matter `id`. The doctrine contract stays under `docs/00-overview/`, which is the layout generated repositories and `contracts/index-contract` use.
+
 Canonical files:
 
 - `manifesto.md`
