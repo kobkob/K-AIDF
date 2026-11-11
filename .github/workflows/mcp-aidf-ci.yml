@@ -10,11 +10,18 @@ on:
     paths:
       - "mcp-aidf/**"
       - "contracts/**"
+      # tests/test_easypanel_template.py checks deploy/easypanel/ against the Dockerfile and
+      # app.py, and tests/test_workspace_docs.py indexes the workspace docs/ tree, so both
+      # directories are inputs of this suite.
+      - "deploy/**"
+      - "docs/**"
       - ".github/workflows/mcp-aidf-ci.yml"
   pull_request:
     paths:
       - "mcp-aidf/**"
       - "contracts/**"
+      - "deploy/**"
+      - "docs/**"
       - ".github/workflows/mcp-aidf-ci.yml"
 
 jobs:

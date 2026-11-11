@@ -16,7 +16,7 @@ The current implementation uses the simplest useful content model:
 
 ## Architecture
 
-- **Flask** web server running on port 7777
+- **Flask** web server running on port 7777 (the container listens on `PORT`, which defaults to 7777)
 - **Single local repository root** configured by `AIDF_REPO_ROOT`
 - **Docker** containerized deployment
 - **Nginx** reverse proxy (port 80 → 7777)
@@ -121,6 +121,10 @@ docker compose ps
 docker compose logs -f
 ```
 
+### EasyPanel
+
+[`deploy/easypanel/easypanel.json`](https://github.com/kobkob/K-AIDF/blob/main/deploy/easypanel/easypanel.json) is an EasyPanel schema that builds this directory, sets `PORT=8000`, `MCP_PUBLIC_URL` and `AIDF_REPO_ROOT=/workspace`, and mounts a `workspace` volume. The guide, in Portuguese, is [`docs/06-deploy/easypanel.md`](https://github.com/kobkob/K-AIDF/blob/main/docs/06-deploy/easypanel.md); it also covers connecting Claude Code, Claude Desktop, Cursor and Roo Code with the bearer token.
+
 ## Configuration
 
 Environment variables in `docker-compose.yml`:
@@ -130,6 +134,7 @@ Environment variables in `docker-compose.yml`:
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
 - `MCP_TOKEN_SCOPES` - optional JSON object of tokens limited to namespaces (see Tenant Scopes)
 - `MCP_PUBLIC_URL` - optional public base URL the server is reached at (for example `https://mcp.example.org`). It is written into the `WWW-Authenticate` challenge, the 401 body and the `/.well-known/oauth-protected-resource` metadata. Unset, it defaults to `http://localhost:7777`. The `Host` request header is never used for this.
+- `PORT` - the port the container listens on. The image sets `7777`, which is what `docker-compose.yml` publishes; a hosting platform can set another value (the EasyPanel template sets `8000`). `python app.py` always uses 7777.
 
 Docker Compose also expects:
 
@@ -193,7 +198,7 @@ Documents may declare a `namespace` in their front matter. A token can be limite
 
 The canonical doctrine package is expected under `docs/00-overview/`.
 
-The workspace's own `docs/` tree is organised in numbered sections (`01-basics`, `02-architecture`, `03-commands`, `04-interfaces`, `05-models`). Those documents are indexed like any other, with the section name as their `phase`, and `fetch` resolves them by path or front matter `id`. The doctrine contract stays under `docs/00-overview/`, which is the layout generated repositories and `contracts/index-contract` use.
+The workspace's own `docs/` tree is organised in numbered sections (`01-basics`, `02-architecture`, `03-commands`, `04-interfaces`, `05-models`, `06-deploy`). Those documents are indexed like any other, with the section name as their `phase`, and `fetch` resolves them by path or front matter `id`. The doctrine contract stays under `docs/00-overview/`, which is the layout generated repositories and `contracts/index-contract` use.
 
 Canonical files:
 

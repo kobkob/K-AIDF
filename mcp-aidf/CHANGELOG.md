@@ -13,9 +13,16 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
+- `PORT` environment variable in the container image: gunicorn binds `0.0.0.0:${PORT:-7777}`. The image sets `PORT=7777`, so `docker-compose.yml` keeps publishing `7777:7777`; a hosting platform can set another port, and the EasyPanel template at `deploy/easypanel/easypanel.json` sets `8000`. `python app.py` and `DEFAULT_PUBLIC_URL` still use 7777 (#137)
+- `tests/test_easypanel_template.py`: checks `deploy/easypanel/easypanel.json` against this component, so the template cannot drift from the server: the build path holds the Dockerfile and every file it copies, the domain port equals `PORT` and the start command reads `PORT`, every variable is one `app.py` or the start command reads, `MCP_BEARER_TOKEN` ships empty, `MCP_PUBLIC_URL` is the bare origin, and the volume is mounted at `AIDF_REPO_ROOT`. The guide `docs/06-deploy/easypanel.md` must list each variable with the value the template sets (#137)
+- README: an EasyPanel subsection under Deployment and the `PORT` entry under Configuration (#137)
 - `MCP_PUBLIC_URL` environment variable, the public base URL of the server (a trailing `/` is ignored). Documented in `README.md` and `.env.example` (#28)
 - `evaluate_repository_maturity` reports `scaffold_path`: where the audit engine looked for the scaffold-owned artifacts (`<repo_root>/.kaidf` in a `kob init` project, `repo_root` itself for a generated repository audited directly). Every remediation path in the backlog depends on that layout. It is `null` with an engine that does not report it (related: #16)
 - an integration test drives the official `mcp` Python SDK client (`streamable_http_client` and `ClientSession`) over HTTP against the Flask app, served by werkzeug on a loopback port: `initialize`, `tools/list` and a `search` call, plus the `401` an unauthenticated client gets. `mcp>=2,<3` is a `dev` extra, installed by `scripts/bootstrap.sh` and by CI
+
+### Changed
+
+- the workspace `docs/` sections covered by `tests/test_workspace_docs.py` include `06-deploy` (#137)
 
 ### Removed
 

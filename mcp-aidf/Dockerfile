@@ -17,9 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py maturity.py ./
 
+# Listen port: 7777 unless the platform sets PORT (deploy/easypanel/easypanel.json sets 8000).
+ENV PORT=7777
 EXPOSE 7777
 
 USER appuser
 
-# Production WSGI server instead of the Flask development server.
-CMD ["gunicorn", "--bind", "0.0.0.0:7777", "--workers", "2", "--access-logfile", "-", "app:app"]
+# Production WSGI server instead of the Flask development server. The exec form does not expand
+# variables, so a shell resolves PORT and then execs gunicorn, which stays PID 1.
+CMD ["sh", "-c", "exec gunicorn --bind \"0.0.0.0:${PORT:-7777}\" --workers 2 --access-logfile - app:app"]

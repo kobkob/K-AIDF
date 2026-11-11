@@ -1,0 +1,36 @@
+{
+  "services": [
+    {
+      "type": "app",
+      "data": {
+        "serviceName": "mcp-aidf",
+        "source": {
+          "type": "github",
+          "owner": "kobkob",
+          "repo": "K-AIDF",
+          "ref": "main",
+          "path": "/mcp-aidf",
+          "autoDeploy": false
+        },
+        "build": {
+          "type": "dockerfile",
+          "file": "Dockerfile"
+        },
+        "env": "PORT=8000\nMCP_PUBLIC_URL=https://$(PRIMARY_DOMAIN)\nAIDF_REPO_ROOT=/workspace\nMCP_BEARER_TOKEN=",
+        "domains": [
+          {
+            "host": "$(EASYPANEL_DOMAIN)",
+            "port": 8000
+          }
+        ],
+        "mounts": [
+          {
+            "type": "volume",
+            "name": "workspace",
+            "mountPath": "/workspace"
+          }
+        ]
+      }
+    }
+  ]
+}
