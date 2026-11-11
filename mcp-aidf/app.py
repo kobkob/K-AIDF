@@ -137,6 +137,10 @@ INTERNAL_ERROR_MESSAGE = "Internal error."
 DEFAULT_PUBLIC_URL = "http://localhost:7777"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
+# Doctrine stays under docs/00-overview/ here: the shared index contract
+# (contracts/index-contract) and the generated repositories use that layout. The workspace's own
+# docs/ tree is organised in numbered sections (01-basics ... 05-models); those are indexed like
+# any other document, with the section as their phase.
 CANONICAL_DOCTRINE_FILES = {
     "docs/00-overview/manifesto.md": "manifesto",
     "docs/00-overview/principles.md": "principles",
@@ -326,10 +330,10 @@ def _risk_type(front_matter: dict[str, Any]) -> str | None:
 
 
 def _infer_phase(rel_path: str) -> str:
-    if rel_path == "README.md":
-        return "root"
+    # A document inside a section directory (docs/<section>/...) takes the section as its phase.
+    # Files directly under docs/ (for example the docs/README.md index) and root files are "root".
     parts = PurePosixPath(rel_path).parts
-    if len(parts) >= 2 and parts[0] == "docs":
+    if len(parts) >= 3 and parts[0] == "docs":
         return parts[1]
     return "root"
 
