@@ -51,7 +51,7 @@ from ..project import (
     resolve_runtime_repo_root,
 )
 from ..shell import run_shell
-from ..tools import is_yolo_enabled
+from ..tools import enable_yolo, is_yolo_enabled
 from ..webui import run_webui
 from .help import command_parser, main_epilog, run_help
 
@@ -73,10 +73,10 @@ LOGO = (
 )
 
 YOLO_WARNING_TEXT = (
-    "YOLO MODE ACTIVE: safety confirmations are DISABLED. kob can write files and run shell "
-    "commands without asking first. This can modify or delete data, install or remove "
-    "software, or otherwise change your system with no confirmation step. Use only if you "
-    "understand and accept that risk."
+    "YOLO MODE ACTIVE: confirmations for file writes are DISABLED. kob can overwrite files in "
+    "the project without asking first. Shell commands still ask for confirmation. This can "
+    "modify or delete data in the project with no confirmation step. Use only if you understand "
+    "and accept that risk."
 )
 
 # (command, description) pairs, kept alphabetical by command name.
@@ -624,6 +624,16 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project", default=None, help=_("Path to the creator project."))
     parser.add_argument("--repo", default=None, help=_("Path to a K-AIDF repository override."))
     parser.add_argument("--model", type=_model_argument, default=None, help=_model_help())
+    # main() removes --yolo from argv and sets the environment before parsing; the flag is listed
+    # here so that --help documents it.
+    parser.add_argument(
+        "--yolo",
+        action="store_true",
+        help=_(
+            "Apply file writes proposed by the mentor without asking. Shell commands still ask. "
+            "The same setting applies when KOB_YOLO is set in the environment."
+        ),
+    )
     # Not required: `kob --model X` with no subcommand launches the TUI with that model.
     subparsers = parser.add_subparsers(dest="command")
 
@@ -832,6 +842,13 @@ def _run_appliance_command(args: argparse.Namespace, project_root: Path) -> int:
 
 
 def _run_cli(argv: list[str]) -> int:
+    if "--yolo" in argv:
+        enable_yolo()
+        argv = [arg for arg in argv if arg != "--yolo"]
+    # Keyed to the environment, not to the flag: a KOB_YOLO inherited from the shell is announced
+    # the same way as --yolo, so no unattended run is silent about it.
+    if is_yolo_enabled():
+        Console().print(f"\n⚠  [bold white on red]{YOLO_WARNING_TEXT}[/bold white on red]\n")
     parser = _build_cli_parser()
     args = parser.parse_args(argv)
     # Before any controller is built: every entry point resolves its model from the environment.
@@ -923,17 +940,14 @@ def main() -> int:
     # Load extensions once at boot, so their prompt interceptors apply to the TUI and shell too.
     active_registry()
     argv = sys.argv[1:]
-    yolo = "--yolo" in argv
-    if yolo:
+    if "--yolo" in argv:
+        enable_yolo()
         argv = [arg for arg in argv if arg != "--yolo"]
-        os.environ["KOB_YOLO"] = "1"
 
     if not argv:
-        KobAgentApp(yolo=yolo).run()
+        KobAgentApp(yolo=is_yolo_enabled()).run()
         return 0
 
-    if yolo:
-        Console().print(f"\n⚠  [bold white on red]{YOLO_WARNING_TEXT}[/bold white on red]\n")
     return _run_cli(argv)
 
 

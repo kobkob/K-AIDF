@@ -463,13 +463,14 @@ def test_yolo_applies_write_action_immediately_without_pausing(tmp_path: Path, m
     assert "Auto-drafted." in icb_path.read_text(encoding="utf-8")
 
 
-def test_yolo_applies_run_shell_action_immediately(tmp_path: Path, monkeypatch) -> None:
+def test_yolo_never_runs_a_shell_command_without_confirmation(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("KOB_YOLO", "1")
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
+    marker = tmp_path / "ran.txt"
     action_block = (
         "Checking something.\n"
         "<<<KOB_ACTION\n"
-        '{"action": "run_shell", "command": "echo yolo-ran"}\n'
+        f'{{"action": "run_shell", "command": "touch {marker}"}}\n'
         "KOB_ACTION>>>"
     )
     fake = _FakeController([action_block])
@@ -479,9 +480,16 @@ def test_yolo_applies_run_shell_action_immediately(tmp_path: Path, monkeypatch) 
     turn = continue_mentor_workflow(repo, answer="Please check something for me.")
     state = load_mentor_state(repo)
 
-    assert "[--yolo]" in turn.message
-    assert "yolo-ran" in turn.message
-    assert state.pending_file_action is None
+    assert "[--yolo]" not in turn.message
+    assert 'Reply "yes" to run it' in turn.message
+    assert state.pending_file_action is not None
+    assert state.pending_file_action["kind"] == "run_shell"
+    assert not marker.exists()
+
+    confirmed = continue_mentor_workflow(repo, answer="yes")
+
+    assert marker.exists()
+    assert "Ran `" in confirmed.message
 
 
 def test_yolo_does_not_bypass_phase_acceptance_confirmation(tmp_path: Path, monkeypatch) -> None:

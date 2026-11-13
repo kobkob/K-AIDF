@@ -20,12 +20,19 @@ from .repo import Document, load_documents, resolve_repo_root
 from .runtime_state import as_int, atomic_write_text, read_state_object
 from .tools import (
     ACTION_PROTOCOL_INSTRUCTIONS,
+    FULL_PREVIEW_CHARS,
+    UNTRUSTED_INSTRUCTION,
     ProposedAction,
+    applies_without_confirmation,
     apply_action,
+    content_digest,
     describe_action,
     extract_proposed_action,
+    fence_untrusted,
     is_affirmative,
-    is_yolo_enabled,
+    is_bare_affirmative,
+    record_action_event,
+    stage_content,
 )
 
 MENTOR_STATE_FILENAME = "mentor-workflow.json"
@@ -291,22 +298,31 @@ def _handle_normal_answer(
 
     yolo_action_note: str | None = None
     if proposed_action is not None:
-        if is_yolo_enabled():
-            yolo_action_note = f"[--yolo] {apply_action(_project_root_for(repo), proposed_action)}"
+        if applies_without_confirmation(proposed_action):
+            result = apply_action(_project_root_for(repo), proposed_action)
+            _log_action(repo, "applied", proposed_action, source="--yolo", result=result)
+            yolo_action_note = f"[--yolo] {result}"
         else:
+            staged_path = (
+                stage_content(repo, proposed_action)
+                if len(proposed_action.content) > FULL_PREVIEW_CHARS
+                else None
+            )
+            prompt_text = describe_action(proposed_action, staged_path=staged_path)
             next_state = replace(
                 base_next_state,
                 pending_file_action=asdict(proposed_action),
-                pending_question=describe_action(proposed_action),
+                pending_question=prompt_text,
             )
             save_mentor_state(repo, next_state)
+            _log_action(repo, "proposed", proposed_action)
             message = "\n".join(
                 [
                     cleaned_reply.strip(),
                     "",
                     f"Action: {action_summary}",
                     "",
-                    describe_action(proposed_action),
+                    prompt_text,
                 ]
             ).strip()
             return MentorTurn(message=message, state=next_state, token_usage=token_usage)
@@ -355,7 +371,9 @@ def _handle_file_action_response(
     action = ProposedAction(**state.pending_file_action)
     cleared_state = replace(state, pending_file_action=None, pending_question=None)
 
-    if not is_affirmative(answer):
+    # Only a bare "yes" confirms an action. Anything else is a reply with changes.
+    if not is_bare_affirmative(answer):
+        _log_action(repo, "rejected", action)
         return _handle_normal_answer(
             repo,
             cleared_state,
@@ -367,6 +385,7 @@ def _handle_file_action_response(
         )
 
     write_summary = apply_action(_project_root_for(repo), action)
+    _log_action(repo, "applied", action, source="confirmed", result=write_summary)
 
     documents_after = load_documents(repo)
     if phase["order"] not in cleared_state.accepted_phases and _phase_ready_for_acceptance(
@@ -502,10 +521,10 @@ def _build_mentor_prompt(
         history_lines.append("- none")
     else:
         for item in recent:
-            history_lines.append(f"- {item.category} :: {item.document_path}")
-            history_lines.append(f"  q={item.question}")
-            history_lines.append(f"  a={item.answer}")
-            history_lines.append(f"  mentor={item.mentor_reply[:220]}")
+            history_lines.append(f"- {item.category} :: {fence_untrusted(item.document_path)}")
+            history_lines.append(f"  q={fence_untrusted(item.question)}")
+            history_lines.append(f"  a={fence_untrusted(item.answer)}")
+            history_lines.append(f"  mentor={fence_untrusted(item.mentor_reply[:220])}")
 
     artifacts = _phase_artifact_documents(documents, phase_dir)
     artifact_lines = []
@@ -514,10 +533,12 @@ def _build_mentor_prompt(
     else:
         for doc in artifacts:
             status_label = "filled in" if _is_artifact_filled_in(doc) else "still a blank scaffold"
-            artifact_lines.append(f"- {_KAIDF_DIRNAME}/{doc.path} ({status_label})")
+            artifact_lines.append(
+                f"- {_KAIDF_DIRNAME}/{fence_untrusted(doc.path)} ({status_label})"
+            )
             excerpt = " ".join(doc.body.splitlines()[:5]).strip()
             if excerpt:
-                artifact_lines.append(f"  current content={excerpt[:400]}")
+                artifact_lines.append(f"  current content={fence_untrusted(excerpt[:400])}")
 
     return "\n".join(
         [
@@ -535,6 +556,8 @@ def _build_mentor_prompt(
             "question at the end, unless you are proposing a file action instead.",
             "",
             ACTION_PROTOCOL_INSTRUCTIONS,
+            "",
+            UNTRUSTED_INSTRUCTION,
             "",
             f"Current question: {pending_question}",
             "",
@@ -806,3 +829,23 @@ def _format_pending_question(state: MentorState) -> str:
 
 def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _log_action(
+    repo: Path,
+    event: str,
+    action: ProposedAction,
+    *,
+    source: str = "confirmation",
+    result: str = "",
+) -> None:
+    """Record a proposal or its outcome in action-log.jsonl: paths and digests, not file content."""
+    record: dict = {"event": event, "kind": action.kind, "source": source}
+    if action.kind == "write_file":
+        record["path"] = action.path
+        record["sha256"] = content_digest(action.content)
+    else:
+        record["command"] = action.command
+    if result:
+        record["result"] = result.splitlines()[0][:300]
+    record_action_event(repo, record)
