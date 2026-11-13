@@ -53,8 +53,8 @@ The TUI has four regions: a top bar (the K-AIDF logo, the active model, and the 
 Same commands, run directly from the shell (this is what the root `Makefile` targets use):
 
 - `kob [--project ...] [--repo ...] init [--force]`
-- `kob [--project ...] [--repo ...] status`
-- `kob [--project ...] [--repo ...] mentor [answer] [--status] [--reset]`
+- `kob [--project ...] [--repo ...] status [--json]` — the phase pipeline, the KAIDF-AMM scorecard, extensions and the active model; a Rich dashboard on a terminal, plain `key: value` lines in a pipe, JSON with `--json`
+- `kob [--project ...] [--repo ...] mentor [answer] [--status] [--reset]` — on a terminal the current question is shown in a panel, with the maturity and ethics context in tags above it
 - `kob [--project ...] [--repo ...] shell`
 - `kob [--project ...] [--repo ...] ui [--port ...]` / `kob ... serve [--port ...]` — runs the web UI in the foreground until stopped (Ctrl+C, or `/exit` typed into the web UI itself)
 - `kob [--project ...] [--repo ...] compile [spec] --out <dir> [--force]` / `kob ... gen [spec] --out <dir> [--force]`
