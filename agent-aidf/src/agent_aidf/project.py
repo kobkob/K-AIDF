@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from .instant_apps import list_instant_apps, load_instant_app_runtime
@@ -204,13 +205,38 @@ def resolve_generator_python(generator_repo: Path) -> Path:
     return Path(sys.executable)
 
 
+# Runtime state that `init --force` carries over from the replaced .kaidf/ into the new one.
+# mentor-workflow.json is the progress of the user's mentor session; apps/, contracts/ and policy/
+# hold accepted work. The generator writes defaults for policy/, so the saved copy wins there.
+PRESERVED_RUNTIME_STATE = ("mentor-workflow.json", "apps", "contracts", "policy")
+
+
+def _carry_over_runtime_state(backup: Path, target: Path) -> None:
+    for name in PRESERVED_RUNTIME_STATE:
+        source = backup / name
+        if not source.exists():
+            continue
+        destination = target / name
+        if source.is_dir():
+            shutil.copytree(source, destination, dirs_exist_ok=True)
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+
 def init_project_repo(project_root: str | Path | None = None, *, force: bool = False) -> Path:
+    """Create .kaidf/ from the generator.
+
+    The scaffold is generated in a temporary directory first, so a missing generator or an
+    invalid spec leaves an existing .kaidf/ untouched. With force, the old directory is renamed to
+    .kaidf.bak-<timestamp> and kept (its path is printed), the runtime state in
+    PRESERVED_RUNTIME_STATE is copied into the new scaffold, and the old directory is restored if
+    anything fails after the rename.
+    """
     project = resolve_project_root(project_root)
     target = project_repo_root(project)
-    if target.exists():
-        if not force:
-            raise ProjectAlreadyInitializedError(target)
-        shutil.rmtree(target)
+    if target.exists() and not force:
+        raise ProjectAlreadyInitializedError(target)
 
     generator_repo = locate_generator_repo()
     generator_python = resolve_generator_python(generator_repo)
@@ -246,7 +272,25 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
             raise RuntimeError(
                 f"Expected one generated repository in {temp_path}, found {len(generated_roots)}"
             )
-        shutil.move(str(generated_roots[0]), str(target))
+        generated = generated_roots[0]
+
+        backup: Path | None = None
+        if target.exists():
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+            backup = target.with_name(f"{target.name}.bak-{stamp}")
+            target.rename(backup)
+        try:
+            shutil.move(str(generated), str(target))
+            if backup is not None:
+                _carry_over_runtime_state(backup, target)
+        except BaseException:
+            if target.exists():
+                shutil.rmtree(target)
+            if backup is not None:
+                backup.rename(target)
+            raise
+    if backup is not None:
+        print(f"kob: the previous {KAIDF_DIRNAME} was kept at {backup}", file=sys.stderr)
     # Record which spec produced the scaffold, so `kob audit` can parse it (specs-parse) and a
     # later regeneration knows where it came from. A missing spec would already have failed the
     # generator above, so the guard only keeps that error from being masked by a second one.
