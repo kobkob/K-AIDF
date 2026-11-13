@@ -33,6 +33,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Changed
 
+- The root `README.md` describes the current state: the `kob` commands that exist, the components without the migration and OAuth claims, and a single integration section (the duplicated blocks are gone). `make agent-ui` is described as the web UI. The overview image moves to `docs/assets/k-aidf-overview.png` and is palette-optimized from 1.8 MB to 250 KB (#111)
 - `mcp-aidf` container image: the listen port comes from the `PORT` environment variable, default `7777` as before, so `mcp-aidf/docker-compose.yml` is unaffected (#137; see `mcp-aidf`'s own changelog)
 - `mcp-aidf CI` also runs when `deploy/**` or `docs/**` change: `tests/test_easypanel_template.py` checks the EasyPanel template against the Dockerfile and `app.py`, and `tests/test_workspace_docs.py` indexes the workspace `docs/` tree, now including `06-deploy` (#137)
 - `docs/` reorganised into numbered sections (#93): `01-basics/` (quickstart, installation, concepts), `02-architecture/` (the five KAIDF-AMM dimensions, the extension runtime, security), `03-commands/` (a reference page per `kob` command), `04-interfaces/` (WebUI and TUI) and `05-models/` (inference providers, `AIDF_MODEL` precedence), with an index at `docs/README.md`. `docs/00-overview/inference-providers.md` moved to `docs/05-models/inference-providers.md`
@@ -44,6 +45,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Removed
 
+- `OPEN_ISSUES.md` and `ISSUES.md`: two snapshots of the open issues from 2026-09-22 that had gone stale. GitHub issues are the list (#111)
 - the nested `agent-aidf/.github/`, `kobkob-kaidf-generator/.github/` and `mcp-aidf/.github/` directories. GitHub Actions only reads the root `.github/workflows/`, so their `release.yml` never ran: tags `v0.5.5`, `v0.5.6`, `v0.6.0-rc1`, `v0.6.0` and `v0.6.1` produced no build, no GitHub Release and no tag-time verification
 
 ## [0.6.1] - 2026-11-06

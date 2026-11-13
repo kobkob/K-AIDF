@@ -36,7 +36,7 @@ help:
 	@echo "make agent-mentor     Continue the mentor workflow (kob mentor, pass ANSWER='...')"
 	@echo "make agent-mentor-status Show persisted mentor workflow state (kob mentor --status)"
 	@echo "make agent-mentor-reset Reset persisted mentor workflow state (kob mentor --reset)"
-	@echo "make agent-ui         Show the kob ui/serve placeholder (local mentor web daemon, not yet implemented)"
+	@echo "make agent-ui         Launch the mentor web UI (kob ui)"
 	@echo "make agent-packs      List doctrine packs through agent-aidf"
 	@echo "make agent-apps       List persistent instant apps"
 	@echo "make agent-app-run    Start a web instant app (pass APP=<app-id> [PORT=...])"
