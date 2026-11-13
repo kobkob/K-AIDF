@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .repo import resolve_repo_root
+from .runtime_state import atomic_write_text, read_state_object
 
 APP_METADATA_FILENAME = "app.json"
 APPS_DIRNAME = "apps"
@@ -65,10 +66,8 @@ def list_instant_apps(repo_root: str | Path | None) -> list[InstantApp]:
 def load_instant_app(ref: str | Path) -> InstantApp | None:
     root = Path(ref).expanduser().resolve()
     metadata_path = root / APP_METADATA_FILENAME
-    if not metadata_path.is_file():
-        return None
-    data = json.loads(metadata_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
+    data = read_state_object(metadata_path)
+    if data is None:
         return None
     app_id = data.get("app_id")
     mode = data.get("mode")
@@ -170,7 +169,7 @@ def append_mentor_note(
         else f"# Mentor Notes for {app.app_id}\n"
     )
     entry = f"\n## {heading}\n\n{body.strip()}\n"
-    notes_path.write_text(existing.rstrip() + entry + "\n", encoding="utf-8")
+    atomic_write_text(notes_path, existing.rstrip() + entry + "\n")
     return notes_path
 
 
@@ -183,10 +182,8 @@ def runtime_state_path(repo_root: str | Path | None, app_id: str) -> Path:
 
 def load_instant_app_runtime(repo_root: str | Path | None, app_id: str) -> InstantAppRuntime | None:
     path = runtime_state_path(repo_root, app_id)
-    if not path.is_file():
-        return None
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
+    data = read_state_object(path)
+    if data is None:
         return None
     log_path_raw = data.get("log_path")
     command = data.get("command", [])
@@ -438,8 +435,7 @@ def _scaffold_instant_app(root: Path, *, app_id: str, mode: str, kind: str) -> N
 
 
 def _write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    atomic_write_text(path, content)
 
 
 def _write_runtime_state(path: Path, runtime: InstantAppRuntime) -> None:
