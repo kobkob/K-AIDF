@@ -46,7 +46,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_parser = subparsers.add_parser("init", help="Create .kaidf in the current project.")
     init_parser.add_argument(
-        "--force", action="store_true", help="Replace an existing .kaidf directory."
+        "--force",
+        action="store_true",
+        help="Replace an existing .kaidf directory. The old one is kept as .kaidf.bak-<timestamp>, "
+        "and mentor state, instant apps, contracts and policy are carried over.",
     )
 
     subparsers.add_parser("status", help="Show current project and .kaidf runtime status.")

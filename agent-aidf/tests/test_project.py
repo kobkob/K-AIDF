@@ -215,3 +215,112 @@ def test_runtime_probe_matches_what_the_interpreter_can_import(tmp_path: Path) -
 
     assert project_module.python_has_generator_runtime(sys.executable) is expected
     assert project_module.python_has_generator_runtime(tmp_path / "no-such-python") is False
+
+
+# --- kob init --force must not lose the existing .kaidf/ (#109) ----------------------------------
+
+
+def _generator(tmp_path: Path, monkeypatch) -> Path:
+    generator_repo = tmp_path / "generator"
+    (generator_repo / "specs").mkdir(parents=True)
+    (generator_repo / "specs/kaidf.default.yaml").write_text("repo:\n  name: demo\n", "utf-8")
+    monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
+    return generator_repo
+
+
+def _generator_succeeds(monkeypatch) -> None:
+    def _fake_run(command, **kwargs):
+        generated = Path(command[command.index("--out") + 1]) / "demo"
+        _write(generated / "README.md", "# Fresh\n")
+        _write(generated / "policy/budget.yaml", "max_tokens: 1\n")
+        return None
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+
+
+def _generator_fails(monkeypatch) -> None:
+    def _fake_run(command, **kwargs):
+        raise project_module.subprocess.CalledProcessError(1, command, stderr="spec is invalid")
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+
+
+def _existing_project_with_state(project: Path) -> Path:
+    repo = project / ".kaidf"
+    _write(repo / "README.md", "# Old\n")
+    _write(repo / "mentor-workflow.json", '{"accepted_phases": ["01"]}')
+    _write(repo / "apps/app-1/app.json", '{"app_id": "app-1"}')
+    _write(repo / "contracts/contract-1/contract.md", "# Contract\n")
+    _write(repo / "policy/budget.yaml", "max_tokens: 99\n")
+    return repo
+
+
+def test_failing_generator_leaves_existing_dot_kaidf_untouched(tmp_path: Path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    repo = _existing_project_with_state(project)
+    _generator(tmp_path, monkeypatch)
+    _generator_fails(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="spec is invalid"):
+        init_project_repo(project, force=True)
+
+    assert (repo / "mentor-workflow.json").read_text(
+        encoding="utf-8"
+    ) == '{"accepted_phases": ["01"]}'
+    assert (repo / "apps/app-1/app.json").is_file()
+    assert not list(project.glob(".kaidf.bak-*"))
+
+
+def test_force_keeps_the_old_directory_and_carries_over_runtime_state(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    project = tmp_path / "project"
+    repo = _existing_project_with_state(project)
+    _generator(tmp_path, monkeypatch)
+    _generator_succeeds(monkeypatch)
+
+    init_project_repo(project, force=True)
+
+    assert (repo / "README.md").read_text(encoding="utf-8") == "# Fresh\n"
+    assert (repo / "mentor-workflow.json").read_text(
+        encoding="utf-8"
+    ) == '{"accepted_phases": ["01"]}'
+    assert (repo / "apps/app-1/app.json").is_file()
+    assert (repo / "contracts/contract-1/contract.md").is_file()
+    # The saved policy wins over the generator default.
+    assert (repo / "policy/budget.yaml").read_text(encoding="utf-8") == "max_tokens: 99\n"
+    backups = list(project.glob(".kaidf.bak-*"))
+    assert len(backups) == 1
+    assert (backups[0] / "README.md").read_text(encoding="utf-8") == "# Old\n"
+    assert str(backups[0]) in capsys.readouterr().err
+
+
+def test_failed_swap_restores_the_old_dot_kaidf(tmp_path: Path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    repo = _existing_project_with_state(project)
+    _generator(tmp_path, monkeypatch)
+    _generator_succeeds(monkeypatch)
+
+    def _broken_move(source, destination):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(project_module.shutil, "move", _broken_move)
+
+    with pytest.raises(OSError, match="disk full"):
+        init_project_repo(project, force=True)
+
+    assert (repo / "README.md").read_text(encoding="utf-8") == "# Old\n"
+    assert (repo / "mentor-workflow.json").is_file()
+    assert not list(project.glob(".kaidf.bak-*"))
+
+
+def test_init_without_force_still_refuses_an_existing_dot_kaidf(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project = tmp_path / "project"
+    _existing_project_with_state(project)
+    _generator(tmp_path, monkeypatch)
+    _generator_succeeds(monkeypatch)
+
+    with pytest.raises(project_module.ProjectAlreadyInitializedError):
+        init_project_repo(project)
