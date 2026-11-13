@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
 ### Fixed
 
 - the public URL is no longer hardcoded to `https://mcp-aidf.kobkob.org`. The `WWW-Authenticate` challenge, the `_meta` of the 401 JSON body and the `/.well-known/oauth-protected-resource` metadata (`resource`, `resource_documentation`) now use the `MCP_PUBLIC_URL` environment variable, read per request. Unset, they use `http://localhost:7777`. The request `Host` header is deliberately not used, since clients control it (#28)

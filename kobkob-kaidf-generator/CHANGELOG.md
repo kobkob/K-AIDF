@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
 ### Added
 
 - the default scaffold ships the artifacts the static audit (`kob audit`, KAIDF-AMM) checks, as marked placeholders with guidance comments: `policy/pii-masking-rules.yaml`, `policy/hitl-config.yaml`, `policy/budget.yaml` (with `max_tokens`, `request_timeout_seconds` and `local_fallback`), `docs/20-ethical-model/risk-assessment.json`, `docs/20-ethical-model/explicability-schema.json` and `data/manifests/dataset-audit.yaml`. Each is a YAML or JSON mapping with `placeholder: true`, which the audit scores 0 until the content is filled in and the key removed. Non-Markdown files get no front matter, so the audit parses them as generated. `docs/contract.md` and the `docs/30-kaidf-amm/` pages describe where `kob audit` looks (`.kaidf/` in a `kob init` project, the repository root when audited directly) and the placeholder rule (related: #16)

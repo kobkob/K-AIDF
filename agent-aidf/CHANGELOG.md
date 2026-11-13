@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
 ### Fixed
 
 - Runtime state under `.kaidf/` (mentor workflow, instant apps, contracts) is written atomically: a temporary file in the same directory, flushed and then `os.replace`d, so an interrupted save or a second writer cannot leave a truncated file. A state file that does not parse is moved aside as `<name>.corrupt-<timestamp>` with a warning, and the reader continues from a clean state instead of failing `status`, `mentor`, the TUI and the web UI. Numeric state fields no longer raise on bad values (#110)

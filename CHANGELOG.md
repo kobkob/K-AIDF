@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
+The v0.6.2 milestone: the Rich terminal output and the help system, modular docs, notebook appliances, the EasyPanel container bundle, and the triage hardening (#4, #28, #71, #87, #88, #92, #93, #108-#113, #137).
+
 ### Fixed
 
 - Runtime state under `.kaidf/` is written atomically, and a corrupt state file is moved aside with a warning instead of failing `status`, `mentor`, the TUI and the web UI (#110)

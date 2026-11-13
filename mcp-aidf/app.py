@@ -126,7 +126,7 @@ def _www_authenticate(auth_header: str | None) -> str:
     return challenge
 
 
-SERVER_VERSION = "0.6.1"
+SERVER_VERSION = "0.6.2"
 # Protocol revisions this server implements, oldest first. A client asking for any other
 # revision gets the newest one back, as the MCP version negotiation rules describe.
 SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
