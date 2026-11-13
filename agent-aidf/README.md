@@ -60,6 +60,12 @@ Same commands, run directly from the shell (this is what the root `Makefile` tar
 - `kob [--project ...] [--repo ...] compile [spec] --out <dir> [--force]` / `kob ... gen [spec] --out <dir> [--force]`
 - `kob audit [path] [--json] [--severity critical|high|medium|low] [--fail-under <0-100>] [--fail-on-critical]` — the read-only KAIDF-AMM scorecard (see [Audit layout](#audit-layout))
 
+`kob init --force` replaces `.kaidf/` with a fresh scaffold, but only after the new one has been generated. The previous directory is kept as `.kaidf.bak-<timestamp>`, and the mentor state, instant apps, contracts and policy are carried over.
+
+#### Unattended runs: `--yolo`
+
+`kob --yolo ...` (or `KOB_YOLO=1` in the environment) applies file writes proposed by the mentor without asking. Shell commands proposed by the model always wait for a confirmation reply of exactly `yes`; `--yolo` does not run them. Every proposal and its outcome is appended to `.kaidf/action-log.jsonl`. Writes into `.git/`, `.kob/` and an instant app's `main.py` are refused. Whenever yolo is on, the CLI prints a warning, including when it is inherited from the environment.
+
 ### Web UI
 
 `kob ui` (from the TUI or the one-shot CLI) serves a small React + Tailwind + shadcn-style frontend (source under `webui/`, built output committed at `src/agent_aidf/webui_dist/`) backed by a Flask server (`agent_aidf.webui`) on `AIDF_UI_PORT` (default `8501`). It shows:

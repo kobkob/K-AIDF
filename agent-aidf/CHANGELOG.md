@@ -25,6 +25,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - the nested `.github/` directory (`workflows/release.yml` and `PULL_REQUEST_TEMPLATE.md`). GitHub Actions only reads the `.github/` at the repository root, so that workflow never ran. Releases are made from the root `.github/workflows/release.yml`, one tag for all components; see the root `RELEASING.md`
 
+### Security
+
+- `kob --yolo` no longer runs shell commands proposed by the mentor: they always wait for a bare `yes`. Only file writes are applied without asking. Repository text and earlier answers go into prompts inside `<untrusted>` with < and > escaped, so action markers in documents cannot be read as actions. Writes into `.git/`, `.kob/` and an instant app's `main.py` are refused. A proposed file over 4000 characters is staged under `.kaidf/staged/<sha256>.txt` and the prompt names the file and its digest; shorter content is shown in full. Only a bare affirmative confirms a pending action. Every proposal and outcome is appended to `.kaidf/action-log.jsonl` (paths and digests, no content). `--yolo` is registered in the parser, and the warning follows `KOB_YOLO` from the environment as well as the flag (#108)
+
 ## [0.6.1] - 2026-11-06
 
 ### Security
