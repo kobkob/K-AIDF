@@ -123,7 +123,7 @@ docker compose logs -f
 
 ### EasyPanel
 
-[`deploy/easypanel/easypanel.json`](https://github.com/kobkob/K-AIDF/blob/main/deploy/easypanel/easypanel.json) is an EasyPanel schema that builds this directory, sets `PORT=8000`, `MCP_PUBLIC_URL` and `AIDF_REPO_ROOT=/workspace`, and mounts a `workspace` volume. The guide, in Portuguese, is [`docs/06-deploy/easypanel.md`](https://github.com/kobkob/K-AIDF/blob/main/docs/06-deploy/easypanel.md); it also covers connecting Claude Code, Claude Desktop, Cursor and Roo Code with the bearer token.
+[`deploy/easypanel/easypanel.json`](https://github.com/kobkob/K-AIDF/blob/main/deploy/easypanel/easypanel.json) is an EasyPanel schema that builds the repository root with `mcp-aidf/Dockerfile`, sets `PORT=8000`, `MCP_PUBLIC_URL` and `AIDF_REPO_ROOT=/workspace`, and mounts a `workspace` volume. The guide, in Portuguese, is [`docs/06-deploy/easypanel.md`](https://github.com/kobkob/K-AIDF/blob/main/docs/06-deploy/easypanel.md); it also covers connecting Claude Code, Claude Desktop, Cursor and Roo Code with the bearer token.
 
 ## Configuration
 
@@ -150,7 +150,7 @@ Docker Compose also expects:
 ## Files
 
 - `app.py` - Main Flask application
-- `Dockerfile` - Container configuration  
+- `Dockerfile` - Container configuration, built from the repository root (`docker build -f mcp-aidf/Dockerfile .`) so the image can bundle `agent-aidf`; the image includes `git` and runs a `HEALTHCHECK` on the protected-resource metadata
 - `docker-compose.yml` - Service orchestration
 - `requirements.txt` - Python dependencies
 - `README.md` - This documentation

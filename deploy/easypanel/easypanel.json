@@ -9,12 +9,12 @@
           "owner": "kobkob",
           "repo": "K-AIDF",
           "ref": "main",
-          "path": "/mcp-aidf",
+          "path": "/",
           "autoDeploy": false
         },
         "build": {
           "type": "dockerfile",
-          "file": "Dockerfile"
+          "file": "mcp-aidf/Dockerfile"
         },
         "env": "PORT=8000\nMCP_PUBLIC_URL=https://$(PRIMARY_DOMAIN)\nAIDF_REPO_ROOT=/workspace\nMCP_BEARER_TOKEN=",
         "domains": [

@@ -1,6 +1,8 @@
 services:
   mcp-server:
-    build: .
+    build:
+      context: ..
+      dockerfile: mcp-aidf/Dockerfile
     ports:
       - "7777:7777"
     environment:
