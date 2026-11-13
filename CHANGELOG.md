@@ -8,6 +8,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Fixed
 
+- Runtime state under `.kaidf/` is written atomically, and a corrupt state file is moved aside with a warning instead of failing `status`, `mentor`, the TUI and the web UI (#110)
+- `kob init --force` generates the new scaffold before touching `.kaidf/`, keeps the old one as `.kaidf.bak-<timestamp>` and carries the mentor state, apps, contracts and policy over (#109)
 - Changelog sections for the tags v0.4.2, v0.5.5 and v0.5.6, which were missing between 0.6.0 and 0.1.3; the repeated LocalAI and inference-providers bullets of 0.6.0 are removed. `agent-aidf/webui/package.json` (still 0.1.0) joins the version sources: `scripts/bump-version.sh` sets it and `scripts/check-version.sh` checks it (#113)
 - `docker-compose.local.yml`: the Ollama service publishes its port on loopback only (`127.0.0.1:11434`), since Ollama has no authentication and Docker's port publishing bypasses ufw, and the image is pinned by digest instead of `latest` (#112)
 - `agent-aidf` `kob audit` scores the layouts `kob init` and the generator actually produce: the scaffold is `<root>/.kaidf/` when it exists, else the audited root itself, and scaffold-owned artifacts (`README.md` and `docs/`, `mentor-workflow.json`, `policy/*.yaml`, `specs/*.yaml`, `docs/20-ethical-model/*.json`, `data/manifests/*.yaml`) are looked up there first and then at the root, while the credential scan and CI checks stay on the root. Before, a fresh `kob init` project could not reach 100 and a standalone generated repository could not earn 43 points. Details and remediations name the path that was checked, and the report and JSON output state the scaffold path. In a repository audited without `.kaidf/` the `mentor-state` remediation no longer asks to run `kob mentor`, which only runs inside a project (related: #16)
@@ -17,6 +19,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Added
 
+- `kob status` shows the phase pipeline, the KAIDF-AMM scorecard, extensions and the active model with Rich, and `kob status --json` prints the same data. `kob mentor` puts the current question in a panel with maturity and ethics tags. Plain output is kept outside an interactive terminal (#4)
 - `mcp-aidf` container image bundles the `agent-aidf` audit engine and `git` (#71), so `evaluate_repository_maturity` and `get_maturity_scorecard` answer `200` in the container. The image is built from the repository root (`docker build -f mcp-aidf/Dockerfile .`), with a `HEALTHCHECK` on the protected-resource metadata and a `.dockerignore` for the root context. `mcp-aidf/scripts/check-image.sh` builds it and checks the tools, and the `mcp-aidf CI` workflow runs it in an `image` job
 - `deploy/easypanel/easypanel.json` (#137): an EasyPanel schema for `mcp-aidf`, imported with the panel's "Create From Schema". It creates one App service built from this repository (build path `/mcp-aidf`, `Dockerfile`, branch `main`), a domain on the service's generated host that targets container port `8000`, a `workspace` volume mounted at `/workspace`, and the environment `PORT=8000`, `MCP_PUBLIC_URL=https://$(PRIMARY_DOMAIN)`, `AIDF_REPO_ROOT=/workspace` and an empty `MCP_BEARER_TOKEN` to fill in before the first deploy. `deploy/easypanel/README.md` describes the file
 - `docs/06-deploy/` (#137): a deployment section with the EasyPanel guide (`easypanel.md`): importing the template, the two `/workspace` layouts and how to fill the volume, verification with `curl`, connecting Claude Code, Claude Desktop (through `mcp-remote`), Cursor and Roo Code with the bearer token, current limitations and troubleshooting
@@ -47,6 +50,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 - `OPEN_ISSUES.md` and `ISSUES.md`: two snapshots of the open issues from 2026-09-22 that had gone stale. GitHub issues are the list (#111)
 - the nested `agent-aidf/.github/`, `kobkob-kaidf-generator/.github/` and `mcp-aidf/.github/` directories. GitHub Actions only reads the root `.github/workflows/`, so their `release.yml` never ran: tags `v0.5.5`, `v0.5.6`, `v0.6.0-rc1`, `v0.6.0` and `v0.6.1` produced no build, no GitHub Release and no tag-time verification
+
+### Security
+
+- `kob --yolo` no longer runs shell commands proposed by the mentor: they wait for a bare `yes`, and only file writes are applied without asking. Repository text and earlier answers reach prompts inside `<untrusted>`, and writes into `.git/`, `.kob/` and instant-app `main.py` files are refused (#108)
 
 ## [0.6.1] - 2026-11-06
 
