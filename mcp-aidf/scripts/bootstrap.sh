@@ -18,11 +18,13 @@ cleanup() {
 
 trap cleanup EXIT
 
-if [[ ! -f "${STAMP_FILE}" ]] || [[ requirements.txt -nt "${STAMP_FILE}" ]] || [[ pyproject.toml -nt "${STAMP_FILE}" ]]; then
+if [[ ! -f "${STAMP_FILE}" ]] || [[ requirements.txt -nt "${STAMP_FILE}" ]] || [[ pyproject.toml -nt "${STAMP_FILE}" ]] || [[ ../agent-aidf/pyproject.toml -nt "${STAMP_FILE}" ]]; then
   .venv/bin/python -m pip install --upgrade pip >/dev/null
   .venv/bin/python -m pip install -r requirements.txt
   # Dev extras (test tooling) are declared once in pyproject.toml and installed here.
   .venv/bin/python -c 'import tomllib; print("\n".join(tomllib.load(open("pyproject.toml", "rb"))["project"]["optional-dependencies"]["dev"]))' \
     | xargs -d '\n' .venv/bin/python -m pip install
+  # The maturity tools use the audit engine, as the Docker image does; installed editable for development.
+  .venv/bin/python -m pip install -e ../agent-aidf
   touch "${STAMP_FILE}"
 fi

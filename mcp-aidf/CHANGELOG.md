@@ -13,6 +13,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Added
 
+- the container image bundles the `agent-aidf` audit engine (#71). A builder stage builds its wheel and the runtime stage installs it, so `get_maturity_scorecard` and `evaluate_repository_maturity` answer `200` instead of `503`. The image also installs `git` (`--no-install-recommends`), which the engine runs as `git ls-files` on a repository with a `.git` directory, and trusts `/workspace` with `safe.directory`, because the volume is usually cloned by another user and git refuses that as "dubious ownership"
+- `HEALTHCHECK` in the image: `GET /.well-known/oauth-protected-resource` must answer `200` on `PORT`, checked with Python's `urllib`, so the image needs no `curl`
+- `mcp-aidf/scripts/check-image.sh`: builds the image from the repository root, runs it with a repository on `/workspace`, waits for the health check and calls both maturity tools (the CI `image` job runs it)
+- `mcp-aidf/tests/test_dockerfile.py`: pins the image contract (the engine wheel, `git` and its `safe.directory`, the health check, and the files copied into the image)
+- `mcp-aidf/tests/test_maturity_tools.py`: with `KAIDF_REQUIRE_ENGINE` set, a missing `agent-aidf` fails the run instead of skipping its tests (CI sets it)
+- root `.dockerignore`: keeps `.git`, caches, virtualenvs, `models/` and `olmo-env/` out of the build context, which is now the repository root
 - `PORT` environment variable in the container image: gunicorn binds `0.0.0.0:${PORT:-7777}`. The image sets `PORT=7777`, so `docker-compose.yml` keeps publishing `7777:7777`; a hosting platform can set another port, and the EasyPanel template at `deploy/easypanel/easypanel.json` sets `8000`. `python app.py` and `DEFAULT_PUBLIC_URL` still use 7777 (#137)
 - `tests/test_easypanel_template.py`: checks `deploy/easypanel/easypanel.json` against this component, so the template cannot drift from the server: the build path holds the Dockerfile and every file it copies, the domain port equals `PORT` and the start command reads `PORT`, every variable is one `app.py` or the start command reads, `MCP_BEARER_TOKEN` ships empty, `MCP_PUBLIC_URL` is the bare origin, and the volume is mounted at `AIDF_REPO_ROOT`. The guide `docs/06-deploy/easypanel.md` must list each variable with the value the template sets (#137)
 - README: an EasyPanel subsection under Deployment and the `PORT` entry under Configuration (#137)
@@ -22,6 +28,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ### Changed
 
+- the Dockerfile builds from the repository root: `docker build -f mcp-aidf/Dockerfile .`. `mcp-aidf/docker-compose.yml` and the root `docker-compose.local.yml` use that context, and `deploy/easypanel/easypanel.json` sets `source.path` to `/` and `build.file` to `mcp-aidf/Dockerfile`. The template test and the guide follow
+- the `503` for the maturity tools is only for a deployment without `agent-aidf` (for example a local run that did not install it). The container image has the engine, so the tools work there
+- `scripts/bootstrap.sh` installs `agent-aidf` (editable) next to the server's requirements, so the local test run covers the maturity tools
+- `mcp-aidf CI` installs `agent-aidf`, requires the engine in the test run, watches `agent-aidf/**`, and adds an `image` job that runs `scripts/check-image.sh`
 - the workspace `docs/` sections covered by `tests/test_workspace_docs.py` include `06-deploy` (#137)
 
 ### Removed

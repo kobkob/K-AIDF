@@ -15,7 +15,8 @@ services:
 
   mcp-server:
     build:
-      context: ./mcp-aidf
+      context: .
+      dockerfile: mcp-aidf/Dockerfile
     container_name: mcp-aidf-server
     ports:
       - "8080:8080"

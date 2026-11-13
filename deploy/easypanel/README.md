@@ -4,7 +4,7 @@
 
 ## What it creates
 
-- an App service `mcp-aidf`, built from this repository (`kobkob/K-AIDF`, branch `main`, build path `/mcp-aidf`, `Dockerfile`)
+- an App service `mcp-aidf`, built from this repository (`kobkob/K-AIDF`, branch `main`, build path `/`, Dockerfile `mcp-aidf/Dockerfile`)
 - a domain on the service's generated host (`$(EASYPANEL_DOMAIN)`) that targets container port `8000`
 - a volume `workspace` mounted at `/workspace`
 - the environment `PORT=8000`, `MCP_PUBLIC_URL=https://$(PRIMARY_DOMAIN)`, `AIDF_REPO_ROOT=/workspace` and an empty `MCP_BEARER_TOKEN`
@@ -20,6 +20,6 @@
 
 ## Keeping it in sync
 
-`mcp-aidf/tests/test_easypanel_template.py` checks this file against `mcp-aidf/Dockerfile` and `mcp-aidf/app.py`: the build path, the port, the variables and the volume. If the Dockerfile starts copying files from outside `mcp-aidf/`, the test fails until `source.path` and `build.file` here follow.
+`mcp-aidf/tests/test_easypanel_template.py` checks this file against `mcp-aidf/Dockerfile` and `mcp-aidf/app.py`: the build path, the port, the variables and the volume. The build context is the repository root, because the image builds the `agent-aidf` engine from `agent-aidf/`. If the Dockerfile copies files from another place, the test fails until `source.path` and `build.file` here follow.
 
-The maturity tools need the audit engine in the image, which is tracked in [#71](https://github.com/kobkob/K-AIDF/issues/71).
+The image bundles the `agent-aidf` audit engine and `git`, so the maturity tools answer ([#71](https://github.com/kobkob/K-AIDF/issues/71)).

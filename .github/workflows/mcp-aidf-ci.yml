@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - "mcp-aidf/**"
+      - "agent-aidf/**"
       - "contracts/**"
       # tests/test_easypanel_template.py checks deploy/easypanel/ against the Dockerfile and
       # app.py, and tests/test_workspace_docs.py indexes the workspace docs/ tree, so both
@@ -19,6 +20,7 @@ on:
   pull_request:
     paths:
       - "mcp-aidf/**"
+      - "agent-aidf/**"
       - "contracts/**"
       - "deploy/**"
       - "docs/**"
@@ -46,6 +48,8 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest ruff "mcp>=2,<3"
+          # The maturity tools import the audit engine from agent-aidf (the image bundles it too).
+          pip install ../agent-aidf
 
       - name: Lint Python
         run: python -m ruff check .
@@ -60,4 +64,17 @@ jobs:
         run: python -c "import app"
 
       - name: Run tests
+        # The engine is installed above, so its tests must run rather than skip.
+        env:
+          KAIDF_REQUIRE_ENGINE: "1"
         run: python -m pytest -q
+
+  image:
+    # Builds the Docker image from the repository root and checks the maturity tools answer 200.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build and check the image
+        run: bash mcp-aidf/scripts/check-image.sh

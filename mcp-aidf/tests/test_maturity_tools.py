@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -28,7 +29,12 @@ def client():
 
 @pytest.fixture
 def engine():
-    # The audit engine lives in agent-aidf. Skip, rather than fail, where it is not installed.
+    # The audit engine lives in agent-aidf. Skip where it is not installed, unless
+    # KAIDF_REQUIRE_ENGINE is set (CI sets it): then a missing engine fails the run.
+    if os.environ.get("KAIDF_REQUIRE_ENGINE"):
+        from agent_aidf import audit
+
+        return audit
     return pytest.importorskip("agent_aidf.audit")
 
 

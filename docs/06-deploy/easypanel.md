@@ -6,7 +6,7 @@ Este guia sobe o servidor MCP do K-AIDF em uma instância [EasyPanel](https://ea
 
 | Item | Valor |
 |---|---|
-| Serviço | App `mcp-aidf`, construído a partir do GitHub (`kobkob/K-AIDF`, branch `main`, build path `/mcp-aidf`, `Dockerfile`) |
+| Serviço | App `mcp-aidf`, construído a partir do GitHub (`kobkob/K-AIDF`, branch `main`, build path `/`, Dockerfile `mcp-aidf/Dockerfile`) |
 | Domínio | o domínio automático do serviço (`$(EASYPANEL_DOMAIN)`), com HTTPS, apontando para a porta `8000` do container |
 | Volume | `workspace`, montado em `/workspace` |
 | Ambiente | `PORT`, `MCP_PUBLIC_URL`, `AIDF_REPO_ROOT` e `MCP_BEARER_TOKEN` (vazio, você preenche) |
@@ -54,14 +54,14 @@ O template não define `SECRET_KEY` nem `MCP_TOKEN_SCOPES`. A primeira só é ex
 
 ## O volume `/workspace`
 
-O servidor só lê `/workspace`. Nada no container clona ou grava ali, e a imagem não traz `git`. O layout decide o que funciona:
+O servidor só lê `/workspace`. Nada no container clona ou grava ali. A imagem traz o motor de auditoria e o `git`, que a auditoria usa quando o diretório tem `.git`. O layout decide o que funciona:
 
 | Layout | O que funciona |
 |---|---|
-| 1. `/workspace` é a raiz de um repositório K-AIDF (`README.md`, `MANIFESTO.md`, `docs/`) | `search` e `fetch` indexam esses arquivos. Com o motor de auditoria na imagem, `evaluate_repository_maturity` sem argumentos audita esse repositório |
-| 2. Vários repositórios em subdiretórios (`/workspace/<nome>/`) | Só auditoria, e só com o motor na imagem: `evaluate_repository_maturity` com `path: "<nome>"`. `search` e `fetch` não indexam subdiretórios e não retornam nada |
+| 1. `/workspace` é a raiz de um repositório K-AIDF (`README.md`, `MANIFESTO.md`, `docs/`) | `search` e `fetch` indexam esses arquivos. `evaluate_repository_maturity` sem argumentos audita esse repositório |
+| 2. Vários repositórios em subdiretórios (`/workspace/<nome>/`) | Só auditoria: `evaluate_repository_maturity` com `path: "<nome>"`. `search` e `fetch` não indexam subdiretórios e não retornam nada |
 
-A imagem atual ainda não traz o motor de auditoria (veja [Limitações atuais](#limitações-atuais)). Até lá, só o layout 1 entrega ferramentas que funcionam.
+As quatro ferramentas funcionam nos dois layouts. Um subdiretório com `.git` é a exceção: veja [Limitações atuais](#limitações-atuais).
 
 Coloque os arquivos pelo host. O EasyPanel guarda um volume nomeado em `/etc/easypanel/projects/<projeto>/<serviço>/volumes/<volume>`:
 
@@ -71,12 +71,12 @@ DEST=/etc/easypanel/projects/<projeto>/mcp-aidf/volumes/workspace
 
 # layout 1: o repositório é a raiz do volume, que precisa estar vazio
 git clone --depth 1 https://github.com/<org>/<repo>.git "$DEST"
-rm -rf "$DEST/.git"            # a imagem não traz git; veja Limitações atuais
+rm -rf "$DEST/.git"            # opcional no layout 1; veja Limitações atuais
 
 chmod -R a+rX "$DEST"          # o container roda com um usuário sem privilégios
 ```
 
-No layout 2, clone cada repositório em `"$DEST/<nome>"`, remova o `.git` de cada um e rode o mesmo `chmod`.
+No layout 2, clone cada repositório em `"$DEST/<nome>"`, remova o `.git` de cada um (é obrigatório, veja [Limitações atuais](#limitações-atuais)) e rode o mesmo `chmod`.
 
 Se preferir um diretório seu, troque o volume por um **Bind mount** em **Storage**, com o seu caminho no host montado em `/workspace`, e faça um novo deploy. O usuário do container precisa conseguir ler esse diretório (`chmod -R a+rX <caminho>`). Bind mounts ficam fora dos backups de volume do EasyPanel.
 
@@ -194,8 +194,7 @@ Esse arquivo fica com o token em texto puro. Prefira o `mcp_settings.json` globa
 
 ## Limitações atuais
 
-- **Ferramentas de maturidade.** A imagem construída a partir de `mcp-aidf/` ainda não instala o motor de auditoria (`agent-aidf`). Até a issue [#71](https://github.com/kobkob/K-AIDF/issues/71), `get_maturity_scorecard` e `evaluate_repository_maturity` respondem que o motor não está instalado. `search` e `fetch` funcionam.
-- **Repositórios com `.git`.** O motor de auditoria chama `git ls-files` quando o diretório auditado tem `.git`, e a imagem não traz `git`. Enquanto isso não mudar, copie os repositórios sem o diretório `.git`.
+- **Subdiretórios com `.git`.** O motor de auditoria chama `git ls-files` quando o diretório auditado tem `.git`. Para a raiz de `/workspace` a imagem já confia no caminho (`safe.directory`), então um `.git` ali funciona. Um `.git` em subdiretório geralmente pertence a outro usuário, e o git recusa o repositório (`dubious ownership`): `evaluate_repository_maturity` responde `Internal error.`. Remova o `.git` de cada subdiretório.
 - **Volume com escrita.** O EasyPanel não tem opção de montagem somente leitura. O servidor não grava no volume, mas a garantia do `:ro` do `docker-compose.yml` local não existe aqui.
 - **Versão.** O template segue a branch `main`, e cada deploy reconstrói a imagem com o que estiver nela. O deploy automático fica desligado (`autoDeploy: false`).
 
@@ -208,6 +207,6 @@ Esse arquivo fica com o token em texto puro. Prefira o `mcp_settings.json` globa
 | `401` em toda requisição com o seu token, ou intermitente com um token copiado do log | `MCP_BEARER_TOKEN` está vazio no container (não foi preenchido, ou faltou o deploy depois de preencher) e cada processo gerou um token | Preencha o token e faça o deploy |
 | `search` não retorna nada | `/workspace` está vazio, os documentos estão em subdiretórios, ou o usuário do container não consegue ler os diretórios do volume | Veja os layouts em [O volume `/workspace`](#o-volume-workspace) e rode de novo o `chmod -R a+rX` |
 | `search` e `fetch` respondem `Internal error.` | O volume não está montado em `AIDF_REPO_ROOT`, ou um arquivo indexado (`README.md`, `MANIFESTO.md`, `.md` ou `.csv` em `docs/`) não é UTF-8, tem front matter YAML inválido ou não pode ser lido pelo usuário do container | Confira **Storage**, os arquivos do volume e as permissões |
-| As ferramentas de maturidade dizem que o motor não está instalado | A imagem ainda não inclui o `agent-aidf` | Veja [Limitações atuais](#limitações-atuais) |
+| `evaluate_repository_maturity` responde `Internal error.` ao auditar um subdiretório | O subdiretório tem `.git` de outro usuário, e o git recusa o repositório (`dubious ownership`) | Remova o `.git` desse subdiretório (veja [Limitações atuais](#limitações-atuais)) |
 | `evaluate_repository_maturity` responde `Forbidden` | O token usado é um token com escopo de `MCP_TOKEN_SCOPES` | Use o token principal |
 | O cliente abre um login OAuth ou mostra erro em `/register` | O token foi recusado ou não foi enviado | Repita a [Verificação](#verificação) com o mesmo token |

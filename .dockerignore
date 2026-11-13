@@ -1,0 +1,15 @@
+# The image build context is the repository root (docker build -f mcp-aidf/Dockerfile .).
+# Only agent-aidf/ and mcp-aidf/ reach the image; keep local state and large trees out of the upload.
+.git
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/*.egg-info
+models
+olmo-env
+out
+out-ethical
+out-maturity
