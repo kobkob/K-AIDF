@@ -133,13 +133,14 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
 # Streamable HTTP: after initialize, a client names the negotiated revision in this header.
 PROTOCOL_VERSION_HEADER = "MCP-Protocol-Version"
 INTERNAL_ERROR_MESSAGE = "Internal error."
-# Local fallback when MCP_PUBLIC_URL is unset; 7777 is the port this server listens on.
+# Local fallback when MCP_PUBLIC_URL is unset; 7777 is the default listen port (`python app.py`,
+# and the image unless PORT is set).
 DEFAULT_PUBLIC_URL = "http://localhost:7777"
 INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
 INDEXABLE_SUFFIXES = {".md", ".csv"}
 # Doctrine stays under docs/00-overview/ here: the shared index contract
 # (contracts/index-contract) and the generated repositories use that layout. The workspace's own
-# docs/ tree is organised in numbered sections (01-basics ... 05-models); those are indexed like
+# docs/ tree is organised in numbered sections (01-basics ... 06-deploy); those are indexed like
 # any other document, with the section as their phase.
 CANONICAL_DOCTRINE_FILES = {
     "docs/00-overview/manifesto.md": "manifesto",

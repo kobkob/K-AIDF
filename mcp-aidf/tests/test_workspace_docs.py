@@ -14,6 +14,7 @@ SECTIONS = (
     "03-commands",
     "04-interfaces",
     "05-models",
+    "06-deploy",
 )
 FULL_ACCESS = app.Principal(namespaces=None)
 

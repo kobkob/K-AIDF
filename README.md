@@ -39,6 +39,7 @@ K-AIDF/
 ├── mcp-aidf/                    # MCP server for AI-client integration
 ├── Makefile                     # root automation for all three
 ├── scripts/                     # shared env-loading scripts
+├── deploy/                      # server deployment recipes (EasyPanel template for mcp-aidf)
 ├── docker-compose.local.yml     # local Ollama + MCP stack
 ├── MANIFESTO.md
 └── README.md
