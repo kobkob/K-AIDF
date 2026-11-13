@@ -10,6 +10,7 @@
 #                                 kobkob-kaidf-generator/pyproject.toml
 #                                 mcp-aidf/pyproject.toml
 #   SERVER_VERSION = "<version>"  mcp-aidf/app.py
+#   "version": "<version>"        agent-aidf/webui/package.json (2-space indent)
 #
 # Not updated: CHANGELOG.md, agent-aidf/CHANGELOG.md,
 # kobkob-kaidf-generator/CHANGELOG.md and mcp-aidf/CHANGELOG.md. For each one
@@ -37,6 +38,26 @@ cd "${ROOT}"
 VERSION_RE="$(printf '%s' "${VERSION}" | sed 's/\./\\./g')"
 
 FAILURES=0
+
+# set_json_version <file>
+# Rewrites the top-level "version" of a package.json (the only line at two-space indent).
+set_json_version() {
+  local file="$1" matches tmp
+  if [[ ! -f "${file}" ]]; then
+    echo "error: ${file} not found" >&2
+    exit 1
+  fi
+  matches="$(grep -c '^  "version": "[^"]*"' "${file}" || true)"
+  if [[ "${matches}" -ne 1 ]]; then
+    echo "error: expected exactly one top-level \"version\" line in ${file}, found ${matches}" >&2
+    exit 1
+  fi
+  tmp="${file}.bump.tmp"
+  sed "s/^  \"version\": \"[^\"]*\"/  \"version\": \"${VERSION}\"/" "${file}" > "${tmp}"
+  cat "${tmp}" > "${file}" # keeps the file's mode and inode
+  rm -f "${tmp}"
+  echo "set   ${file}: \"version\": \"${VERSION}\""
+}
 
 # set_assignment <file> <name>
 # Rewrites the one line of <file> that reads `<name> = "..."` at column 0.
@@ -85,6 +106,7 @@ set_assignment agent-aidf/pyproject.toml version
 set_assignment kobkob-kaidf-generator/pyproject.toml version
 set_assignment mcp-aidf/pyproject.toml version
 set_assignment mcp-aidf/app.py SERVER_VERSION
+set_json_version agent-aidf/webui/package.json
 
 echo
 echo "Changelogs (not edited by this script)"
@@ -97,6 +119,7 @@ echo
 echo "On tag v${VERSION}, .github/workflows/release.yml will verify:"
 echo "  - version = \"${VERSION}\" in agent-aidf/pyproject.toml, kobkob-kaidf-generator/pyproject.toml and mcp-aidf/pyproject.toml"
 echo "  - SERVER_VERSION = \"${VERSION}\" in mcp-aidf/app.py"
+echo "  - \"version\": \"${VERSION}\" in agent-aidf/webui/package.json"
 echo "  - a '## [${VERSION}]' heading in CHANGELOG.md, agent-aidf/CHANGELOG.md, kobkob-kaidf-generator/CHANGELOG.md and mcp-aidf/CHANGELOG.md"
 echo "Then run: scripts/check-version.sh ${VERSION}   (make check-version VERSION=${VERSION})"
 

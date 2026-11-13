@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ### Fixed
 
+- Changelog sections for the tags v0.4.2, v0.5.5 and v0.5.6, which were missing between 0.6.0 and 0.1.3; the repeated LocalAI and inference-providers bullets of 0.6.0 are removed. `agent-aidf/webui/package.json` (still 0.1.0) joins the version sources: `scripts/bump-version.sh` sets it and `scripts/check-version.sh` checks it (#113)
 - `docker-compose.local.yml`: the Ollama service publishes its port on loopback only (`127.0.0.1:11434`), since Ollama has no authentication and Docker's port publishing bypasses ufw, and the image is pinned by digest instead of `latest` (#112)
 - `agent-aidf` `kob audit` scores the layouts `kob init` and the generator actually produce: the scaffold is `<root>/.kaidf/` when it exists, else the audited root itself, and scaffold-owned artifacts (`README.md` and `docs/`, `mentor-workflow.json`, `policy/*.yaml`, `specs/*.yaml`, `docs/20-ethical-model/*.json`, `data/manifests/*.yaml`) are looked up there first and then at the root, while the credential scan and CI checks stay on the root. Before, a fresh `kob init` project could not reach 100 and a standalone generated repository could not earn 43 points. Details and remediations name the path that was checked, and the report and JSON output state the scaffold path. In a repository audited without `.kaidf/` the `mentor-state` remediation no longer asks to run `kob mentor`, which only runs inside a project (related: #16)
 - `kobkob-kaidf-generator`: `kaidf_gen.__version__` is read from the package metadata instead of a hard-coded `0.1.0`; the `dev` extra declares `packaging` for the test that checks it (#81)
@@ -88,14 +89,44 @@ General availability. This release consolidates the 0.6.0 milestones:
 - root workspace automation via `Makefile`, shared env scripts, and `.env.example`
 - `make workspace-up` now installs and starts a local OLMo-over-Ollama Docker stack sized to the host: `scripts/detect-ollama-model.sh` picks a model tag from detected RAM/disk/GPU (falling back between `olmo2:7b-1124-instruct-q4_K_M` and `olmo2:13b-1124-instruct-q4_K_M`, or erroring clearly if the machine can't run either), `scripts/workspace-up.sh` starts `docker-compose.local.yml` (now with a healthcheck and `restart: unless-stopped`, plus an optional `docker-compose.gpu.yml` NVIDIA overlay), pulls the model, and persists `AIDF_MODEL`/`OLLAMA_HOST`/`KAIDF_LOCAL_INFERENCE` into the workspace `.env`; `make workspace-down`/`workspace-logs` and a new `make agent-tui` round it out
 - `.env.example` documents `AIDF_CHAT_PROVIDER`, `OLLAMA_HOST`, `AIDF_MODEL`, and `AIDF_OLLAMA_MODEL` for the new local-inference path (see `agent-aidf`'s own changelog for the `kob`-side wiring)
-- `docker-compose.localai.yml` adds a LocalAI stack (OpenAI-compatible API on port 8080, models mounted from `./models`, CPU image by default with documented NVIDIA GPU activation, and a `/readyz` healthcheck); `make workspace-localai` starts it and waits until the API is ready, and `make workspace-localai-down` stops it
-- `docs/00-overview/inference-providers.md` documents the plug-and-play inference architecture (Ollama vs. LocalAI vs. OpenAI/Groq cloud), the `kob` environment variables that select and point the provider, and the on-premises deployment steps; `./models/` is ignored by Git
 
 ### Security
 
 - `mcp-aidf` (#29): the Docker image now runs as an unprivileged `appuser` and serves the app with `gunicorn` instead of the Flask development server; `requirements.txt` pins every runtime dependency (Flask `3.1.3`, Werkzeug, PyYAML, gunicorn, and transitive packages) instead of `Flask==3.0.0` plus an unpinned `PyYAML`; the hardcoded `SECRET_KEY` placeholders are gone (`docker-compose.yml` now requires `SECRET_KEY` from the environment, `.env.example` and `scripts/env-common.sh` no longer default to `change-me`, and `scripts/load-mcp-env.sh` no longer prints the secret); without `SECRET_KEY`, direct runs of `app.py` use a random per-process secret instead of `dev-key-change-in-prod` (see `mcp-aidf`'s own changelog)
 - `agent-aidf` (#30): the web UI's `POST /api/mentor` and `POST /api/exit` require a per-process token (`X-KAIDF-Token`, 401 when missing, 403 when wrong), and every route rejects non-loopback `Host` and cross-origin `Origin` headers with 403 (see `agent-aidf`'s own changelog)
 - `kobkob-kaidf-generator` (#22): `load_template_by_key` rejects keys that resolve outside the packaged template library (e.g. `../../etc/passwd`) with `UnsafePathError` (see `kobkob-kaidf-generator`'s own changelog)
+
+## [0.5.6] - 2026-10-20
+
+### Added
+
+- `agent-aidf` KAIDF-AMM v1.0 audit: the five-dimension audit matrix spec (#50), the audit engine that scores a repository against it (#51), and the `kob audit` command with its REPL integration (#52)
+
+## [0.5.5] - 2026-10-16
+
+### Security
+
+- `agent-aidf` (#30): the web UI routes require the per-process token and reject foreign `Origin` and `Host` headers
+- `agent-aidf` (#22): template loading rejects paths that resolve outside the packaged template library (path traversal)
+- `mcp-aidf` (#27): internal error details are no longer returned to clients, the protocol version is validated, and `signatures/cla.json` is initialized
+
+### Fixed
+
+- `kobkob-kaidf-generator` (#23, #24): malformed YAML is handled cleanly and duplicate spec paths are rejected
+- `kobkob-kaidf-generator` (#13): front matter v2 across every generated document template
+- `agent-aidf` (#32): CRLF line endings and UTF-8 Portuguese titles in front matter
+- `kob gen` (#39): relative `--out` and `--spec` paths resolve against the caller's working directory
+- `agent-aidf` (#31): `is_affirmative` is stricter and `--port` is range-checked
+- `mcp-aidf` (#15, #26): indexing is shared with `agent-aidf` and cached
+- workflows (#44, #45): root GitHub workflows consolidated, the CLA check fixed for `main`, and lint enforced as a blocking CI step
+
+## [0.4.2] - 2026-07-23
+
+### Added
+
+- `agent-aidf` interactive Textual TUI, dual-mode with the one-shot CLI, with a redesigned layout and i18n scaffolding
+- `agent-aidf` web UI (React, shadcn and Flask) with `/exit`
+- `kob` CLI with `status`, `shell`, `serve`, `compile` and `gen` commands, and local Ollama/OLMo inference scaffolding
 
 ## [0.1.3] - 2026-03-20
 
