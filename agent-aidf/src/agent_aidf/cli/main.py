@@ -32,7 +32,7 @@ from ..controller import (
 )
 from ..extensions.extension_loader import active_registry, inventory, render_inventory_text
 from ..i18n import _
-from ..maturity import phase_progress
+from ..maturity import phase_progress, phase_snapshot
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
 from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
@@ -51,6 +51,15 @@ from ..project import (
     resolve_runtime_repo_root,
 )
 from ..shell import run_shell
+from ..terminal_output import (
+    active_model,
+    extension_summary,
+    plain_status_lines,
+    render_mentor_turn,
+    render_status,
+    status_payload,
+    use_rich,
+)
 from ..tools import enable_yolo, is_yolo_enabled
 from ..webui import run_webui
 from .help import command_parser, main_epilog, run_help
@@ -650,7 +659,14 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    command_parser(subparsers, "status", help=_("Show current project and .kaidf runtime status."))
+    status_parser = command_parser(
+        subparsers, "status", help=_("Show current project and .kaidf runtime status.")
+    )
+    status_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=_("Print the status as JSON (phases, KAIDF-AMM scorecard, extensions, model)."),
+    )
 
     mentor_help = _("Continue the persisted mentor workflow.")
     mentor_parser = command_parser(subparsers, "mentor", help=mentor_help)
@@ -810,6 +826,63 @@ def _print_already_initialized(target: Path) -> None:
     )
 
 
+def _project_scorecard(project_root: Path):
+    """The KAIDF-AMM scorecard for display, or None when the project cannot be scored."""
+    try:
+        return run_audit(project_root)
+    except Exception:  # the dashboard must still render for a project that cannot be audited
+        return None
+
+
+def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
+    status = read_project_status(project_root, repo_root)
+    phases = phase_snapshot(status)
+    extensions = extension_summary(inventory())
+    model = active_model()
+    if as_json:
+        payload = status_payload(
+            status,
+            phases=phases,
+            scorecard=_project_scorecard(project_root),
+            extensions=extensions,
+            model=model,
+        )
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+    console = Console()
+    if not use_rich(console):
+        for line in plain_status_lines(status, phases=phases, extensions=extensions, model=model):
+            print(line)
+        return 0
+    render_status(
+        console,
+        status,
+        phases=phases,
+        scorecard=_project_scorecard(project_root),
+        extensions=extensions,
+        model=model,
+    )
+    return 0
+
+
+def _print_mentor_turn(project_root: Path, turn) -> None:
+    console = Console()
+    state = turn.state
+    if not use_rich(console) or state.pending_file_action or not state.pending_question:
+        print(turn.message)
+        return
+    status = read_project_status(project_root, resolve_runtime_repo_root(project_root, None))
+    render_mentor_turn(
+        console,
+        message=turn.message,
+        pending_question=state.pending_question,
+        pending_category=state.pending_category,
+        phase_order=state.pending_phase_order,
+        scorecard=_project_scorecard(project_root),
+        status=status,
+    )
+
+
 def _run_ext_list(*, as_json: bool) -> int:
     data = inventory()
     if as_json:
@@ -892,13 +965,7 @@ def _run_cli(argv: list[str]) -> int:
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 
     if args.command == "status":
-        status = read_project_status(project_root, repo_root)
-        print(f"project_root: {status.project_root}")
-        print(f"repo_root: {status.repo_root}")
-        print(f"has_kaidf: {'yes' if status.has_kaidf else 'no'}")
-        print(f"pack_count: {status.pack_count}")
-        print(f"mentor_step_count: {status.mentor_step_count}")
-        return 0
+        return _run_status(project_root, repo_root, as_json=args.json)
 
     if args.command == "mentor":
         try:
@@ -914,7 +981,7 @@ def _run_cli(argv: list[str]) -> int:
             print(mentor_status_text(mentor_repo_root))
             return 0
         turn = continue_mentor_workflow(mentor_repo_root, answer=args.answer)
-        print(turn.message)
+        _print_mentor_turn(project_root, turn)
         return 0
 
     if args.command == "shell":
