@@ -10,6 +10,7 @@
 #                                 kobkob-kaidf-generator/pyproject.toml
 #                                 mcp-aidf/pyproject.toml
 #   SERVER_VERSION = "<version>"  mcp-aidf/app.py
+#   "version": "<version>"        agent-aidf/webui/package.json
 #   a "## [<version>]" heading    CHANGELOG.md, agent-aidf/CHANGELOG.md,
 #                                 kobkob-kaidf-generator/CHANGELOG.md,
 #                                 mcp-aidf/CHANGELOG.md
@@ -66,6 +67,24 @@ check_assignment() {
   fi
 }
 
+# check_json_version <file>
+# The top-level "version" of a package.json (two-space indent) must hold VERSION.
+check_json_version() {
+  local file="$1" found
+  if [[ ! -f "${file}" ]]; then
+    report FAIL "${file}: file not found"
+    return
+  fi
+  found="$(sed -n 's/^  "version": "\([^"]*\)".*$/\1/p' "${file}" | head -n 1)"
+  if [[ -z "${found}" ]]; then
+    report FAIL "${file}: no top-level \"version\" found"
+  elif [[ "${found}" == "${VERSION}" ]]; then
+    report ok "${file}: \"version\": \"${found}\""
+  else
+    report FAIL "${file}: \"version\": \"${found}\", expected \"${VERSION}\""
+  fi
+}
+
 # check_changelog <file>
 # <file> must have a Keep a Changelog heading for VERSION: `## [<version>]`.
 check_changelog() {
@@ -86,6 +105,7 @@ check_assignment agent-aidf/pyproject.toml version
 check_assignment kobkob-kaidf-generator/pyproject.toml version
 check_assignment mcp-aidf/pyproject.toml version
 check_assignment mcp-aidf/app.py SERVER_VERSION
+check_json_version agent-aidf/webui/package.json
 check_changelog CHANGELOG.md
 check_changelog agent-aidf/CHANGELOG.md
 check_changelog kobkob-kaidf-generator/CHANGELOG.md
