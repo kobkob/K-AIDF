@@ -8,6 +8,7 @@ from pathlib import Path
 from .instant_apps import get_instant_app, load_instant_app_runtime
 from .mentor import load_mentor_state
 from .repo import resolve_repo_root
+from .runtime_state import atomic_write_text, read_state_object
 
 CONTRACTS_DIRNAME = "contracts"
 CONTRACT_FILENAME = "contract.json"
@@ -130,10 +131,8 @@ def list_contracts(repo_root: str | Path | None) -> list[BasicContract]:
 def load_contract(ref: str | Path) -> BasicContract | None:
     root = Path(ref).expanduser().resolve()
     payload_path = root / CONTRACT_FILENAME
-    if not payload_path.is_file():
-        return None
-    data = json.loads(payload_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
+    data = read_state_object(payload_path)
+    if data is None:
         return None
     phases_raw = data.get("phases", [])
     phases: list[ContractPhase] = []
@@ -308,14 +307,11 @@ def _write_contract_files(contract: BasicContract) -> None:
         "current_app_url": contract.current_app_url,
         "phases": [asdict(phase) for phase in contract.phases],
     }
-    (contract.root / CONTRACT_FILENAME).write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    atomic_write_text(
+        contract.root / CONTRACT_FILENAME, json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
-    (contract.root / CONTRACT_MARKDOWN_FILENAME).write_text(
-        _contract_markdown(contract), encoding="utf-8"
-    )
-    (contract.root / QUIZ_FILENAME).write_text(_quiz_markdown(contract), encoding="utf-8")
+    atomic_write_text(contract.root / CONTRACT_MARKDOWN_FILENAME, _contract_markdown(contract))
+    atomic_write_text(contract.root / QUIZ_FILENAME, _quiz_markdown(contract))
 
 
 def _contract_markdown(contract: BasicContract) -> str:

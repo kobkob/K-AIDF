@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from .instant_apps import (
     append_mentor_note,
@@ -15,6 +17,7 @@ from .instant_apps import (
     stop_instant_app,
 )
 from .repo import Document, load_documents, resolve_repo_root
+from .runtime_state import as_int, atomic_write_text, read_state_object
 from .tools import (
     ACTION_PROTOCOL_INSTRUCTIONS,
     ProposedAction,
@@ -83,12 +86,24 @@ def mentor_state_path(repo_root: str | Path | None) -> Path:
     return repo / MENTOR_STATE_FILENAME
 
 
+def _accepted_phase_orders(raw: Any) -> list[int]:
+    """Phase orders from the saved list. Booleans and non-finite numbers are dropped."""
+    if not isinstance(raw, list):
+        return []
+    orders: set[int] = set()
+    for item in raw:
+        if isinstance(item, bool) or not isinstance(item, (int, float)):
+            continue
+        if isinstance(item, float) and not math.isfinite(item):
+            continue
+        orders.add(int(item))
+    return sorted(orders)
+
+
 def load_mentor_state(repo_root: str | Path | None) -> MentorState:
     path = mentor_state_path(repo_root)
-    if not path.is_file():
-        return MentorState()
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
+    data = read_state_object(path)
+    if data is None:
         return MentorState()
     interactions_raw = data.get("interactions", [])
     interactions: list[MentorInteraction] = []
@@ -112,18 +127,14 @@ def load_mentor_state(repo_root: str | Path | None) -> MentorState:
             except (KeyError, TypeError, ValueError):
                 continue
     accepted_phases_raw = data.get("accepted_phases", [])
-    accepted_phases = (
-        sorted({int(order) for order in accepted_phases_raw if isinstance(order, (int, float))})
-        if isinstance(accepted_phases_raw, list)
-        else []
-    )
+    accepted_phases = _accepted_phase_orders(accepted_phases_raw)
     pending_file_action_raw = data.get("pending_file_action")
     pending_file_action = (
         pending_file_action_raw if isinstance(pending_file_action_raw, dict) else None
     )
     return MentorState(
-        version=int(data.get("version", 1)),
-        step_count=int(data.get("step_count", len(interactions))),
+        version=as_int(data.get("version", 1), 1),
+        step_count=as_int(data.get("step_count", len(interactions)), len(interactions)),
         previous_response_id=_optional_str(data.get("previous_response_id")),
         pending_question=_optional_str(data.get("pending_question")),
         pending_category=_optional_str(data.get("pending_category")),
@@ -131,7 +142,7 @@ def load_mentor_state(repo_root: str | Path | None) -> MentorState:
         current_app_id=_optional_str(data.get("current_app_id")),
         last_action_summary=_optional_str(data.get("last_action_summary")),
         interactions=interactions,
-        pending_phase_order=int(data.get("pending_phase_order", 1)),
+        pending_phase_order=as_int(data.get("pending_phase_order", 1), 1),
         accepted_phases=accepted_phases,
         awaiting_acceptance=bool(data.get("awaiting_acceptance", False)),
         pending_file_action=pending_file_action,
@@ -155,7 +166,7 @@ def save_mentor_state(repo_root: str | Path | None, state: MentorState) -> Path:
         "awaiting_acceptance": state.awaiting_acceptance,
         "pending_file_action": state.pending_file_action,
     }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return path
 
 
