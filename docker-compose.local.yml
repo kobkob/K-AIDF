@@ -1,12 +1,15 @@
 services:
   aidf-ollama:
-    image: ollama/ollama:latest
+    # Pinned by digest so every pull gets the same image. Resolved from ollama/ollama:latest on
+    # 2026-11-13; to upgrade, resolve the new digest and update this line in the same change.
+    image: ollama/ollama:latest@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     container_name: aidf-ollama
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    # Loopback only: Ollama has no authentication, and Docker's port publishing bypasses ufw.
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 5s
