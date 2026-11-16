@@ -725,6 +725,10 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any, principal: Principal)
                 limit = int(args.get("limit", 10))
             except (TypeError, ValueError):
                 return _json_error(req_id, -32602, "Invalid params: limit must be an integer.")
+            if limit < 1 or limit > 50:
+                return _json_error(
+                    req_id, -32602, "Invalid params: limit must be between 1 and 50."
+                )
             results = {"results": _search_documents(query, limit, principal=principal)}
             return jsonify(
                 {

@@ -611,6 +611,176 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
 
         self.assertEqual(response.get_json()["error"]["code"], -32602)
 
+    def _with_search_corpus(self, count: int = 55) -> tempfile.TemporaryDirectory[str]:
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        repo_root = Path(tmpdir.name)
+        previous = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = str(repo_root)
+
+        def _restore_env() -> None:
+            if previous is None:
+                os.environ.pop("AIDF_REPO_ROOT", None)
+            else:
+                os.environ["AIDF_REPO_ROOT"] = previous
+            app._index_cache.update(root=None, signature=None, documents=[])
+
+        self.addCleanup(_restore_env)
+        app._index_cache.update(root=None, signature=None, documents=[])
+        for i in range(count):
+            _write(
+                repo_root / f"docs/00-overview/doc-{i:02d}.md",
+                f"# Doc {i:02d}\n\nShared boundary-test keyword.\n",
+            )
+        return tmpdir
+
+    def test_search_accepts_valid_limit_boundaries(self) -> None:
+        self._with_search_corpus(55)
+        for limit in (1, 50):
+            with self.subTest(limit=limit):
+                with unittest.mock.patch.object(
+                    app, "_search_documents", wraps=app._search_documents
+                ) as search_mock:
+                    response = self._post(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 100 + limit,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "search",
+                                "arguments": {"query": "boundary-test", "limit": limit},
+                            },
+                        }
+                    )
+
+                self.assertEqual(response.status_code, 200)
+                search_mock.assert_called_once_with("boundary-test", limit, principal=FULL_ACCESS)
+                payload = response.get_json()
+                results = json.loads(payload["result"]["content"][0]["text"])["results"]
+                self.assertEqual(len(results), limit)
+
+    def test_search_rejects_excessive_limits(self) -> None:
+        self._with_search_corpus(55)
+        for limit in (51, 100000):
+            with self.subTest(limit=limit):
+                with unittest.mock.patch.object(
+                    app, "_search_documents", wraps=app._search_documents
+                ) as search_mock:
+                    response = self._post(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 200,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "search",
+                                "arguments": {"query": "boundary-test", "limit": limit},
+                            },
+                        }
+                    )
+
+                self.assertEqual(response.status_code, 400)
+                payload = response.get_json()
+                self.assertEqual(payload["error"]["code"], -32602)
+                self.assertEqual(
+                    payload["error"]["message"],
+                    "Invalid params: limit must be between 1 and 50.",
+                )
+                search_mock.assert_not_called()
+
+    def test_search_rejects_zero_and_negative_limits(self) -> None:
+        self._with_search_corpus(5)
+        for limit in (0, -1):
+            with self.subTest(limit=limit):
+                with unittest.mock.patch.object(
+                    app, "_search_documents", wraps=app._search_documents
+                ) as search_mock:
+                    response = self._post(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 300,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "search",
+                                "arguments": {"query": "boundary-test", "limit": limit},
+                            },
+                        }
+                    )
+
+                self.assertEqual(response.status_code, 400)
+                payload = response.get_json()
+                self.assertEqual(payload["error"]["code"], -32602)
+                self.assertEqual(
+                    payload["error"]["message"],
+                    "Invalid params: limit must be between 1 and 50.",
+                )
+                search_mock.assert_not_called()
+
+    def test_search_preserves_default_in_range_and_non_integer_limit_behavior(self) -> None:
+        self._with_search_corpus(15)
+        with self.subTest(case="omitted_limit_uses_default_10"):
+            with unittest.mock.patch.object(
+                app, "_search_documents", wraps=app._search_documents
+            ) as search_mock:
+                response = self._post(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 401,
+                        "method": "tools/call",
+                        "params": {"name": "search", "arguments": {"query": "boundary-test"}},
+                    }
+                )
+
+            self.assertEqual(response.status_code, 200)
+            search_mock.assert_called_once_with("boundary-test", 10, principal=FULL_ACCESS)
+            results = json.loads(response.get_json()["result"]["content"][0]["text"])["results"]
+            self.assertEqual(len(results), 10)
+
+        with self.subTest(case="valid_in_range_limit"):
+            with unittest.mock.patch.object(
+                app, "_search_documents", wraps=app._search_documents
+            ) as search_mock:
+                response = self._post(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 402,
+                        "method": "tools/call",
+                        "params": {
+                            "name": "search",
+                            "arguments": {"query": "boundary-test", "limit": 5},
+                        },
+                    }
+                )
+
+            self.assertEqual(response.status_code, 200)
+            search_mock.assert_called_once_with("boundary-test", 5, principal=FULL_ACCESS)
+            results = json.loads(response.get_json()["result"]["content"][0]["text"])["results"]
+            self.assertEqual(len(results), 5)
+
+        for bad_limit in ("many", None):
+            with self.subTest(case="non_integer_limit", limit=bad_limit):
+                with unittest.mock.patch.object(
+                    app, "_search_documents", wraps=app._search_documents
+                ) as search_mock:
+                    response = self._post(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 403,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "search",
+                                "arguments": {"query": "boundary-test", "limit": bad_limit},
+                            },
+                        }
+                    )
+
+                self.assertEqual(response.status_code, 400)
+                payload = response.get_json()
+                self.assertEqual(payload["error"]["code"], -32602)
+                self.assertEqual(
+                    payload["error"]["message"], "Invalid params: limit must be an integer."
+                )
+                search_mock.assert_not_called()
+
 
 class McpStreamableHttpTransportTests(unittest.TestCase):
     """Notifications, ping, the MCP-Protocol-Version header and GET on the HTTP transport."""
