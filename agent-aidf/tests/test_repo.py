@@ -73,3 +73,44 @@ def test_index_matches_shared_contract() -> None:
     assert [
         {field: getattr(doc, field) for field in CONTRACT_FIELDS} for doc in documents
     ] == expected
+
+
+def _write_visibility_repo(root: Path) -> None:
+    docs = root / "docs" / "acl"
+    docs.mkdir(parents=True)
+    for name, visibility in (
+        ("public-note", "public"),
+        ("internal-note", "internal"),
+        ("private-note", "private"),
+        ("typo-note", "publc"),
+    ):
+        (docs / f"{name}.md").write_text(
+            f"---\ntitle: {name}\nvisibility: {visibility}\n---\n\nBody of {name}.\n",
+            encoding="utf-8",
+        )
+    (docs / "unlabelled-note.md").write_text("# Unlabelled Note\n", encoding="utf-8")
+
+
+def test_load_documents_withholds_private_and_unknown_visibility(tmp_path: Path) -> None:
+    _write_visibility_repo(tmp_path)
+
+    paths = sorted(doc.path for doc in load_documents(tmp_path))
+
+    # Internal is the operator's own material; an unlabelled document defaults to internal.
+    assert paths == [
+        "docs/acl/internal-note.md",
+        "docs/acl/public-note.md",
+        "docs/acl/unlabelled-note.md",
+    ]
+
+
+def test_load_documents_includes_private_only_when_asked(tmp_path: Path) -> None:
+    _write_visibility_repo(tmp_path)
+
+    documents = load_documents(tmp_path, include_private=True)
+
+    assert "docs/acl/private-note.md" in {doc.path for doc in documents}
+    assert "docs/acl/typo-note.md" in {doc.path for doc in documents}
+    assert {doc.visibility for doc in documents if doc.path.endswith("private-note.md")} == {
+        "private"
+    }
