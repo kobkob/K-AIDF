@@ -7,9 +7,11 @@ engine is bundled, git is in the runtime, and the health check probes the public
 
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
+import yaml
 from test_easypanel_template import copy_sources, dockerfile_of, instructions, load_template
 
 DOCKERFILE = dockerfile_of(load_template()["services"][0]["data"])
@@ -51,6 +53,16 @@ class DockerfileTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_root_compose_publishes_the_port_the_image_listens_on(self) -> None:
+        exposed = re.search(r"^EXPOSE (\d+)$", DOCKERFILE.read_text(encoding="utf-8"), re.M)
+        self.assertIsNotNone(exposed)
+        compose = yaml.safe_load(
+            (Path(DOCKERFILE).parents[1] / "docker-compose.local.yml").read_text()
+        )
+        published = compose["services"]["mcp-server"]["ports"]
+        container_ports = [str(entry).rsplit(":", 1)[-1] for entry in published]
+        self.assertEqual(container_ports, [exposed.group(1)])
 
     def test_the_root_context_has_an_ignore_file(self) -> None:
         self.assertTrue((Path(DOCKERFILE).parents[1] / ".dockerignore").is_file())

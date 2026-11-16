@@ -22,7 +22,8 @@ services:
       dockerfile: mcp-aidf/Dockerfile
     container_name: mcp-aidf-server
     ports:
-      - "8080:8080"
+      # Host 8080 -> container 7777, the port the image listens on (EXPOSE 7777).
+      - "8080:7777"
     environment:
       - KAIDF_LOCAL_INFERENCE=true
       - OLLAMA_HOST=http://aidf-ollama:11434
