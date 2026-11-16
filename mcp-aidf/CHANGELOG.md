@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - Document indexing comes from `agent_aidf/index.py`, shared with `agent-aidf`, so both components classify documents the same way; the server needs the `agent-aidf` package on its import path (the image installs it) (#15)
 - The index is rechecked at most every `MCP_INDEX_CHECK_INTERVAL` seconds (default 2) instead of on every request (#26)
+- Licensing aligned to Ricardo Filipo as copyright holder and CLA assignee: `LICENSE` files, `license = MIT` in `pyproject.toml`, the CLA allowlist and the root CODEOWNERS; the nested CODEOWNERS files, which GitHub never read, are removed (#6)
 
 ### Fixed
 
