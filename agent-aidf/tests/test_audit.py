@@ -993,3 +993,48 @@ def test_scaffold_path_is_in_the_json_export_and_the_report(tmp_path: Path) -> N
     assert "Scaffold: .kaidf/" in render_audit_report(project)
     assert standalone.to_dict()["scaffold_path"] == str(tmp_path / ".kaidf")
     assert "Scaffold: repository root (no .kaidf/)" in render_audit_report(standalone)
+
+
+def _fake_git_repo(root: Path) -> None:
+    # A .git directory without a real repository: it is enough to make the audit ask git.
+    (root / ".git").mkdir()
+    _write(root / "README.md", "# Demo\n")
+    _write(root / "src/app.py", "print('hi')\n")
+    _write(root / ".venv/lib/site.py", "x = 1\n")
+    _write(root / "node_modules/pkg/index.js", "x = 1\n")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        FileNotFoundError(2, "No such file or directory", "git"),
+        subprocess.CalledProcessError(128, ["git", "ls-files"]),
+    ],
+    ids=["git-binary-missing", "ls-files-fails"],
+)
+def test_git_failure_falls_back_to_the_filesystem(
+    tmp_path: Path, monkeypatch, failure: Exception
+) -> None:
+    _fake_git_repo(tmp_path)
+
+    def broken_git(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(audit.subprocess, "run", broken_git)
+
+    files = {path.relative_to(tmp_path).as_posix() for path in audit._tracked_files(tmp_path)}
+
+    assert files == {"README.md", "src/app.py"}
+
+
+def test_audit_completes_when_git_is_missing(tmp_path: Path, monkeypatch) -> None:
+    _fake_git_repo(tmp_path)
+
+    def missing_git(*args, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "git")
+
+    monkeypatch.setattr(audit.subprocess, "run", missing_git)
+
+    result = run_audit(tmp_path)
+
+    assert _check(result, "no-credentials").points == 10

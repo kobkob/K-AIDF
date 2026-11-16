@@ -286,11 +286,17 @@ def _tracked_files(root: Path) -> list[Path]:
     """Files git tracks, or every file on disk when the folder is not a git repository."""
     if not (root / ".git").exists():
         return _walk_files(root)
-    listed = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z"],
-        capture_output=True,
-        check=True,
-    ).stdout.decode("utf-8", errors="replace")
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            capture_output=True,
+            check=True,
+        ).stdout.decode("utf-8", errors="replace")
+    except (OSError, subprocess.CalledProcessError):
+        # git is not installed, or `git ls-files` fails on this repository state. The audit still
+        # runs: it inspects the files on disk, with the same skipped directories as for a folder
+        # that is not a repository.
+        return _walk_files(root)
     return [root / name for name in listed.split("\0") if name]
 
 
