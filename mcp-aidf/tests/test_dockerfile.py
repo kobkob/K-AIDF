@@ -54,6 +54,18 @@ class DockerfileTests(unittest.TestCase):
             ),
         )
 
+    def test_the_server_runs_under_gunicorn_with_timeouts_and_request_limits(self) -> None:
+        command = [line for line in self.lines if line.startswith("CMD")][0]
+        for flag in (
+            "gunicorn",
+            "--timeout 30",
+            "--limit-request-line 4094",
+            "--limit-request-fields 64",
+            "--limit-request-field_size 8190",
+        ):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, command)
+
     def test_root_compose_publishes_the_port_the_image_listens_on(self) -> None:
         exposed = re.search(r"^EXPOSE (\d+)$", DOCKERFILE.read_text(encoding="utf-8"), re.M)
         self.assertIsNotNone(exposed)

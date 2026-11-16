@@ -60,4 +60,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Production WSGI server instead of the Flask development server. The exec form does not expand
 # variables, so a shell resolves PORT and then execs gunicorn, which stays PID 1.
-CMD ["sh", "-c", "exec gunicorn --bind \"0.0.0.0:${PORT:-7777}\" --workers 2 --access-logfile - app:app"]
+# Timeouts stop a stalled client from holding a worker; the limit-request flags cap the request
+# line and headers before the application sees them.
+CMD ["sh", "-c", "exec gunicorn --bind \"0.0.0.0:${PORT:-7777}\" --workers 2 --timeout 30 --graceful-timeout 30 --keep-alive 5 --limit-request-line 4094 --limit-request-fields 64 --limit-request-field_size 8190 --access-logfile - app:app"]

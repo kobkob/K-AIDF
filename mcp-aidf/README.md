@@ -133,6 +133,8 @@ Environment variables in `docker-compose.yml`:
 - `MCP_BEARER_TOKEN` - the bearer token every client must present. Required by `docker-compose.yml` (no default). Use a long random value, for example `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Outside Docker, if it is unset, the server starts with a random token for that process only and logs it at startup; that token changes on every restart and is not shared between gunicorn workers.
 - `AIDF_REPO_ROOT` - absolute path to the generated K-AIDF repository to index
 - `MCP_TOKEN_SCOPES` - optional JSON object of tokens limited to namespaces (see Tenant Scopes)
+- `MCP_RATE_LIMIT_PER_MINUTE` - requests per minute allowed per token, or per client address for unauthenticated requests (default `120`, `0` turns the limit off). Each gunicorn worker counts separately. Over the limit the server answers `429` with `Retry-After`.
+- `MCP_INDEX_CHECK_INTERVAL` - seconds a checked index is reused before the repository is walked again (default `2`, `0` checks on every request). Edits to documents appear within this interval.
 - `MCP_PUBLIC_URL` - optional public base URL the server is reached at (for example `https://mcp.example.org`). It is written into the `WWW-Authenticate` challenge, the 401 body and the `/.well-known/oauth-protected-resource` metadata. Unset, it defaults to `http://localhost:7777`. The `Host` request header is never used for this.
 - `PORT` - the port the container listens on. The image sets `7777`, which is what `docker-compose.yml` publishes; a hosting platform can set another value (the EasyPanel template sets `8000`). `python app.py` always uses 7777.
 

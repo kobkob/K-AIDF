@@ -80,7 +80,7 @@ No layout 2, clone cada repositório em `"$DEST/<nome>"`, remova o `.git` de cad
 
 Se preferir um diretório seu, troque o volume por um **Bind mount** em **Storage**, com o seu caminho no host montado em `/workspace`, e faça um novo deploy. O usuário do container precisa conseguir ler esse diretório (`chmod -R a+rX <caminho>`). Bind mounts ficam fora dos backups de volume do EasyPanel.
 
-O servidor relê o volume a cada requisição, então trocar os arquivos não exige deploy. Mantenha o volume enxuto: cada busca percorre a árvore inteira.
+O servidor reconfere o volume no máximo a cada 2 segundos (`MCP_INDEX_CHECK_INTERVAL`), então trocar os arquivos não exige deploy e a mudança aparece em seguida. Mantenha o volume enxuto: cada nova verificação percorre a árvore inteira.
 
 ## Verificação
 

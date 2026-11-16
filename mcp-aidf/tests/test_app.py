@@ -17,16 +17,29 @@ TEST_BEARER_TOKEN = "test-bearer-token-0123456789abcdef"
 LATEST_PROTOCOL_VERSION = "2025-06-18"
 FULL_ACCESS = app.Principal(namespaces=None)
 _token_patch = None
+_module_patches: list = []
 
 
 def setUpModule() -> None:
-    # Every request in this module authenticates with the fixed test token.
+    # Every request in this module authenticates with the fixed test token. The rate limit is off
+    # and the index is checked on every request, so the tests see each change at once; the tests
+    # for those two behaviours turn them back on.
     global _token_patch
     _token_patch = unittest.mock.patch.object(app, "ACTIVE_BEARER_TOKEN", TEST_BEARER_TOKEN)
     _token_patch.start()
+    _module_patches.extend(
+        [
+            unittest.mock.patch.object(app, "RATE_LIMIT_PER_MINUTE", 0),
+            unittest.mock.patch.object(app, "INDEX_CHECK_INTERVAL_SECONDS", 0.0),
+        ]
+    )
+    for patch in _module_patches:
+        patch.start()
 
 
 def tearDownModule() -> None:
+    for patch in _module_patches:
+        patch.stop()
     _token_patch.stop()
 
 
@@ -1469,6 +1482,108 @@ def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
     if isinstance(exc, BaseExceptionGroup):
         return [leaf for sub in exc.exceptions for leaf in _leaf_exceptions(sub)]
     return [exc]
+
+
+class McpRequestLimitsTests(unittest.TestCase):
+    """Authentication before the body, the body size limit, the index check interval and 429."""
+
+    def setUp(self) -> None:
+        self.client = app.app.test_client()
+        self.auth = {"Authorization": f"Bearer {TEST_BEARER_TOKEN}"}
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.repo_root = Path(self.tmpdir.name)
+        _write(self.repo_root / "docs/notes/first.md", "---\ntitle: First\n---\n\nBody.\n")
+        env_patch = unittest.mock.patch.dict(os.environ, {"AIDF_REPO_ROOT": str(self.repo_root)})
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+        self.addCleanup(self.tmpdir.cleanup)
+        app._index_cache.update(root=None, signature=None, documents=[], checked_at=0.0)
+        app._rate_buckets.clear()
+        self.addCleanup(app._rate_buckets.clear)
+        self.addCleanup(app._index_cache.update, root=None, signature=None, documents=[])
+
+    def _limit(self, value: int):
+        patch = unittest.mock.patch.object(app, "RATE_LIMIT_PER_MINUTE", value)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def _initialize(self, headers: dict[str, str]):
+        return self.client.post(
+            "/mcp",
+            headers=headers,
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+
+    def test_unauthenticated_request_is_refused_before_its_body_is_parsed(self) -> None:
+        response = self.client.post("/mcp", data="{not json", content_type="application/json")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["error"]["code"], 401)
+
+    def test_oversized_body_is_refused_with_413_and_a_json_rpc_error(self) -> None:
+        body = b'{"jsonrpc": "2.0", "params": "' + b"x" * app.MAX_REQUEST_BYTES + b'"}'
+
+        response = self.client.post(
+            "/mcp", headers=self.auth, data=body, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.get_json()["error"]["code"], -32600)
+
+    def test_index_is_reused_without_a_walk_within_the_check_interval(self) -> None:
+        with unittest.mock.patch.object(app, "INDEX_CHECK_INTERVAL_SECONDS", 60.0):
+            first = app._load_index()
+            with unittest.mock.patch.object(
+                app, "_iter_indexable_paths", wraps=app._iter_indexable_paths
+            ) as walk:
+                second = app._load_index()
+
+        walk.assert_not_called()
+        self.assertEqual(first, second)
+
+    def test_edits_reach_the_index_once_the_check_interval_has_passed(self) -> None:
+        with unittest.mock.patch.object(app, "INDEX_CHECK_INTERVAL_SECONDS", 60.0):
+            self.assertEqual(app._load_index()[0]["title"], "First")
+            _write(self.repo_root / "docs/notes/first.md", "---\ntitle: Second\n---\n\nBody.\n")
+            self.assertEqual(app._load_index()[0]["title"], "First")
+
+        with unittest.mock.patch.object(app, "INDEX_CHECK_INTERVAL_SECONDS", 0.0):
+            self.assertEqual(app._load_index()[0]["title"], "Second")
+
+    def test_request_over_the_per_token_limit_gets_429_with_retry_after(self) -> None:
+        self._limit(2)
+
+        statuses = [self._initialize(self.auth).status_code for _ in range(3)]
+
+        self.assertEqual(statuses, [200, 200, 429])
+        limited = self._initialize(self.auth)
+        self.assertEqual(limited.status_code, 429)
+        self.assertGreaterEqual(int(limited.headers["Retry-After"]), 1)
+        self.assertEqual(limited.get_json()["error"]["code"], -32000)
+
+    def test_unauthenticated_requests_are_limited_per_address_not_shared_with_tokens(self) -> None:
+        self._limit(1)
+        bad = {"Authorization": "Bearer wrong-token"}
+
+        self.assertEqual(self._initialize(bad).status_code, 401)
+        self.assertEqual(self._initialize(bad).status_code, 429)
+        # A valid token has its own bucket and is still served.
+        self.assertEqual(self._initialize(self.auth).status_code, 200)
+
+    def test_limit_of_zero_turns_rate_limiting_off(self) -> None:
+        self._limit(0)
+
+        statuses = {self._initialize(self.auth).status_code for _ in range(5)}
+
+        self.assertEqual(statuses, {200})
+
+    def test_invalid_numeric_setting_stops_the_server(self) -> None:
+        with unittest.mock.patch.dict(os.environ, {"MCP_RATE_LIMIT_PER_MINUTE": "many"}):
+            with self.assertRaisesRegex(RuntimeError, "MCP_RATE_LIMIT_PER_MINUTE"):
+                app._non_negative_number_env("MCP_RATE_LIMIT_PER_MINUTE", 120.0)
+        with unittest.mock.patch.dict(os.environ, {"MCP_INDEX_CHECK_INTERVAL": "-1"}):
+            with self.assertRaisesRegex(RuntimeError, "MCP_INDEX_CHECK_INTERVAL"):
+                app._non_negative_number_env("MCP_INDEX_CHECK_INTERVAL", 2.0)
 
 
 if __name__ == "__main__":
