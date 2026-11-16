@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
@@ -30,13 +31,25 @@ def _resolve_bearer_token(configured: str | None) -> str:
     return token or secrets.token_urlsafe(32)
 
 
+def _token_fingerprint(token: str) -> str:
+    """A short, one-way fingerprint of a token, safe to write to logs."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+
+
+def _warn_temporary_bearer_token(token: str) -> None:
+    # Only a fingerprint reaches the log: anyone who can read logs must not be able to take the
+    # token. The operator sets MCP_BEARER_TOKEN to get a stable, known token instead.
+    app.logger.warning(
+        "MCP_BEARER_TOKEN is not set; using a temporary token for this process "
+        "(fingerprint %s). Set MCP_BEARER_TOKEN to use a known token.",
+        _token_fingerprint(token),
+    )
+
+
 MCP_BEARER_TOKEN = os.environ.get("MCP_BEARER_TOKEN", "").strip()
 ACTIVE_BEARER_TOKEN = _resolve_bearer_token(MCP_BEARER_TOKEN)
 if not MCP_BEARER_TOKEN:
-    app.logger.warning(
-        "MCP_BEARER_TOKEN is not set; using a temporary token for this process: %s",
-        ACTIVE_BEARER_TOKEN,
-    )
+    _warn_temporary_bearer_token(ACTIVE_BEARER_TOKEN)
 
 
 TOKEN_SCOPES_ENV = "MCP_TOKEN_SCOPES"
