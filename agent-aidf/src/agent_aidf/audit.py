@@ -54,9 +54,11 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("OpenAI-style secret key", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
     ("OpenAI project key", re.compile(r"\bsk-proj-[A-Za-z0-9_-]{20,}")),
     ("GitHub personal access token", re.compile(r"\bghp_[A-Za-z0-9]{20,}")),
+    ("GitHub OAuth, user, server or refresh token", re.compile(r"\bgh[ousr]_[A-Za-z0-9]{20,}")),
     ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}")),
-    ("Slack token", re.compile(r"\bxox[bap]-[A-Za-z0-9-]{10,}")),
+    ("Slack token", re.compile(r"\bxox[baprse]-[A-Za-z0-9-]{10,}")),
     ("Stripe live secret key", re.compile(r"\bsk_live_[A-Za-z0-9]{16,}")),
+    ("Stripe restricted key", re.compile(r"\brk_(?:live|test)_[A-Za-z0-9]{16,}")),
     ("AWS access key id", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}")),
     ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
@@ -67,6 +69,13 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         ),
     ),
 )
+# Documentation placeholders such as "ghp_xxxxxxxxxxxxxxxxxxxxxxxx" or AWS's "...EXAMPLE" key are
+# not credentials. A real random token essentially never repeats one character eight times.
+_PLACEHOLDER_RUN = re.compile(r"(.)\1{7,}")
+
+
+def _is_example_token(token: str) -> bool:
+    return "EXAMPLE" in token.upper() or _PLACEHOLDER_RUN.search(token) is not None
 
 
 @dataclass(frozen=True)
@@ -439,7 +448,7 @@ def _check_no_credentials(layout: Layout) -> Outcome:
         if text is None:
             continue
         for label, pattern in SECRET_PATTERNS:
-            if pattern.search(text):
+            if any(not _is_example_token(match.group(0)) for match in pattern.finditer(text)):
                 findings.append(f"{relative}: {label}")
     # Oversized files are a blind spot, so the report names them even when nothing else fails.
     skipped = (
