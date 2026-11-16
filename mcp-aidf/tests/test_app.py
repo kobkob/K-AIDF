@@ -1075,8 +1075,26 @@ class McpVisibilityAclTests(unittest.TestCase):
             with self.subTest(visibility=visibility, authenticated=authenticated):
                 self.assertIs(app._is_visible({"visibility": visibility}, authenticated), expected)
 
-    def test_a_document_without_visibility_key_is_public(self) -> None:
-        self.assertTrue(app._is_visible({}, False))
+    def test_a_document_without_visibility_key_is_internal(self) -> None:
+        # Same default as the loader and the README: hidden from unauthenticated callers.
+        self.assertFalse(app._is_visible({}, False))
+        self.assertTrue(app._is_visible({}, True))
+
+    def test_tool_descriptions_state_the_visibility_rules(self) -> None:
+        response = app.app.test_client().post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {TEST_BEARER_TOKEN}"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        )
+        listed = response.get_json()["result"]["tools"]
+        tools = {tool["name"]: tool["description"] for tool in listed}
+
+        for name in ("search", "fetch"):
+            with self.subTest(tool=name):
+                self.assertIn(app.VISIBILITY_DESCRIPTION, tools[name])
+                for level in ("public", "internal", "private"):
+                    self.assertIn(level, tools[name])
+        self.assertIn("not found", tools["fetch"])
 
     def test_unauthenticated_search_returns_only_public_documents(self) -> None:
         # The index gives a document with no visibility field the contract default, "internal",
