@@ -11,11 +11,20 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `mcp-aidf` startup log: when `MCP_BEARER_TOKEN` is unset, the temporary token is logged as a one-way fingerprint, never in full (#84)
 - `agent-aidf` credential scanner: GitHub OAuth, user, server and refresh tokens (`gho_`, `ghu_`, `ghs_`, `ghr_`), Stripe restricted keys (`rk_live_`, `rk_test_`) and Slack config and refresh tokens (`xoxe`, `xoxr`, `xoxs`) are reported; documentation placeholders are not (#89)
 - `agent-aidf` withholds documents whose `visibility` is `private` or unknown from search, the shell and the LLM context; `load_documents(..., include_private=True)` opts in (#14)
+- `mcp-aidf` authenticates before it reads the request body, so an unauthenticated request costs no JSON parse, and a body over 256 KiB gets `413` (#26)
+- `mcp-aidf` rate limit, `MCP_RATE_LIMIT_PER_MINUTE` (default 120 per minute): counted per token, or per address for unauthenticated requests; over the limit the endpoint answers `429` with `Retry-After`. gunicorn gets request timeouts and request-line and header limits (#26)
+
+### Changed
+
+- `agent-aidf` and `mcp-aidf` share the document indexing rules in `agent_aidf/index.py`. The agent now also classifies documents with the Portuguese doctrine keywords, and a file directly under `docs/` is in the `root` phase for both components (#15)
+- `mcp-aidf` rechecks the repository for changes at most every `MCP_INDEX_CHECK_INTERVAL` seconds (default 2) instead of on every request; `0` restores the per-request check (#26)
 
 ### Fixed
 
 - `mcp-aidf`: a document without a `visibility` field is internal, as the README and the shared index contract state; the search and fetch tool descriptions state the visibility rules (#83)
 - `mcp-aidf`: a misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
+- `kob audit` falls back to a filesystem walk when `git` is missing or `git ls-files` fails, instead of crashing (#80)
+- `mcp-aidf/.env.example` leaves `SECRET_KEY` and `MCP_BEARER_TOKEN` empty, so compose refuses to start until they are set; the root `docker-compose.local.yml` maps host port 8080 to the container's port 7777 (#29)
 
 ## [0.6.2] - 2026-11-13
 
