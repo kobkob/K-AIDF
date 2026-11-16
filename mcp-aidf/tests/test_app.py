@@ -10,6 +10,7 @@ import unittest.mock
 from pathlib import Path
 
 import werkzeug.serving
+from agent_aidf import index
 
 import app
 
@@ -429,7 +430,7 @@ class McpAidfFrontMatterTests(unittest.TestCase):
             "# Corpo\r\n"
         )
 
-        front_matter, body = app._parse_front_matter(text)
+        front_matter, body = index.parse_front_matter(text)
 
         self.assertEqual(front_matter["title"], "Automação e Maturidade Ética")
         self.assertEqual(front_matter["id"], "docs/20-ethical-model/principles/transparencia.md")
@@ -816,7 +817,7 @@ class McpAidfIndexCacheTests(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def _count_parses(self):
-        return unittest.mock.patch.object(app, "_load_document", wraps=app._load_document)
+        return unittest.mock.patch.object(app, "load_record", wraps=app.load_record)
 
     def test_consecutive_requests_do_not_reparse_unchanged_documents(self) -> None:
         with self._count_parses() as parses:
@@ -1534,7 +1535,7 @@ class McpRequestLimitsTests(unittest.TestCase):
         with unittest.mock.patch.object(app, "INDEX_CHECK_INTERVAL_SECONDS", 60.0):
             first = app._load_index()
             with unittest.mock.patch.object(
-                app, "_iter_indexable_paths", wraps=app._iter_indexable_paths
+                app, "iter_indexable_paths", wraps=app.iter_indexable_paths
             ) as walk:
                 second = app._load_index()
 
@@ -1584,6 +1585,55 @@ class McpRequestLimitsTests(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, {"MCP_INDEX_CHECK_INTERVAL": "-1"}):
             with self.assertRaisesRegex(RuntimeError, "MCP_INDEX_CHECK_INTERVAL"):
                 app._non_negative_number_env("MCP_INDEX_CHECK_INTERVAL", 2.0)
+
+
+class McpAgentIndexParityTests(unittest.TestCase):
+    """mcp-aidf and agent-aidf index a repository through the same rules (agent_aidf.index)."""
+
+    CORPUS = Path(__file__).resolve().parents[2] / "contracts" / "index-contract" / "corpus"
+    COMPARED = (
+        "id", "title", "document_class", "phase", "visibility", "namespace", "status",
+        "doctrine_category", "canonical_doctrine", "doctrine_priority", "variant_domain", "pack",
+        "maturity_level", "assessment_type", "ethical_domain", "control_type", "risk_type", "body",
+    )  # fmt: skip
+
+    def test_both_components_index_the_contract_corpus_identically(self) -> None:
+        from agent_aidf.repo import load_documents
+
+        agent = {doc.path: doc for doc in load_documents(self.CORPUS, include_private=True)}
+        mcp = {
+            record["path"]: record
+            for record in (
+                app.load_record(self.CORPUS, file_path)
+                for file_path in app.iter_indexable_paths(self.CORPUS)
+            )
+        }
+
+        self.assertEqual(set(agent), set(mcp))
+        for path in agent:
+            for field in self.COMPARED:
+                with self.subTest(path=path, field=field):
+                    self.assertEqual(getattr(agent[path], field), mcp[path][field])
+
+    def test_a_file_directly_under_docs_is_in_the_root_phase_for_both(self) -> None:
+        from agent_aidf.repo import load_documents
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "docs/loose.md", "# Loose\n")
+            _write(root / "docs/section/nested.md", "# Nested\n")
+
+            agent_phases = {doc.path: doc.phase for doc in load_documents(root)}
+            mcp_phases = {
+                record["path"]: record["phase"]
+                for record in (
+                    app.load_record(root, file_path) for file_path in app.iter_indexable_paths(root)
+                )
+            }
+
+        expected = {"docs/loose.md": "root", "docs/section/nested.md": "section"}
+        self.assertEqual(agent_phases, expected)
+        self.assertEqual(mcp_phases, expected)
 
 
 if __name__ == "__main__":

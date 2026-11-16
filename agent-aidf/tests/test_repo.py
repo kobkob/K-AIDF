@@ -114,3 +114,13 @@ def test_load_documents_includes_private_only_when_asked(tmp_path: Path) -> None
     assert {doc.visibility for doc in documents if doc.path.endswith("private-note.md")} == {
         "private"
     }
+
+
+def test_a_file_directly_under_docs_is_in_the_root_phase(tmp_path: Path) -> None:
+    (tmp_path / "docs" / "section").mkdir(parents=True)
+    (tmp_path / "docs" / "loose.md").write_text("# Loose\n", encoding="utf-8")
+    (tmp_path / "docs" / "section" / "nested.md").write_text("# Nested\n", encoding="utf-8")
+
+    phases = {doc.path: doc.phase for doc in load_documents(tmp_path)}
+
+    assert phases == {"docs/loose.md": "root", "docs/section/nested.md": "section"}

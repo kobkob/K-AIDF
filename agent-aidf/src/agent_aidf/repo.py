@@ -1,27 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
-from typing import Any
+from dataclasses import dataclass, fields
+from pathlib import Path
 
-import yaml
+from .index import iter_indexable_paths, load_record, parse_front_matter
 
-INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
-INDEXABLE_SUFFIXES = {".md", ".csv"}
-CANONICAL_DOCTRINE_FILES = {
-    "docs/00-overview/manifesto.md": "manifesto",
-    "docs/00-overview/principles.md": "principles",
-    "docs/00-overview/best-practices.md": "best-practices",
-    "docs/00-overview/governance.md": "governance",
-    "docs/00-overview/maturity.md": "maturity",
-    "docs/00-overview/implementation.md": "implementation",
-    "MANIFESTO.md": "manifesto",
-}
-STARTER_VARIANT_DOMAINS = {
-    "docs/00-overview/best-practices/seo.md": "seo",
-    "docs/00-overview/best-practices/content.md": "content",
-    "docs/00-overview/best-practices/research.md": "research",
-}
+# Re-exported for callers that parse front matter directly.
+_parse_front_matter = parse_front_matter
+
+# Visibility levels the agent reads. "internal" is the operator's own material, so the local agent
+# uses it; "private" is withheld unless the caller asks for it. Anything else is unknown and is
+# withheld too, the same fail-closed rule the MCP server applies.
+OPERATOR_VISIBILITIES = frozenset({"public", "internal"})
 
 
 @dataclass(frozen=True)
@@ -44,6 +34,8 @@ class Document:
     risk_type: str | None
     content: str
     body: str
+    namespace: str | None = None
+    doctrine_priority: int = 0
 
 
 def resolve_repo_root(repo_root: str | Path | None) -> Path:
@@ -55,111 +47,6 @@ def resolve_repo_root(repo_root: str | Path | None) -> Path:
     return path
 
 
-def _is_indexable(rel_path: str) -> bool:
-    path = PurePosixPath(rel_path)
-    if rel_path in INDEXABLE_ROOT_FILES:
-        return True
-    if not rel_path.startswith("docs/"):
-        return False
-    return path.suffix in INDEXABLE_SUFFIXES
-
-
-def _iter_indexable_paths(root: Path) -> list[Path]:
-    paths: list[Path] = []
-    for file_path in root.rglob("*"):
-        if not file_path.is_file():
-            continue
-        rel_path = file_path.relative_to(root).as_posix()
-        if _is_indexable(rel_path):
-            paths.append(file_path)
-    return sorted(paths)
-
-
-def _parse_front_matter(text: str) -> tuple[dict[str, Any], str]:
-    # Windows checkouts can keep CRLF line endings; normalize so the "---" markers still match.
-    text = text.replace("\r\n", "\n")
-    if not text.startswith("---\n"):
-        return {}, text
-    marker = "\n---\n"
-    end = text.find(marker, 4)
-    if end == -1:
-        return {}, text
-    front_matter_text = text[4:end]
-    body = text[end + len(marker) :]
-    data = yaml.safe_load(front_matter_text) or {}
-    if not isinstance(data, dict):
-        return {}, text
-    return data, body
-
-
-def _first_heading(markdown_body: str) -> str | None:
-    for line in markdown_body.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            title = stripped.lstrip("#").strip()
-            return title or None
-    return None
-
-
-def _infer_document_class(rel_path: str) -> str:
-    path = PurePosixPath(rel_path)
-    if rel_path in {"LICENSE", "CODEOWNERS", "SECURITY.md"}:
-        return "governance-doc"
-    if "templates" in path.parts:
-        return "template-doc"
-    if rel_path.endswith(".prompt.md") or "prompts" in path.parts:
-        return "prompt-doc"
-    return "core-doc"
-
-
-def _infer_phase(rel_path: str) -> str:
-    if rel_path == "README.md":
-        return "root"
-    parts = PurePosixPath(rel_path).parts
-    if len(parts) >= 2 and parts[0] == "docs":
-        return parts[1]
-    return "root"
-
-
-def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
-    # Keep in sync with mcp-aidf/app.py: both must classify the shared index contract the same way.
-    if rel_path in CANONICAL_DOCTRINE_FILES:
-        return CANONICAL_DOCTRINE_FILES[rel_path]
-    text = "\n".join([rel_path, title, body]).casefold()
-    if "principles" in text or "princípios" in text or "principios" in text:
-        return "principles"
-    if "boas práticas" in text or "best practice" in text or "best practices" in text:
-        return "best-practices"
-    if "governança" in text or "governance" in text or "decision-rights" in text:
-        return "governance"
-    if "maturidade" in text or "maturity" in text:
-        return "maturity"
-    if "implementação" in text or "implementation" in text:
-        return "implementation"
-    if (
-        "treinamento" in text
-        or "training" in text
-        or "certificação" in text
-        or "certification" in text
-    ):
-        return "training"
-    return "general"
-
-
-def _string_field(front_matter: dict[str, Any], key: str) -> str | None:
-    # Non-string or blank values are treated as absent, as mcp-aidf does.
-    value = front_matter.get(key)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-# Visibility levels the agent reads. "internal" is the operator's own material, so the local agent
-# uses it; "private" is withheld unless the caller asks for it. Anything else is unknown and is
-# withheld too, the same fail-closed rule the MCP server applies.
-OPERATOR_VISIBILITIES = frozenset({"public", "internal"})
-
-
 def load_documents(
     repo_root: str | Path | None = None, *, include_private: bool = False
 ) -> list[Document]:
@@ -169,39 +56,13 @@ def load_documents(
     they never reach search results, the shell, or the LLM context.
     """
     root = resolve_repo_root(repo_root)
+    names = {field.name for field in fields(Document)}
     documents: list[Document] = []
-    for file_path in _iter_indexable_paths(root):
-        rel_path = file_path.relative_to(root).as_posix()
-        raw_text = file_path.read_text(encoding="utf-8")
-        front_matter, body = (
-            _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
-        )
-        visibility = front_matter.get("visibility", "internal")
-        if not include_private and visibility not in OPERATOR_VISIBILITIES:
+    for file_path in iter_indexable_paths(root):
+        record = load_record(root, file_path)
+        if not include_private and record["visibility"] not in OPERATOR_VISIBILITIES:
             continue
-        title = front_matter.get("title") or _first_heading(body) or file_path.stem
-        documents.append(
-            Document(
-                id=front_matter.get("id", rel_path),
-                path=rel_path,
-                title=title,
-                document_class=front_matter.get("document_class", _infer_document_class(rel_path)),
-                phase=front_matter.get("phase", _infer_phase(rel_path)),
-                visibility=visibility,
-                status=front_matter.get("status", "active"),
-                doctrine_category=_infer_doctrine_category(rel_path, title, body),
-                canonical_doctrine=rel_path in CANONICAL_DOCTRINE_FILES,
-                variant_domain=STARTER_VARIANT_DOMAINS.get(rel_path),
-                pack=_string_field(front_matter, "pack"),
-                maturity_level=_string_field(front_matter, "maturity_level"),
-                assessment_type=_string_field(front_matter, "assessment_type"),
-                ethical_domain=_string_field(front_matter, "ethical_domain"),
-                control_type=_string_field(front_matter, "control_type"),
-                risk_type=_string_field(front_matter, "risk_type"),
-                content=raw_text,
-                body=body,
-            )
-        )
+        documents.append(Document(**{name: record[name] for name in names}))
     return documents
 
 

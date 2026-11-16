@@ -4,6 +4,8 @@ import os
 import unittest
 from pathlib import Path
 
+from agent_aidf import index
+
 import app
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
@@ -96,9 +98,9 @@ class WorkspaceDocsLayoutTests(unittest.TestCase):
     def test_canonical_doctrine_contract_stays_under_overview(self) -> None:
         # The shared index contract (contracts/index-contract) and generated repositories keep
         # doctrine under docs/00-overview/. The workspace sections do not change that contract.
-        self.assertIn("docs/00-overview/manifesto.md", app.CANONICAL_DOCTRINE_FILES)
-        self.assertIn("docs/00-overview/governance.md", app.CANONICAL_DOCTRINE_FILES)
-        for path in app.CANONICAL_DOCTRINE_FILES:
+        self.assertIn("docs/00-overview/manifesto.md", index.CANONICAL_DOCTRINE_FILES)
+        self.assertIn("docs/00-overview/governance.md", index.CANONICAL_DOCTRINE_FILES)
+        for path in index.CANONICAL_DOCTRINE_FILES:
             self.assertTrue(path == "MANIFESTO.md" or path.startswith("docs/00-overview/"), path)
 
 
