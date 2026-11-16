@@ -154,7 +154,20 @@ def _string_field(front_matter: dict[str, Any], key: str) -> str | None:
     return None
 
 
-def load_documents(repo_root: str | Path | None = None) -> list[Document]:
+# Visibility levels the agent reads. "internal" is the operator's own material, so the local agent
+# uses it; "private" is withheld unless the caller asks for it. Anything else is unknown and is
+# withheld too, the same fail-closed rule the MCP server applies.
+OPERATOR_VISIBILITIES = frozenset({"public", "internal"})
+
+
+def load_documents(
+    repo_root: str | Path | None = None, *, include_private: bool = False
+) -> list[Document]:
+    """Load the indexable documents of a repository, leaving out the ones the agent must not read.
+
+    Private and unknown-visibility documents are skipped unless ``include_private`` is true, so
+    they never reach search results, the shell, or the LLM context.
+    """
     root = resolve_repo_root(repo_root)
     documents: list[Document] = []
     for file_path in _iter_indexable_paths(root):
@@ -163,6 +176,9 @@ def load_documents(repo_root: str | Path | None = None) -> list[Document]:
         front_matter, body = (
             _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
         )
+        visibility = front_matter.get("visibility", "internal")
+        if not include_private and visibility not in OPERATOR_VISIBILITIES:
+            continue
         title = front_matter.get("title") or _first_heading(body) or file_path.stem
         documents.append(
             Document(
@@ -171,7 +187,7 @@ def load_documents(repo_root: str | Path | None = None) -> list[Document]:
                 title=title,
                 document_class=front_matter.get("document_class", _infer_document_class(rel_path)),
                 phase=front_matter.get("phase", _infer_phase(rel_path)),
-                visibility=front_matter.get("visibility", "internal"),
+                visibility=visibility,
                 status=front_matter.get("status", "active"),
                 doctrine_category=_infer_doctrine_category(rel_path, title, body),
                 canonical_doctrine=rel_path in CANONICAL_DOCTRINE_FILES,
