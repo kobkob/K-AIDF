@@ -18,6 +18,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 - `agent-aidf` and `mcp-aidf` share the document indexing rules in `agent_aidf/index.py`. The agent now also classifies documents with the Portuguese doctrine keywords, and a file directly under `docs/` is in the `root` phase for both components (#15)
 - `mcp-aidf` rechecks the repository for changes at most every `MCP_INDEX_CHECK_INTERVAL` seconds (default 2) instead of on every request; `0` restores the per-request check (#26)
+- Licensing aligned to Ricardo Filipo as copyright holder and CLA assignee: `LICENSE` files, `license = MIT` in `pyproject.toml`, the CLA allowlist and the root CODEOWNERS; the nested CODEOWNERS files, which GitHub never read, are removed (#6)
+- The README gains a Licensing section, and the CLA allowlist covers the root CODEOWNERS maintainers (#6)
 
 ### Fixed
 

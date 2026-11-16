@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Changed
 
 - Document indexing rules live in `agent_aidf/index.py`, shared with `mcp-aidf`. Documents are classified with the Portuguese doctrine keywords too, a file directly under `docs/` is in the `root` phase, and `Document` carries `namespace` and `doctrine_priority` (#15)
+- Licensing aligned to Ricardo Filipo as copyright holder and CLA assignee: `LICENSE` files, `license = MIT` in `pyproject.toml`, the CLA allowlist and the root CODEOWNERS; the nested CODEOWNERS files, which GitHub never read, are removed (#6)
 
 ### Fixed
 
