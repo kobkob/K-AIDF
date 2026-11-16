@@ -192,7 +192,9 @@ def _repo_root() -> Path:
         raise ValueError("AIDF_REPO_ROOT is not configured.")
     path = Path(repo_root).expanduser().resolve()
     if not path.exists() or not path.is_dir():
-        raise ValueError(f"AIDF_REPO_ROOT does not exist or is not a directory: {path}")
+        # The path stays out of the message: tool errors reach MCP clients, and the path is
+        # a server-side detail.
+        raise ValueError("AIDF_REPO_ROOT does not exist or is not a directory.")
     return path
 
 
