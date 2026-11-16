@@ -138,9 +138,9 @@ def test_secret_assignment_fails_the_credential_check(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("content", "label"),
     [
-        ("token = sk-" + "a" * 24 + "\n", "OpenAI-style secret key"),
+        ("token = sk-" + "aB3dE5fG7hJ9kLmN2pQ4rS6t" + "\n", "OpenAI-style secret key"),
         ("key = AKIA" + "ABCDEFGHIJKLMNOP" + "\n", "AWS access key id"),
-        ("key = AIza" + "x" * 35 + "\n", "Google API key"),
+        ("key = AIza" + "Sy" + "aB3dE5fG7hJ9kLmN2pQ4rS6tU8vW0xY1zA3cD" + "\n", "Google API key"),
         ("-----BEGIN RSA PRIVATE KEY-----\n", "private key block"),
     ],
 )
@@ -164,6 +164,15 @@ def test_known_credential_shapes_are_reported(tmp_path: Path, content: str, labe
         ("slack = xoxp-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
         ("slack = xoxa-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
         ("stripe = sk_live_" + "51HxYzAbCdEfGhIj" + "\n", "Stripe live secret key"),
+        ("gho = gho_" + "A1b2C3d4" * 5 + "\n", "GitHub OAuth, user, server or refresh token"),
+        ("ghu = ghu_" + "A1b2C3d4" * 5 + "\n", "GitHub OAuth, user, server or refresh token"),
+        ("ghs = ghs_" + "A1b2C3d4" * 5 + "\n", "GitHub OAuth, user, server or refresh token"),
+        ("ghr = ghr_" + "A1b2C3d4" * 5 + "\n", "GitHub OAuth, user, server or refresh token"),
+        ("slack = xoxe-" + "1-1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("slack = xoxr-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("slack = xoxs-" + "1234567890-abcdefGHIJ" + "\n", "Slack token"),
+        ("stripe = rk_live_" + "51HxYzAbCdEfGhIj" + "\n", "Stripe restricted key"),
+        ("stripe = rk_test_" + "51HxYzAbCdEfGhIj" + "\n", "Stripe restricted key"),
     ],
 )
 def test_modern_token_shapes_are_reported(tmp_path: Path, content: str, label: str) -> None:
@@ -181,9 +190,29 @@ def test_modern_token_shapes_are_reported(tmp_path: Path, content: str, label: s
         "note: the sk-proj- prefix is used by OpenAI\n",
         "xoxb is a Slack prefix\n",
         "ghp_short\n",
+        "the gho_ and rk_live_ prefixes name token families\n",
+        "ghs_ and rk_test_ are prefixes, not tokens\n",
+        "xoxr- is the refresh prefix\n",
     ],
 )
 def test_prefixes_without_a_token_body_are_not_reported(tmp_path: Path, content: str) -> None:
+    _write(tmp_path / "docs.md", content)
+
+    assert _check(run_audit(tmp_path), "no-credentials").points == 10
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        # Placeholders in documentation: a repeated run of characters or the word EXAMPLE.
+        "token = ghp_" + "x" * 36 + "\n",
+        "token = gho_" + "X" * 36 + "\n",
+        "token = rk_live_" + "0" * 24 + "\n",
+        "key = AKIA" + "IOSFODNN7EXAMPLE" + "\n",
+        "token = rk_test_" + "AbCdEXAMPLE1234XYZ" + "\n",
+    ],
+)
+def test_documentation_placeholders_are_not_reported(tmp_path: Path, content: str) -> None:
     _write(tmp_path / "docs.md", content)
 
     assert _check(run_audit(tmp_path), "no-credentials").points == 10
