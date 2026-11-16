@@ -146,6 +146,11 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
 # Streamable HTTP: after initialize, a client names the negotiated revision in this header.
 PROTOCOL_VERSION_HEADER = "MCP-Protocol-Version"
 INTERNAL_ERROR_MESSAGE = "Internal error."
+# Tool descriptions state the visibility rules _is_visible applies, so clients see the real filter.
+VISIBILITY_DESCRIPTION = (
+    "Visibility: public documents go to every caller, internal documents only to authenticated "
+    "callers, and private documents never. A document without a visibility field is internal."
+)
 # Local fallback when MCP_PUBLIC_URL is unset; 7777 is the default listen port (`python app.py`,
 # and the image unless PORT is set).
 DEFAULT_PUBLIC_URL = "http://localhost:7777"
@@ -423,14 +428,15 @@ def _load_index() -> list[dict[str, Any]]:
 def _is_visible(doc: dict[str, Any], is_authenticated: bool) -> bool:
     """Visibility ACL: private never, internal only when authenticated, public always.
 
-    A document with no visibility key is public. Any other value fails closed (hidden).
+    A document with no visibility key is internal, the default the loader applies and the shared
+    index contract (README, contracts/index-contract) states. Any other value fails closed (hidden).
     """
-    visibility = doc.get("visibility")
+    visibility = doc.get("visibility", "internal")
     if visibility == "private":
         return False
     if visibility == "internal":
         return is_authenticated
-    if visibility is None or visibility == "public":
+    if visibility == "public":
         return True
     return False
 
@@ -769,7 +775,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                         {
                             "name": "search",
                             "description": "Search indexed documents in a configured local K-AIDF "
-                            "repository.",
+                            "repository. " + VISIBILITY_DESCRIPTION,
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -782,7 +788,8 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any):
                         {
                             "name": "fetch",
                             "description": "Fetch a document by metadata id or repository-relative "
-                            "path.",
+                            "path. " + VISIBILITY_DESCRIPTION + " A hidden document is reported "
+                            "as not found.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {"id": {"type": "string"}},
