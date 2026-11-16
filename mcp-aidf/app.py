@@ -5,13 +5,14 @@ import json
 import os
 import secrets
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
 from flask import Flask, jsonify, make_response, request
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 
 import maturity
 
@@ -19,6 +20,30 @@ app = Flask(__name__)
 # No hardcoded fallback: without SECRET_KEY a random per-process secret is used
 # (fine for local runs). Containers require SECRET_KEY via docker-compose.yml.
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(32)
+# Largest request body the MCP endpoint reads. Requests are small JSON-RPC calls.
+MAX_REQUEST_BYTES = 256 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+
+
+def _non_negative_number_env(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        raise RuntimeError(f"{name} must be a non-negative number") from None
+    if value < 0:
+        raise RuntimeError(f"{name} must be a non-negative number")
+    return value
+
+
+# How long a checked index is reused before the repository is walked again (0 = every request).
+INDEX_CHECK_INTERVAL_SECONDS = _non_negative_number_env("MCP_INDEX_CHECK_INTERVAL", 2.0)
+# Requests per client per minute, counted per token (or per address for unauthenticated
+# requests). 0 turns the limit off.
+RATE_LIMIT_PER_MINUTE = int(_non_negative_number_env("MCP_RATE_LIMIT_PER_MINUTE", 120))
+RATE_WINDOW_SECONDS = 60
 
 
 def _resolve_bearer_token(configured: str | None) -> str:
@@ -402,7 +427,7 @@ def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
 # indexable files (path, mtime, size), so unchanged documents are never re-read or re-parsed,
 # and edits, additions and removals are visible on the next request.
 _index_cache_lock = threading.Lock()
-_index_cache: dict[str, Any] = {"root": None, "signature": None, "documents": []}
+_index_cache: dict[str, Any] = {"root": None, "signature": None, "documents": [], "checked_at": 0.0}
 
 
 def _index_signature(root: Path, paths: list[Path]) -> tuple[tuple[str, int, int], ...]:
@@ -415,15 +440,27 @@ def _index_signature(root: Path, paths: list[Path]) -> tuple[tuple[str, int, int
 
 def _load_index() -> list[dict[str, Any]]:
     root = _repo_root()
+    # Within the interval the cached index is reused without walking the repository. Changes
+    # reach the index at most INDEX_CHECK_INTERVAL_SECONDS later.
+    checked_at = time.monotonic()
+    with _index_cache_lock:
+        fresh = _index_cache["root"] == root and (
+            checked_at - _index_cache["checked_at"] < INDEX_CHECK_INTERVAL_SECONDS
+        )
+        if fresh:
+            # Shallow copies so callers cannot mutate the cached records.
+            return [dict(doc) for doc in _index_cache["documents"]]
     paths = _iter_indexable_paths(root)
     signature = _index_signature(root, paths)
     with _index_cache_lock:
         if _index_cache["root"] == root and _index_cache["signature"] == signature:
-            # Shallow copies so callers cannot mutate the cached records.
+            _index_cache["checked_at"] = checked_at
             return [dict(doc) for doc in _index_cache["documents"]]
     documents = [_load_document(root, file_path) for file_path in paths]
     with _index_cache_lock:
-        _index_cache.update(root=root, signature=signature, documents=documents)
+        _index_cache.update(
+            root=root, signature=signature, documents=documents, checked_at=checked_at
+        )
     return [dict(doc) for doc in documents]
 
 
@@ -685,49 +722,108 @@ def _accepted():
     return response
 
 
+_rate_lock = threading.Lock()
+_rate_buckets: dict[str, tuple[int, int]] = {}
+_RATE_BUCKET_LIMIT = 10_000
+
+
+def _rate_limit_retry_after(key: str) -> int | None:
+    """Fixed-window limit per key. Returns the seconds to wait when the key is over its limit."""
+    if RATE_LIMIT_PER_MINUTE == 0:
+        return None
+    now = time.time()
+    window = int(now // RATE_WINDOW_SECONDS)
+    with _rate_lock:
+        if len(_rate_buckets) > _RATE_BUCKET_LIMIT:
+            # Forget finished windows so a flood of distinct keys cannot grow memory without bound.
+            for stale in [name for name, (seen, _) in _rate_buckets.items() if seen != window]:
+                del _rate_buckets[stale]
+        seen, count = _rate_buckets.get(key, (window, 0))
+        if seen != window:
+            count = 0
+        if count >= RATE_LIMIT_PER_MINUTE:
+            return max(1, int(RATE_WINDOW_SECONDS - now % RATE_WINDOW_SECONDS + 0.999))
+        _rate_buckets[key] = (window, count + 1)
+    return None
+
+
+def _rate_limit_key(auth_header: str | None, principal: Principal | None) -> str:
+    # Authenticated clients are counted per token, so one busy client does not starve others
+    # behind the same proxy address. Everything else is counted per address.
+    if principal is not None and auth_header:
+        return "token:" + hashlib.sha256(auth_header.encode("utf-8")).hexdigest()
+    return "address:" + (request.remote_addr or "unknown")
+
+
+def _rate_limited_response(retry_after: int):
+    response = make_response(
+        jsonify(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32000, "message": "Too many requests. Retry later."},
+            }
+        ),
+        429,
+    )
+    response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
 @app.route("/mcp", methods=["POST"])
 def mcp_endpoint():
+    # Authenticate before the body is read or parsed, so an unauthenticated client costs one
+    # header lookup, not a JSON decode. Rate limiting sits in front of the body for the same reason.
+    auth_header = request.headers.get("Authorization")
+    principal = _resolve_principal(auth_header)
+    retry_after = _rate_limit_retry_after(_rate_limit_key(auth_header, principal))
+    if retry_after is not None:
+        return _rate_limited_response(retry_after)
+    if principal is None:
+        return _unauthorized_response(None, auth_header)
+
     try:
         data = request.get_json(force=True)
     except BadRequest:
         return _json_error(None, -32700, "Parse error: request body is not valid JSON.")
+    except RequestEntityTooLarge:
+        return _json_error(None, -32600, "Invalid Request: request body is too large.", 413)
     if not isinstance(data, dict):
         return _json_error(None, -32600, "Invalid Request: expected a JSON-RPC object.")
 
     req_id = data.get("id")
     try:
-        return _handle_mcp_request(data, req_id)
+        return _handle_mcp_request(data, req_id, principal)
     except Exception:
         # The traceback stays in the server log; the client only sees a generic message.
         app.logger.exception("Unhandled error while handling MCP request")
         return _json_error(req_id, -32603, INTERNAL_ERROR_MESSAGE, 500)
 
 
-def _handle_mcp_request(data: dict[str, Any], req_id: Any):
-    auth_header = request.headers.get("Authorization")
-    principal = _resolve_principal(auth_header)
-    if principal is None:
-        body = {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "error": {
-                "code": 401,
-                "message": "authorization_required",
-                "data": {
-                    "_meta": {
-                        "mcp/www_authenticate": (
-                            f'Bearer resource_metadata="{_resource_metadata_url()}", '
-                            'scope="mcp", error="authorization_required", '
-                            'error_description="Provide a valid bearer token."'
-                        )
-                    }
-                },
+def _unauthorized_response(req_id: Any, auth_header: str | None):
+    body = {
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "error": {
+            "code": 401,
+            "message": "authorization_required",
+            "data": {
+                "_meta": {
+                    "mcp/www_authenticate": (
+                        f'Bearer resource_metadata="{_resource_metadata_url()}", '
+                        'scope="mcp", error="authorization_required", '
+                        'error_description="Provide a valid bearer token."'
+                    )
+                }
             },
-        }
-        resp = make_response(jsonify(body), 401)
-        resp.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
-        return resp
+        },
+    }
+    resp = make_response(jsonify(body), 401)
+    resp.headers["WWW-Authenticate"] = _www_authenticate(auth_header)
+    return resp
 
+
+def _handle_mcp_request(data: dict[str, Any], req_id: Any, principal: Principal):
     method = data.get("method")
 
     # After the handshake a client may name the negotiated revision in a header. An
