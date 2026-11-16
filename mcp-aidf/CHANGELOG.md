@@ -9,11 +9,18 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Security
 
 - When `MCP_BEARER_TOKEN` is unset, the startup warning logs a SHA-256 fingerprint of the temporary token instead of the token (#84)
+- Authentication runs before the request body is read; a body over 256 KiB gets `413`; `MCP_RATE_LIMIT_PER_MINUTE` (default 120) answers `429` with `Retry-After`; gunicorn gets request timeouts and header limits (#26)
+
+### Changed
+
+- Document indexing comes from `agent_aidf/index.py`, shared with `agent-aidf`, so both components classify documents the same way; the server needs the `agent-aidf` package on its import path (the image installs it) (#15)
+- The index is rechecked at most every `MCP_INDEX_CHECK_INTERVAL` seconds (default 2) instead of on every request (#26)
 
 ### Fixed
 
 - A document without a `visibility` field is internal, as documented, not public; the `search` and `fetch` tool descriptions state the visibility levels (#83)
 - A misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
+- `.env.example` leaves `SECRET_KEY` and `MCP_BEARER_TOKEN` empty, so the compose file refuses to start until they are set (#29)
 
 ## [0.6.2] - 2026-11-13
 

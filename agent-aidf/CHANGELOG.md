@@ -11,6 +11,14 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - Credential scanner covers GitHub OAuth, user, server and refresh tokens, Stripe restricted keys and Slack config and refresh tokens; documentation placeholders (a run of eight identical characters, or `EXAMPLE`) are not reported (#89)
 - `load_documents` withholds `visibility: private` and unknown-visibility documents from search, the shell and the LLM context unless `include_private=True` is passed (#14)
 
+### Changed
+
+- Document indexing rules live in `agent_aidf/index.py`, shared with `mcp-aidf`. Documents are classified with the Portuguese doctrine keywords too, a file directly under `docs/` is in the `root` phase, and `Document` carries `namespace` and `doctrine_priority` (#15)
+
+### Fixed
+
+- `kob audit` falls back to a filesystem walk when `git` is missing or `git ls-files` fails, instead of crashing (#80)
+
 ## [0.6.2] - 2026-11-13
 
 ### Fixed
