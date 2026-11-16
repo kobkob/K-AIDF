@@ -530,6 +530,35 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
         self.assertEqual(payload["error"]["message"], "Internal error.")
         self.assertNotIn("private-kaidf-root", response.get_data(as_text=True))
 
+    def test_maturity_evaluation_with_a_misconfigured_root_hides_the_server_path(self) -> None:
+        previous = os.environ.get("AIDF_REPO_ROOT")
+        os.environ["AIDF_REPO_ROOT"] = "/nonexistent/private-kaidf-root"
+        try:
+            response = self._post(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 7,
+                    "method": "tools/call",
+                    "params": {"name": "evaluate_repository_maturity", "arguments": {}},
+                }
+            )
+        finally:
+            if previous is None:
+                os.environ.pop("AIDF_REPO_ROOT", None)
+            else:
+                os.environ["AIDF_REPO_ROOT"] = previous
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.get_json()["error"],
+            {
+                "code": -32000,
+                "message": "AIDF_REPO_ROOT does not exist or is not a directory.",
+            },
+        )
+        self.assertNotIn("private-kaidf-root", response.get_data(as_text=True))
+        self.assertNotIn("/nonexistent", response.get_data(as_text=True))
+
     def test_invalid_limit_is_a_client_error(self) -> None:
         response = self._post(
             {
