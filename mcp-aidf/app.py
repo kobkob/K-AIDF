@@ -10,11 +10,17 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-import yaml
 from flask import Flask, jsonify, make_response, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge
 
 import maturity
+
+try:
+    from agent_aidf.index import iter_indexable_paths, load_record
+except ImportError as exc:  # pragma: no cover - exercised only when the package is missing
+    raise RuntimeError(
+        "mcp-aidf needs the agent-aidf package on the import path; the container image installs it."
+    ) from exc
 
 app = Flask(__name__)
 # No hardcoded fallback: without SECRET_KEY a random per-process secret is used
@@ -179,36 +185,6 @@ VISIBILITY_DESCRIPTION = (
 # Local fallback when MCP_PUBLIC_URL is unset; 7777 is the default listen port (`python app.py`,
 # and the image unless PORT is set).
 DEFAULT_PUBLIC_URL = "http://localhost:7777"
-INDEXABLE_ROOT_FILES = {"README.md", "MANIFESTO.md"}
-INDEXABLE_SUFFIXES = {".md", ".csv"}
-# Doctrine stays under docs/00-overview/ here: the shared index contract
-# (contracts/index-contract) and the generated repositories use that layout. The workspace's own
-# docs/ tree is organised in numbered sections (01-basics ... 06-deploy); those are indexed like
-# any other document, with the section as their phase.
-CANONICAL_DOCTRINE_FILES = {
-    "docs/00-overview/manifesto.md": "manifesto",
-    "docs/00-overview/principles.md": "principles",
-    "docs/00-overview/best-practices.md": "best-practices",
-    "docs/00-overview/governance.md": "governance",
-    "docs/00-overview/maturity.md": "maturity",
-    "docs/00-overview/implementation.md": "implementation",
-    "MANIFESTO.md": "manifesto",
-}
-DOCTRINE_PRIORITY = {
-    "manifesto": 1000,
-    "principles": 900,
-    "governance": 800,
-    "best-practices": 700,
-    "maturity": 600,
-    "implementation": 500,
-    "training": 400,
-    "general": 100,
-}
-STARTER_VARIANT_DOMAINS = {
-    "docs/00-overview/best-practices/seo.md": "seo",
-    "docs/00-overview/best-practices/content.md": "content",
-    "docs/00-overview/best-practices/research.md": "research",
-}
 
 
 def _repo_root() -> Path:
@@ -223,100 +199,8 @@ def _repo_root() -> Path:
     return path
 
 
-def _is_indexable(rel_path: str) -> bool:
-    path = PurePosixPath(rel_path)
-    if rel_path in INDEXABLE_ROOT_FILES:
-        return True
-    if not rel_path.startswith("docs/"):
-        return False
-    return path.suffix in INDEXABLE_SUFFIXES
-
-
-def _iter_indexable_paths(root: Path) -> list[Path]:
-    paths: list[Path] = []
-    for file_path in root.rglob("*"):
-        if not file_path.is_file():
-            continue
-        rel_path = file_path.relative_to(root).as_posix()
-        if _is_indexable(rel_path):
-            paths.append(file_path)
-    return sorted(paths)
-
-
-def _parse_front_matter(text: str) -> tuple[dict[str, Any], str]:
-    # Windows checkouts can keep CRLF line endings; normalize so the "---" markers still match.
-    text = text.replace("\r\n", "\n")
-    if not text.startswith("---\n"):
-        return {}, text
-    marker = "\n---\n"
-    end = text.find(marker, 4)
-    if end == -1:
-        return {}, text
-    front_matter_text = text[4:end]
-    body = text[end + len(marker) :]
-    data = yaml.safe_load(front_matter_text) or {}
-    if not isinstance(data, dict):
-        return {}, text
-    return data, body
-
-
-def _first_heading(markdown_body: str) -> str | None:
-    for line in markdown_body.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            return stripped.lstrip("#").strip() or None
-    return None
-
-
-def _infer_document_class(rel_path: str) -> str:
-    path = PurePosixPath(rel_path)
-    if rel_path in {"LICENSE", "CODEOWNERS", "SECURITY.md"}:
-        return "governance-doc"
-    if "templates" in path.parts:
-        return "template-doc"
-    if rel_path.endswith(".prompt.md") or "prompts" in path.parts:
-        return "prompt-doc"
-    return "core-doc"
-
-
-def _infer_doctrine_category(rel_path: str, title: str, body: str) -> str:
-    if rel_path in CANONICAL_DOCTRINE_FILES:
-        return CANONICAL_DOCTRINE_FILES[rel_path]
-    text = "\n".join([rel_path, title, body]).casefold()
-    if "principles" in text or "princípios" in text or "principios" in text:
-        return "principles"
-    if "boas práticas" in text or "best practice" in text or "best practices" in text:
-        return "best-practices"
-    if "governança" in text or "governance" in text or "decision-rights" in text:
-        return "governance"
-    if "maturidade" in text or "maturity" in text:
-        return "maturity"
-    if "implementação" in text or "implementation" in text:
-        return "implementation"
-    if (
-        "treinamento" in text
-        or "training" in text
-        or "certificação" in text
-        or "certification" in text
-    ):
-        return "training"
-    return "general"
-
-
-def _doctrine_priority(category: str) -> int:
-    return DOCTRINE_PRIORITY.get(category, 0)
-
-
-def _is_canonical_doctrine(rel_path: str) -> bool:
-    return rel_path in CANONICAL_DOCTRINE_FILES
-
-
 def _normalize_label(value: str) -> str:
     return value.strip().casefold().replace(" ", "-")
-
-
-def _variant_domain(rel_path: str) -> str | None:
-    return STARTER_VARIANT_DOMAINS.get(rel_path)
 
 
 def _is_pack_readme(rel_path: str, pack: str | None) -> bool:
@@ -324,103 +208,6 @@ def _is_pack_readme(rel_path: str, pack: str | None) -> bool:
         return False
     path = PurePosixPath(rel_path)
     return path.name == "README.md" and pack in rel_path
-
-
-def _pack_name(front_matter: dict[str, Any]) -> str | None:
-    pack = front_matter.get("pack")
-    if isinstance(pack, str) and pack.strip():
-        return pack.strip()
-    return None
-
-
-def _namespace_name(front_matter: dict[str, Any]) -> str | None:
-    namespace = front_matter.get("namespace")
-    if isinstance(namespace, str) and namespace.strip():
-        return namespace.strip()
-    return None
-
-
-def _maturity_level(front_matter: dict[str, Any]) -> str | None:
-    level = front_matter.get("maturity_level")
-    if isinstance(level, str) and level.strip():
-        return level.strip()
-    return None
-
-
-def _assessment_type(front_matter: dict[str, Any]) -> str | None:
-    assessment_type = front_matter.get("assessment_type")
-    if isinstance(assessment_type, str) and assessment_type.strip():
-        return assessment_type.strip()
-    return None
-
-
-def _ethical_domain(front_matter: dict[str, Any]) -> str | None:
-    ethical_domain = front_matter.get("ethical_domain")
-    if isinstance(ethical_domain, str) and ethical_domain.strip():
-        return ethical_domain.strip()
-    return None
-
-
-def _control_type(front_matter: dict[str, Any]) -> str | None:
-    control_type = front_matter.get("control_type")
-    if isinstance(control_type, str) and control_type.strip():
-        return control_type.strip()
-    return None
-
-
-def _risk_type(front_matter: dict[str, Any]) -> str | None:
-    risk_type = front_matter.get("risk_type")
-    if isinstance(risk_type, str) and risk_type.strip():
-        return risk_type.strip()
-    return None
-
-
-def _infer_phase(rel_path: str) -> str:
-    # A document inside a section directory (docs/<section>/...) takes the section as its phase.
-    # Files directly under docs/ (for example the docs/README.md index) and root files are "root".
-    parts = PurePosixPath(rel_path).parts
-    if len(parts) >= 3 and parts[0] == "docs":
-        return parts[1]
-    return "root"
-
-
-def _load_document(root: Path, file_path: Path) -> dict[str, Any]:
-    rel_path = file_path.relative_to(root).as_posix()
-    raw_text = file_path.read_text(encoding="utf-8")
-    front_matter, body = (
-        _parse_front_matter(raw_text) if file_path.suffix == ".md" else ({}, raw_text)
-    )
-    title = front_matter.get("title") or _first_heading(body) or file_path.stem
-    doctrine_category = _infer_doctrine_category(rel_path, title, body)
-    variant_domain = _variant_domain(rel_path)
-    pack = _pack_name(front_matter)
-    maturity_level = _maturity_level(front_matter)
-    assessment_type = _assessment_type(front_matter)
-    ethical_domain = _ethical_domain(front_matter)
-    control_type = _control_type(front_matter)
-    risk_type = _risk_type(front_matter)
-    return {
-        "id": front_matter.get("id", rel_path),
-        "path": rel_path,
-        "title": title,
-        "document_class": front_matter.get("document_class", _infer_document_class(rel_path)),
-        "phase": front_matter.get("phase", _infer_phase(rel_path)),
-        "visibility": front_matter.get("visibility", "internal"),
-        "namespace": _namespace_name(front_matter),
-        "status": front_matter.get("status", "active"),
-        "doctrine_category": doctrine_category,
-        "canonical_doctrine": _is_canonical_doctrine(rel_path),
-        "doctrine_priority": _doctrine_priority(doctrine_category),
-        "variant_domain": variant_domain,
-        "pack": pack,
-        "maturity_level": maturity_level,
-        "assessment_type": assessment_type,
-        "ethical_domain": ethical_domain,
-        "control_type": control_type,
-        "risk_type": risk_type,
-        "content": raw_text,
-        "body": body,
-    }
 
 
 # In-memory index cache. Validity is checked on every call by comparing a signature of the
@@ -450,13 +237,13 @@ def _load_index() -> list[dict[str, Any]]:
         if fresh:
             # Shallow copies so callers cannot mutate the cached records.
             return [dict(doc) for doc in _index_cache["documents"]]
-    paths = _iter_indexable_paths(root)
+    paths = iter_indexable_paths(root)
     signature = _index_signature(root, paths)
     with _index_cache_lock:
         if _index_cache["root"] == root and _index_cache["signature"] == signature:
             _index_cache["checked_at"] = checked_at
             return [dict(doc) for doc in _index_cache["documents"]]
-    documents = [_load_document(root, file_path) for file_path in paths]
+    documents = [load_record(root, file_path) for file_path in paths]
     with _index_cache_lock:
         _index_cache.update(
             root=root, signature=signature, documents=documents, checked_at=checked_at

@@ -154,7 +154,7 @@ Docker Compose also expects:
 - `app.py` - Main Flask application
 - `Dockerfile` - Container configuration, built from the repository root (`docker build -f mcp-aidf/Dockerfile .`) so the image can bundle `agent-aidf`; the image includes `git` and runs a `HEALTHCHECK` on the protected-resource metadata
 - `docker-compose.yml` - Service orchestration
-- `requirements.txt` - Python dependencies
+- `requirements.txt` - Python dependencies. The server also imports the `agent_aidf` package from `agent-aidf` for document indexing and the audit engine; the container image installs it, and a local run needs `pip install ../agent-aidf` or `PYTHONPATH=../agent-aidf/src`
 - `README.md` - This documentation
 
 ## Behavior
