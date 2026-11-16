@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- Credential scanner covers GitHub OAuth, user, server and refresh tokens, Stripe restricted keys and Slack config and refresh tokens; documentation placeholders (a run of eight identical characters, or `EXAMPLE`) are not reported (#89)
+- `load_documents` withholds `visibility: private` and unknown-visibility documents from search, the shell and the LLM context unless `include_private=True` is passed (#14)
+
 ## [0.6.2] - 2026-11-13
 
 ### Fixed
