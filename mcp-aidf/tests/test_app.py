@@ -922,6 +922,16 @@ class McpBearerAuthTests(unittest.TestCase):
         self.assertGreaterEqual(len(first), 40)
         self.assertNotEqual(first, second)
 
+    def test_temporary_bearer_token_is_never_written_to_the_log(self) -> None:
+        token = app._resolve_bearer_token("")
+        with self.assertLogs(app.app.logger, level="WARNING") as captured:
+            app._warn_temporary_bearer_token(token)
+
+        message = "\n".join(captured.output)
+        self.assertNotIn(token, message)
+        self.assertIn(app._token_fingerprint(token), message)
+        self.assertIn("Set MCP_BEARER_TOKEN", message)
+
 
 class McpPublicUrlTests(unittest.TestCase):
     CUSTOM_URL = "https://mcp.example.test"
