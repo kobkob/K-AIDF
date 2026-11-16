@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- When `MCP_BEARER_TOKEN` is unset, the startup warning logs a SHA-256 fingerprint of the temporary token instead of the token (#84)
+
+### Fixed
+
+- A document without a `visibility` field is internal, as documented, not public; the `search` and `fetch` tool descriptions state the visibility levels (#83)
+- A misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
+
 ## [0.6.2] - 2026-11-13
 
 ### Fixed

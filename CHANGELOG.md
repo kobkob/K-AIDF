@@ -6,6 +6,17 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Security
+
+- `mcp-aidf` startup log: when `MCP_BEARER_TOKEN` is unset, the temporary token is logged as a one-way fingerprint, never in full (#84)
+- `agent-aidf` credential scanner: GitHub OAuth, user, server and refresh tokens (`gho_`, `ghu_`, `ghs_`, `ghr_`), Stripe restricted keys (`rk_live_`, `rk_test_`) and Slack config and refresh tokens (`xoxe`, `xoxr`, `xoxs`) are reported; documentation placeholders are not (#89)
+- `agent-aidf` withholds documents whose `visibility` is `private` or unknown from search, the shell and the LLM context; `load_documents(..., include_private=True)` opts in (#14)
+
+### Fixed
+
+- `mcp-aidf`: a document without a `visibility` field is internal, as the README and the shared index contract state; the search and fetch tool descriptions state the visibility rules (#83)
+- `mcp-aidf`: a misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
+
 ## [0.6.2] - 2026-11-13
 
 The v0.6.2 milestone: the Rich terminal output and the help system, modular docs, notebook appliances, the EasyPanel container bundle, and the triage hardening (#4, #28, #71, #87, #88, #92, #93, #108-#113, #137).
