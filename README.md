@@ -145,6 +145,10 @@ Both `agent-aidf` and `mcp-aidf` read the same indexable surface (`README.md`, `
 
 Avoid duplicating K-AIDF document semantics across components: the generator is the source of truth for structure, and the agent and MCP server consume generated repositories.
 
+## Licensing
+
+K-AIDF and its components are released under the MIT License; each package carries its `LICENSE` file. The copyright holder is Ricardo Filipo, founder of Kobkob LLC. Contributions are made under the [Contributor License Agreement](CONTRIBUTOR_LICENSE_AGREEMENT.md), which the CLA check asks every pull request author to accept.
+
 ## Known gaps
 
 - Indexing is implemented in both `agent-aidf/src/agent_aidf/repo.py` and `mcp-aidf/app.py`. There is no shared library; the shared contract fixture keeps the two in agreement.
