@@ -22,6 +22,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - A document without a `visibility` field is internal, as documented, not public; the `search` and `fetch` tool descriptions state the visibility levels (#83)
 - A misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
 - `.env.example` leaves `SECRET_KEY` and `MCP_BEARER_TOKEN` empty, so the compose file refuses to start until they are set (#29)
+- `mcp-aidf` `search` enforces the advertised `limit` range of 1 to 50: values outside it, such as `0`, `-1`, `51` or `100000`, get `-32602` instead of an oversized or reversed result (#82)
 
 ## [0.6.2] - 2026-11-13
 
