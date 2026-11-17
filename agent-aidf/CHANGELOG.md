@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-17
+
 ### Security
 
 - Credential scanner covers GitHub OAuth, user, server and refresh tokens, Stripe restricted keys and Slack config and refresh tokens; documentation placeholders (a run of eight identical characters, or `EXAMPLE`) are not reported (#89)

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-17
+
 ### Changed
 
 - Licensing aligned to Ricardo Filipo as copyright holder and CLA assignee: `LICENSE` files, `license = MIT` in `pyproject.toml`, the CLA allowlist and the root CODEOWNERS; the nested CODEOWNERS files, which GitHub never read, are removed (#6)

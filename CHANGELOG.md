@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-17
+
 ### Added
 
 - `mcp-aidf/scripts/mcp_client.py`: declarative JSON client for MCP tool calls (`initialize` then `tools/call`), reading the bearer token from the environment variable named by `token_env` so it is not stored on disk (#154)

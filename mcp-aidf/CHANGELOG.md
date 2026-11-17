@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-17
+
 ### Added
 
 - `scripts/mcp_client.py` calls one MCP tool from a declarative JSON file (`url`, `tool`, `arguments`, `token_env`, `protocol_version`, `timeout`): `initialize`, then `tools/call`, with readable or `--json` output. The bearer token comes from the environment variable `token_env` names, never from the file. Example in `deploy/easypanel/mcp-call.example.json` and a section in the EasyPanel guide (#154)
