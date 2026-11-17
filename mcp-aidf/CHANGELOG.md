@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/mcp_client.py` calls one MCP tool from a declarative JSON file (`url`, `tool`, `arguments`, `token_env`, `protocol_version`, `timeout`): `initialize`, then `tools/call`, with readable or `--json` output. The bearer token comes from the environment variable `token_env` names, never from the file. Example in `deploy/easypanel/mcp-call.example.json` and a section in the EasyPanel guide (#154)
+
 ### Security
 
 - When `MCP_BEARER_TOKEN` is unset, the startup warning logs a SHA-256 fingerprint of the temporary token instead of the token (#84)
@@ -23,6 +27,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - A misconfigured `AIDF_REPO_ROOT` no longer returns the server's absolute path in the `evaluate_repository_maturity` error (#27)
 - `.env.example` leaves `SECRET_KEY` and `MCP_BEARER_TOKEN` empty, so the compose file refuses to start until they are set (#29)
 - `mcp-aidf` `search` enforces the advertised `limit` range of 1 to 50: values outside it, such as `0`, `-1`, `51` or `100000`, get `-32602` instead of an oversized or reversed result (#82)
+- `scripts/check.sh` runs the suite with pytest, as CI does, so `test_maturity_tools.py` is collected and run instead of being skipped silently by `unittest discover` (#106)
 
 ## [0.6.2] - 2026-11-13
 
