@@ -1,0 +1,11 @@
+{
+  "url": "https://<domínio>/mcp",
+  "token_env": "MCP_BEARER_TOKEN",
+  "protocol_version": "2025-06-18",
+  "tool": "search",
+  "arguments": {
+    "query": "maturidade",
+    "limit": 5
+  },
+  "timeout": 30
+}
