@@ -97,6 +97,25 @@ curl -s -X POST https://<domínio>/mcp \
 
 Na primeira resposta, `resource` deve ser `https://<domínio>`. A segunda deve trazer `serverInfo` e `protocolVersion`. Abrir o domínio no navegador mostra `{"error":"authorization_required"}`, o que é esperado: a rota `/` também exige o token.
 
+## Homologar com o cliente MCP declarativo
+
+`mcp-aidf/scripts/mcp_client.py` faz o handshake `initialize` e chama uma tool a partir de um arquivo JSON. O arquivo não guarda o token: `token_env` nomeia a variável de ambiente que o contém. Use-o para homologar o deploy sem depender de um cliente de IA.
+
+```bash
+# copie o exemplo, troque <domínio> pelo domínio do serviço
+cp deploy/easypanel/mcp-call.example.json mcp-call.json
+
+# o token fica no ambiente, não no arquivo
+export MCP_BEARER_TOKEN='<token>'
+
+python3 mcp-aidf/scripts/mcp_client.py call --config mcp-call.json
+python3 mcp-aidf/scripts/mcp_client.py call --config mcp-call.json --json
+```
+
+Chaves do arquivo: `url` e `tool` são obrigatórias; `arguments` é um objeto (padrão `{}`); `token_env` é opcional, e sem ele a chamada é anônima; `protocol_version` (padrão `2025-06-18`) precisa ser exatamente a revisão que o servidor devolve no `initialize`; `timeout` em segundos (padrão 30) vale para cada requisição. Uma chave `token` no arquivo é recusada.
+
+Códigos de saída: `0` sucesso, `1` o servidor ou a rede falhou (`401` aparece como token rejeitado, sem mostrar o token), `2` o arquivo ou a variável de ambiente está incompleta.
+
 ## Conectar clientes
 
 O endpoint é `https://<domínio>/mcp`, no transporte Streamable HTTP (somente `POST`, sem stream SSE). A autenticação é o cabeçalho estático `Authorization: Bearer <token>`; o servidor não tem fluxo OAuth. Rode a verificação acima antes de configurar um cliente: com o token errado, alguns clientes mostram um erro de OAuth em vez do `401`.
