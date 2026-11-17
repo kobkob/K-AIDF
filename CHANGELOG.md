@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Added
+
+- `mcp-aidf/scripts/mcp_client.py`: declarative JSON client for MCP tool calls (`initialize` then `tools/call`), reading the bearer token from the environment variable named by `token_env` so it is not stored on disk (#154)
+
 ### Security
 
 - `mcp-aidf` startup log: when `MCP_BEARER_TOKEN` is unset, the temporary token is logged as a one-way fingerprint, never in full (#84)
@@ -28,6 +32,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `kob audit` falls back to a filesystem walk when `git` is missing or `git ls-files` fails, instead of crashing (#80)
 - `mcp-aidf/.env.example` leaves `SECRET_KEY` and `MCP_BEARER_TOKEN` empty, so compose refuses to start until they are set; the root `docker-compose.local.yml` maps host port 8080 to the container's port 7777 (#29)
 - `mcp-aidf` `search` enforces the advertised `limit` range of 1 to 50: values outside it, such as `0`, `-1`, `51` or `100000`, get `-32602` instead of an oversized or reversed result (#82)
+- `mcp-aidf/scripts/check.sh` runs pytest, as CI does, so `test_maturity_tools.py` is no longer skipped silently (#106)
 
 ## [0.6.2] - 2026-11-13
 
