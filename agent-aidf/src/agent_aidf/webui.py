@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hmac
 import html
+import logging
+import re
 import secrets
 import threading
 import time
@@ -10,7 +12,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlsplit
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 from werkzeug.serving import BaseWSGIServer, make_server
 
 from .i18n import _
@@ -28,9 +30,35 @@ KOB_LOGO_FILENAME = "kob-logo.png"
 API_TOKEN_HEADER = "X-KAIDF-Token"
 API_TOKEN_PLACEHOLDER = "__KAIDF_API_TOKEN__"
 LOCAL_HOSTNAMES = frozenset({"127.0.0.1", "localhost"})
+# The browser session is an HttpOnly cookie set once, when the user opens the URL that kob prints
+# in the terminal (`/?token=...`). The page itself never carries the token to a client without it.
+SESSION_COOKIE = "kaidf_session"
+TOKEN_QUERY_PARAM = "token"
+_TOKEN_IN_LOG = re.compile(rf"{TOKEN_QUERY_PARAM}=[0-9a-f]{{64}}")
 
 LogSink = Callable[[str], None]
 ServerReadyCallback = Callable[[BaseWSGIServer], None]
+
+
+class _RedactTokenFromLogs(logging.Filter):
+    """Werkzeug's access log records the request line, and the bootstrap URL carries the token."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = _TOKEN_IN_LOG.sub(f"{TOKEN_QUERY_PARAM}=<redacted>", record.getMessage())
+        record.msg, record.args = message, ()
+        return True
+
+
+def _install_log_redaction() -> None:
+    logger = logging.getLogger("werkzeug")
+    if not any(isinstance(item, _RedactTokenFromLogs) for item in logger.filters):
+        logger.addFilter(_RedactTokenFromLogs())
+
+
+def _token_matches(provided: str | None, expected: str) -> bool:
+    return provided is not None and hmac.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    )
 
 
 def _host_allowed(host_header: str, port: int | None) -> bool:
@@ -78,8 +106,10 @@ def create_app(
 
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
     app.config["_server"] = None
-    # Per-process secret: the served page embeds it, and every state-changing
-    # request must echo it back in API_TOKEN_HEADER. Never persisted.
+    _install_log_redaction()
+    # Per-process secret. A browser trades the printed URL's token for a session cookie; the page
+    # then embeds it for the API, and every state-changing request must echo it in API_TOKEN_HEADER.
+    # Never persisted.
     api_token = secrets.token_hex(32)
     app.config["API_TOKEN"] = api_token
 
@@ -103,7 +133,23 @@ def create_app(
             provided = request.headers.get(API_TOKEN_HEADER)
             if provided is None:
                 return jsonify({"error": "authentication_required"}), 401
-            if not hmac.compare_digest(provided.encode("utf-8"), api_token.encode("utf-8")):
+            if not _token_matches(provided, api_token):
+                return jsonify({"error": "invalid_token"}), 403
+            return view(*args, **kwargs)
+
+        return wrapper
+
+    def require_session_or_token(view):
+        """Read routes accept the browser session cookie or the header, never neither."""
+
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if _token_matches(request.cookies.get(SESSION_COOKIE), api_token):
+                return view(*args, **kwargs)
+            provided = request.headers.get(API_TOKEN_HEADER)
+            if provided is None and request.cookies.get(SESSION_COOKIE) is None:
+                return jsonify({"error": "authentication_required"}), 401
+            if not _token_matches(provided, api_token):
                 return jsonify({"error": "invalid_token"}), 403
             return view(*args, **kwargs)
 
@@ -116,6 +162,7 @@ def create_app(
         return response
 
     @app.get("/api/status")
+    @require_session_or_token
     def api_status():
         return jsonify(_status_payload(project_root, repo_root))
 
@@ -152,6 +199,20 @@ def create_app(
 
     @app.get("/")
     def index():
+        if not _token_matches(request.cookies.get(SESSION_COOKIE), api_token):
+            supplied = request.args.get(TOKEN_QUERY_PARAM)
+            if supplied is None:
+                return jsonify({"error": "authentication_required"}), 401
+            if not _token_matches(supplied, api_token):
+                return jsonify({"error": "invalid_token"}), 403
+            # Bootstrap: the printed URL trades the token for an HttpOnly session cookie, then
+            # the browser lands on a clean URL without the token in its address bar.
+            response = redirect("/", code=303)
+            response.set_cookie(
+                SESSION_COOKIE, api_token, httponly=True, samesite="Strict", path="/"
+            )
+            response.headers["Cache-Control"] = "no-store"
+            return response
         page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
         page = page.replace(API_TOKEN_PLACEHOLDER, html.escape(api_token, quote=True))
         response = Response(page, mimetype="text/html")
@@ -181,6 +242,11 @@ def run_webui(
         on_server_ready(server)
     if log_sink is not None:
         log_sink(_("Web UI listening on http://{host}:{port}").format(host=host, port=port))
+        log_sink(
+            _("Open this URL once in your browser to start a session: {url}").format(
+                url=f"http://{host}:{port}/?{TOKEN_QUERY_PARAM}={app.config['API_TOKEN']}"
+            )
+        )
     try:
         server.serve_forever()
     finally:

@@ -53,10 +53,44 @@ def _exit(client, *, token=None, base_url=BASE_URL, origin=None):
     return client.post("/api/exit", base_url=base_url, headers=headers)
 
 
-# --- token injection -------------------------------------------------------
+# --- session bootstrap and token injection ---------------------------------
 
 
-def test_index_embeds_per_process_token(client, app):
+def _session(client, token: str):
+    """Trade the printed URL's token for the session cookie, as the browser does."""
+    response = client.get(f"/?token={token}", base_url=BASE_URL)
+    assert response.status_code == 303
+    return response
+
+
+def test_index_without_session_returns_401_and_no_token(client, token):
+    response = client.get("/", base_url=BASE_URL)
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "authentication_required"}
+    assert token not in response.get_data(as_text=True)
+
+
+def test_index_with_wrong_bootstrap_token_is_forbidden(client):
+    response = client.get("/?token=" + "0" * 64, base_url=BASE_URL)
+
+    assert response.status_code == 403
+    assert response.get_json() == {"error": "invalid_token"}
+
+
+def test_bootstrap_sets_httponly_strict_cookie_and_redirects_clean(client, token):
+    response = _session(client, token)
+
+    assert response.headers["Location"] == "/"
+    cookie = response.headers["Set-Cookie"]
+    assert f"{webui.SESSION_COOKIE}={token}" in cookie
+    assert "HttpOnly" in cookie
+    assert "SameSite=Strict" in cookie
+
+
+def test_index_with_session_embeds_per_process_token(client, app, token):
+    _session(client, token)
+
     response = client.get("/", base_url=BASE_URL)
 
     assert response.status_code == 200
@@ -67,6 +101,15 @@ def test_index_embeds_per_process_token(client, app):
     assert match is not None
     assert match.group(1) == app.config["API_TOKEN"]
     assert len(match.group(1)) == 64
+
+
+def test_session_cookie_from_another_instance_is_rejected(tmp_path: Path, token):
+    other = webui.create_app(tmp_path, tmp_path, port=PORT).test_client()
+    other.set_cookie(webui.SESSION_COOKIE, token, domain="127.0.0.1")
+
+    response = other.get("/api/status", base_url=BASE_URL)
+
+    assert response.status_code == 403
 
 
 def test_token_differs_between_app_instances(tmp_path: Path):
@@ -173,10 +216,65 @@ def test_without_known_port_any_loopback_port_is_accepted(tmp_path: Path, monkey
     monkeypatch.setattr(webui, "_status_payload", lambda _project, _repo: {})
     app = webui.create_app(tmp_path, tmp_path)
     client = app.test_client()
+    headers = {webui.API_TOKEN_HEADER: app.config["API_TOKEN"]}
 
-    response = client.get("/api/status", base_url="http://127.0.0.1:12345")
+    response = client.get("/api/status", base_url="http://127.0.0.1:12345", headers=headers)
 
     assert response.status_code == 200
+
+
+# --- GET /api/status requires a session or the token -----------------------
+
+
+def test_status_without_credentials_returns_401(client):
+    response = client.get("/api/status", base_url=BASE_URL)
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "authentication_required"}
+
+
+def test_status_with_wrong_header_returns_403(client):
+    response = client.get(
+        "/api/status", base_url=BASE_URL, headers={webui.API_TOKEN_HEADER: "nope"}
+    )
+
+    assert response.status_code == 403
+
+
+def test_status_with_session_cookie_returns_200(client, token):
+    _session(client, token)
+
+    response = client.get("/api/status", base_url=BASE_URL)
+
+    assert response.status_code == 200
+
+
+def test_status_with_token_header_returns_200(client, token):
+    response = client.get("/api/status", base_url=BASE_URL, headers={webui.API_TOKEN_HEADER: token})
+
+    assert response.status_code == 200
+
+
+def test_status_with_wrong_session_cookie_returns_403(client):
+    client.set_cookie(webui.SESSION_COOKIE, "0" * 64, domain="127.0.0.1")
+
+    response = client.get("/api/status", base_url=BASE_URL)
+
+    assert response.status_code == 403
+
+
+# --- log redaction ----------------------------------------------------------
+
+
+def test_werkzeug_log_redacts_the_bootstrap_token(app, token, caplog):
+    import logging
+
+    logger = logging.getLogger("werkzeug")
+    with caplog.at_level(logging.INFO, logger="werkzeug"):
+        logger.info('127.0.0.1 - - "GET /?token=%s HTTP/1.1" 303 -', token)
+
+    assert token not in caplog.text
+    assert "token=<redacted>" in caplog.text
 
 
 # --- header logo ------------------------------------------------------------
