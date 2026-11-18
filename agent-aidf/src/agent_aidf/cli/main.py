@@ -6,7 +6,6 @@ import io
 import json
 import os
 import random
-import subprocess
 import sys
 import time
 from functools import partial
@@ -15,6 +14,7 @@ from pathlib import Path
 
 import pyperclip
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -31,25 +31,30 @@ from ..controller import (
     explicit_local_model,
 )
 from ..extensions.extension_loader import active_registry, inventory, render_inventory_text
+from ..generator_bridge import (
+    GeneratorError,
+    GeneratorUnavailableError,
+    default_spec_path,
+    generate_repo,
+)
 from ..i18n import _
 from ..maturity import phase_progress, phase_snapshot
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from ..model_setup import status_summary as model_setup_status
 from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
     KAIDF_DIRNAME,
     MentorNotInitializedError,
     ProjectAlreadyInitializedError,
     ProjectStatus,
-    generator_environment,
     init_project_repo,
-    locate_generator_repo,
     project_repo_root,
     read_project_status,
-    resolve_generator_python,
     resolve_mentor_repo_root,
     resolve_project_root,
     resolve_runtime_repo_root,
 )
+from ..provider_models import ModelsUnavailableError, list_provider_models
 from ..shell import run_shell
 from ..terminal_output import (
     active_model,
@@ -62,6 +67,11 @@ from ..terminal_output import (
 )
 from ..tools import enable_yolo, is_yolo_enabled
 from ..webui import WebUIYoloRefused, run_webui, yolo_refusal_message
+from ..workspace_commands import (
+    WORKSPACE_COMMANDS,
+    add_workspace_subcommands,
+    dispatch_workspace_command,
+)
 from .help import command_parser, main_epilog, run_help
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
@@ -153,30 +163,15 @@ def ui_port() -> int:
         return DEFAULT_UI_PORT
 
 
-def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
-    generator_repo = locate_generator_repo()
-    generator_python = resolve_generator_python(generator_repo)
-    # Resolve against the caller's cwd before switching to the generator repo below,
-    # otherwise relative paths would land inside the generator checkout.
-    spec_path = (
-        Path(spec).expanduser().resolve() if spec else generator_repo / "specs/kaidf.default.yaml"
-    )
-    out_path = Path(out).expanduser().resolve()
-    command = [
-        str(generator_python),
-        "-m",
-        "kaidf_gen.cli",
-        "generate",
-        str(spec_path),
-        "--out",
-        str(out_path),
-    ]
-    if force:
-        command.append("--force")
-    # The generator runs from its source tree, so the environment carries its src on PYTHONPATH.
-    subprocess.run(
-        command, cwd=generator_repo, check=True, env=generator_environment(generator_repo)
-    )
+def _run_compile_backend(spec: str | None, out: str, force: bool) -> int:
+    """Generate a repository from a spec, in-process. Returns the exit code."""
+    try:
+        spec_path = Path(spec).expanduser().resolve() if spec else default_spec_path()
+        generate_repo(spec_path, Path(out).expanduser().resolve(), force=force)
+    except (GeneratorError, GeneratorUnavailableError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 class KobAgentApp(App):
@@ -679,9 +674,26 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     _add_model_option(mentor_parser)
 
     shell_parser = command_parser(
-        subparsers, "shell", help=_("Start the interactive OLMo-backed shell.")
+        subparsers, "shell", help=_("Start the interactive OLMo-backed shell (deprecated).")
     )
     _add_model_option(shell_parser)
+
+    models_parser = command_parser(
+        subparsers,
+        "models",
+        help=_("List the models the active inference provider serves."),
+    )
+    models_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=_("Print the provider, the active model and the model list as JSON."),
+    )
+
+    # Workspace commands (docs, contracts, instant apps, chat) are first-class root subcommands.
+    add_workspace_subcommands(
+        subparsers,
+        add=lambda name, **kwargs: command_parser(subparsers, name, **kwargs),
+    )
 
     audit_parser = command_parser(
         subparsers, "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
@@ -850,6 +862,7 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
     phases = phase_snapshot(status)
     extensions = extension_summary(inventory())
     model = active_model()
+    model_setup = model_setup_status(repo_root)
     if as_json:
         payload = status_payload(
             status,
@@ -857,12 +870,15 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
             scorecard=_project_scorecard(project_root),
             extensions=extensions,
             model=model,
+            model_setup=model_setup,
         )
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
     console = Console()
     if not use_rich(console):
-        for line in plain_status_lines(status, phases=phases, extensions=extensions, model=model):
+        for line in plain_status_lines(
+            status, phases=phases, extensions=extensions, model=model, model_setup=model_setup
+        ):
             print(line)
         return 0
     render_status(
@@ -872,6 +888,7 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
         scorecard=_project_scorecard(project_root),
         extensions=extensions,
         model=model,
+        model_setup=model_setup,
     )
     return 0
 
@@ -925,6 +942,42 @@ def _run_appliance_command(args: argparse.Namespace, project_root: Path) -> int:
     return 0
 
 
+def _run_models(*, as_json: bool) -> int:
+    """`kob models`: what the active provider serves. Failures are one line, never a traceback."""
+    try:
+        listing = list_provider_models()
+    except ModelsUnavailableError as exc:
+        if as_json:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if as_json:
+        payload = {
+            "provider": listing.provider,
+            "base_url": listing.base_url,
+            "active_model": listing.active_model,
+            "models": listing.models,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{escape(listing.provider)}[/bold] at {escape(listing.base_url)}")
+    if not listing.models:
+        console.print("The provider reports no models.")
+    for model in listing.models:
+        if model == listing.active_model:
+            console.print(f"  [bold green]●[/bold green] {escape(model)} [bold](active)[/bold]")
+        else:
+            console.print(f"  ○ {escape(model)}")
+    if listing.active_model not in listing.models:
+        console.print(
+            f"\nThe active model {escape(listing.active_model)} is not on this provider. "
+            "Pull it, or choose one above with AIDF_MODEL or --model."
+        )
+    return 0
+
+
 def _run_cli(argv: list[str]) -> int:
     if "--yolo" in argv:
         enable_yolo()
@@ -973,7 +1026,13 @@ def _run_cli(argv: list[str]) -> int:
     if args.command == "appliance":
         return _run_appliance_command(args, project_root)
 
+    if args.command == "models":
+        return _run_models(as_json=args.json)
+
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
+
+    if args.command in WORKSPACE_COMMANDS:
+        return dispatch_workspace_command(args, repo_root)
 
     if args.command == "status":
         return _run_status(project_root, repo_root, as_json=args.json)
@@ -1015,7 +1074,9 @@ def _run_cli(argv: list[str]) -> int:
         return 0
 
     if args.command in ("compile", "gen"):
-        _run_compile_backend(args.spec, args.out, args.force)
+        code = _run_compile_backend(args.spec, args.out, args.force)
+        if code:
+            return code
         print(_("Generated template framework inside: {out}").format(out=args.out))
         return 0
 

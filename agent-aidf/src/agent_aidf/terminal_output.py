@@ -91,9 +91,10 @@ def status_payload(
     scorecard: AuditResult | None,
     extensions: dict[str, int],
     model: dict[str, str],
+    model_setup: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     accepted = len(status.mentor_accepted_phases)
-    return {
+    payload: dict[str, Any] = {
         "project_root": str(status.project_root),
         "repo_root": str(status.repo_root),
         "has_kaidf": status.has_kaidf,
@@ -117,14 +118,22 @@ def status_payload(
         "model": model,
         "yolo": is_yolo_enabled(),
     }
+    if model_setup is not None:
+        payload["model_setup"] = model_setup
+    return payload
 
 
 def plain_status_lines(
-    status: ProjectStatus, *, phases: list[dict], extensions: dict[str, int], model: dict[str, str]
+    status: ProjectStatus,
+    *,
+    phases: list[dict],
+    extensions: dict[str, int],
+    model: dict[str, str],
+    model_setup: dict[str, Any] | None = None,
 ) -> list[str]:
     """The key: value lines `kob status` always printed, with the new fields appended."""
     accepted = len(status.mentor_accepted_phases)
-    return [
+    lines = [
         f"project_root: {status.project_root}",
         f"repo_root: {status.repo_root}",
         f"has_kaidf: {'yes' if status.has_kaidf else 'no'}",
@@ -135,6 +144,31 @@ def plain_status_lines(
         f"extensions: {extensions['loaded']} loaded, {extensions['failed']} failed, "
         f"{extensions['disabled']} disabled",
     ]
+    lines.extend(model_setup_lines(model_setup))
+    return lines
+
+
+def model_setup_lines(model_setup: dict[str, Any] | None) -> list[str]:
+    """`model_setup: ...` lines for the plain status, empty when the project has no profile."""
+    if model_setup is None:
+        return []
+    if not model_setup.get("valid"):
+        return [f"model_setup: invalid ({model_setup.get('error', 'unknown error')})"]
+    lines = [
+        f"model_setup: {model_setup['name']} mood={model_setup['mood']} "
+        f"strategy={model_setup['strategy']}"
+    ]
+    if model_setup.get("fallback_active"):
+        lines.append(f"model_setup_fallback: base model ({model_setup['fallback_reason']})")
+    if model_setup.get("blocked_reason"):
+        lines.append(f"model_setup_blocked: {model_setup['blocked_reason']}")
+    return lines
+
+
+def _model_setup_summary(model_setup: dict[str, Any]) -> str:
+    if not model_setup.get("valid"):
+        return f"invalid: {model_setup.get('error', 'unknown error')}"
+    return f"{model_setup['name']} · {model_setup['mood']} · strategy {model_setup['strategy']}"
 
 
 def pipeline_text(phases: list[dict], *, ascii_only: bool = False) -> Text:
@@ -180,6 +214,7 @@ def render_status(
     scorecard: AuditResult | None,
     extensions: dict[str, int],
     model: dict[str, str],
+    model_setup: dict[str, Any] | None = None,
 ) -> None:
     accepted = len(status.mentor_accepted_phases)
     facts = Table.grid(padding=(0, 2))
@@ -196,6 +231,13 @@ def render_status(
             style="red" if extensions["failed"] else "green",
         ),
     )
+    if model_setup is not None:
+        facts.add_row("Model profile", Text(_model_setup_summary(model_setup), style="cyan"))
+        if model_setup.get("fallback_active"):
+            facts.add_row(
+                "Fallback",
+                Text(f"base model: {model_setup['fallback_reason']}", style="yellow"),
+            )
     console.print(Panel(facts, title="K-AIDF status", title_align="left"))
 
     progress = Text(f"{accepted}/{PHASE_TOTAL} accepted", style="bold")

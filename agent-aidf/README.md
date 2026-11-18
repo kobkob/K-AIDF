@@ -112,14 +112,36 @@ Placeholder rule: the generator ships `policy/pii-masking-rules.yaml`, `policy/h
 
 ## AI Controller
 
-The shell and `chat` command use:
+The shell, `chat`, the mentor and the web UI all talk to one provider, chosen by `build_controller()` from the environment. The default is local: nothing leaves the machine.
 
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default: `gpt-5`)
+| `AIDF_CHAT_PROVIDER` | Provider | Used for |
+|---|---|---|
+| `ollama` (default, also when unset) | Ollama, or any server behind `OLLAMA_HOST` | local inference |
+| `openai` | An OpenAI-compatible endpoint (OpenAI, LocalAI, a proxy) | cloud or on-premises servers that speak the Responses API |
+| `none` | Stub controller, no model | offline work and tests |
+
+Having `OPENAI_API_KEY` in the environment does not switch the provider. Set `AIDF_CHAT_PROVIDER=openai` explicitly.
+
+Ollama (the default):
+
+- `OLLAMA_HOST` (default: `http://localhost:11434`)
+- the model, first match wins: `AIDF_MODEL`, then `AIDF_OLLAMA_MODEL`, then `OLLAMA_MODEL`; the built-in default is `olmo2:7b-1124-instruct-q4_K_M`
+- `kob --model <tag>` sets `AIDF_MODEL` for one run and wins over all three
+
+OpenAI-compatible (`AIDF_CHAT_PROVIDER=openai`):
+
+- `OPENAI_API_KEY`, sent as a bearer token
+- `OPENAI_MODEL` (default: `gpt-5`); `kob --model` sets it when this provider is active
 - `OPENAI_BASE_URL` (default: `https://api.openai.com/v1`)
-- `AIDF_CHAT_INSTRUCTIONS` for custom developer instructions
 
-If `OPENAI_API_KEY` is not set, the agent falls back to a safe stub controller instead of failing.
+Both:
+
+- `AIDF_CHAT_TIMEOUT_SECONDS` raises the per-reply ceiling for slow machines
+- `AIDF_CHAT_INSTRUCTIONS` replaces the general chat instructions
+
+The model’s voice, the project documents it may quote and an optional QLoRA adapter are declared in `.kaidf/model-setup.json`; `kob model-setup check` validates it and shows which layers are in use. See [model setup](../docs/05-models/model-setup.md).
+
+To see what the provider serves, run `kob models`. It lists the models at the provider's `/v1/models`, marks the one in use, and reports an unreachable provider in one line. See [`kob models`](../docs/03-commands/models.md).
 
 ## Mentor Workflow
 

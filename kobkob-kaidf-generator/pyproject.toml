@@ -28,7 +28,7 @@ kaidf-gen = "kaidf_gen.cli:main"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-kaidf_gen = ["schemas/*.json", "templates/library/**/*"]
+kaidf_gen = ["schemas/*.json", "templates/library/**/*", "specs/*.yaml"]
 
 [tool.ruff]
 target-version = "py310"

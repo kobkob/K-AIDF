@@ -37,6 +37,7 @@ agent_aidf = [
   "webui_dist/**/*",
   "ui/assets/*.png",
   "ext/*/*.json",
+  "model_setup.schema.json",
 ]
 
 [tool.ruff]

@@ -8,7 +8,7 @@ Esta pasta é organizada em seções numeradas. Comece pela primeira e avance co
 | [02-architecture](02-architecture/kaidf-amm.md) | as cinco dimensões da KAIDF-AMM, o runtime de extensões e a segurança |
 | [03-commands](03-commands/README.md) | referência da CLI `kob` e de cada subcomando |
 | [04-interfaces](04-interfaces/README.md) | a interface web (WebUI) e a interface de terminal (TUI) |
-| [05-models](05-models/README.md) | provedores de inferência: Ollama, LocalAI, compatíveis com OpenAI e `AIDF_MODEL` |
+| [05-models](05-models/README.md) | provedores de inferência: Ollama, LocalAI, compatíveis com OpenAI, `AIDF_MODEL` e `kob models`, que lista os modelos do provedor |
 | [06-deploy](06-deploy/README.md) | receitas de implantação em servidor: o `mcp-aidf` no EasyPanel |
 
 Os documentos do repositório na raiz, como o [README](../README.md), o [MANIFESTO](../MANIFESTO.md) e o [CHANGELOG](../CHANGELOG.md), continuam no lugar.

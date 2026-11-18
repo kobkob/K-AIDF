@@ -26,6 +26,10 @@ A regra de segurança é deliberada: **ter `OPENAI_API_KEY` no ambiente não bas
 
 Ressalva sobre provedores de nuvem que não são a OpenAI: o caminho `openai` do `kob` fala o protocolo **Responses** (`/responses`), não apenas `/chat/completions`. Antes de usar um provedor terceiro com esse caminho, confirme que ele implementa `/responses` na versão contratada. O mesmo vale para o LocalAI, cuja cobertura de `/responses` depende da versão da imagem.
 
+## Conferir o que o provedor serve
+
+`kob models` lista os modelos do endpoint `/v1/models` do provedor ativo e marca o que o `kob` usa agora. Use-o depois de trocar `OLLAMA_HOST`, `OPENAI_BASE_URL` ou `AIDF_MODEL`, para confirmar que o nome bate com o que o servidor publica. Detalhes e códigos de saída estão em [`kob models`](../03-commands/models.md).
+
 ## Variáveis de ambiente
 
 Defina no `.env` da raiz do workspace (copie de `.env.example`).

@@ -93,9 +93,9 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
     ),
     "shell": CommandDoc(
         description=(
-            "Start an interactive shell backed by the local OLMo model (or the provider chosen "
-            "with AIDF_CHAT_PROVIDER). Type 'help' inside the shell for its commands and 'quit' "
-            "to leave."
+            "Deprecated: scheduled for removal in v0.8.0. Start an interactive shell in which "
+            "each line is a kob command without the `kob` prefix. Run those commands directly "
+            "instead, for example `kob apps`. Type 'quit' to leave."
         ),
         examples=(
             Example("kob shell", "Open the interactive shell in the current project."),
@@ -239,6 +239,80 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
             Example("kob help audit", "Full help for `kob audit`."),
             Example("kob help ext list", "Full help for a nested subcommand."),
         ),
+    ),
+    "models": CommandDoc(
+        description=(
+            "List the models the active inference provider serves, from its /v1/models. The "
+            "active model is marked. Uses AIDF_CHAT_PROVIDER, OLLAMA_HOST or OPENAI_BASE_URL and "
+            "gives up after a few seconds if the provider does not answer."
+        ),
+        examples=(
+            Example("kob models", "List the provider's models."),
+            Example("kob models --json", "Print the list as JSON for a script."),
+        ),
+    ),
+    "packs": CommandDoc(
+        description="List the doctrine packs discovered in the repository.",
+        examples=(Example("kob packs", "List the packs."),),
+    ),
+    "docs": CommandDoc(
+        description=(
+            "List documents filtered by metadata: pack, phase, ethical domain, maturity level, "
+            "assessment type or risk type."
+        ),
+        examples=(Example("kob docs --pack core", "List the documents of one pack."),),
+    ),
+    "find": CommandDoc(
+        description="Find documents by a simple text match.",
+        examples=(Example("kob find governance", "Find documents that mention governance."),),
+    ),
+    "open": CommandDoc(
+        description="Print a document by id or path.",
+        examples=(Example("kob open docs/README.md", "Print one document."),),
+    ),
+    "chat": CommandDoc(
+        description="Send one prompt to the configured chat controller and print the reply.",
+        examples=(Example('kob chat "what is a contract?"', "Ask a general question."),),
+    ),
+    "apps": CommandDoc(
+        description="List the persistent instant apps in .kaidf/apps.",
+        examples=(Example("kob apps", "List the apps of this project."),),
+    ),
+    "app-create": CommandDoc(
+        description="Create an instant app scaffold, persistent under .kaidf/apps or ephemeral.",
+        examples=(Example("kob app-create demo --kind web", "Create a web app named demo."),),
+    ),
+    "app-open": CommandDoc(
+        description="Print an instant app's metadata by id or path.",
+        examples=(Example("kob app-open demo", "Show the demo app."),),
+    ),
+    "app-run": CommandDoc(
+        description="Start a background runtime for a web instant app.",
+        examples=(Example("kob app-run demo --port 8123", "Run demo on port 8123."),),
+    ),
+    "app-runtime": CommandDoc(
+        description="Show the stored runtime state of an instant app.",
+        examples=(Example("kob app-runtime demo", "Show whether demo is running."),),
+    ),
+    "app-stop": CommandDoc(
+        description="Stop the background runtime of an instant app.",
+        examples=(Example("kob app-stop demo", "Stop demo."),),
+    ),
+    "contracts": CommandDoc(
+        description="List the basic contracts generated under .kaidf/contracts.",
+        examples=(Example("kob contracts", "List the contracts."),),
+    ),
+    "contract-create": CommandDoc(
+        description="Create a mentor-aware basic contract scaffold under .kaidf/contracts.",
+        examples=(
+            Example(
+                'kob contract-create onboarding --brief "..."', "Create a contract from a brief."
+            ),
+        ),
+    ),
+    "contract-open": CommandDoc(
+        description="Print a contract's metadata by id or path.",
+        examples=(Example("kob contract-open onboarding", "Show the onboarding contract."),),
     ),
 }
 
