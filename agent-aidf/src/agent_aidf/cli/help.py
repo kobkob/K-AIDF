@@ -240,6 +240,17 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
             Example("kob help ext list", "Full help for a nested subcommand."),
         ),
     ),
+    "models": CommandDoc(
+        description=(
+            "List the models the active inference provider serves, from its /v1/models. The "
+            "active model is marked. Uses AIDF_CHAT_PROVIDER, OLLAMA_HOST or OPENAI_BASE_URL and "
+            "gives up after a few seconds if the provider does not answer."
+        ),
+        examples=(
+            Example("kob models", "List the provider's models."),
+            Example("kob models --json", "Print the list as JSON for a script."),
+        ),
+    ),
     "packs": CommandDoc(
         description="List the doctrine packs discovered in the repository.",
         examples=(Example("kob packs", "List the packs."),),
