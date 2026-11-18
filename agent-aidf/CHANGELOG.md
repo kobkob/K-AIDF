@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `kob models` lists the models of the active provider from its `/v1/models`, marks the one in use, supports `--json`, and reports an offline provider in one line (#143)
+- `kob model-setup` manages `.kaidf/model-setup.json`: the profile (mood, parameters, custom instructions), RAG over project documents and allowlisted URLs, and a QLoRA adapter with an Ollama Modelfile export and a base-model fallback. `kob status` and the mentor use it (#156)
+- The workspace commands (`packs`, `docs`, `find`, `open`, `chat`, `apps`, `app-*`, `contracts`, `contract-*`) are root `kob` subcommands with help text (#155)
+
 ### Security
 
 - Web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once; it starts a session with an HttpOnly, SameSite=Strict cookie. `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
@@ -13,6 +19,10 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Changed
 
 - Web UI: without a session, `GET /` returns `401`; the token in the printed URL is redacted from the werkzeug access log (#114)
+- `kob shell` is deprecated and scheduled for removal in v0.8.0. Each of its lines runs through the root CLI, and `mentor-status` and `mentor-reset` map to `kob mentor --status` and `--reset` (#155)
+- `kob init` and `kob compile` run the generator in-process, found as an installed `kaidf_gen` or through `KAIDF_GENERATOR_DIR`. Nothing is installed or bootstrapped at runtime (#16)
+- Under `KOB_YOLO` the web UI refuses to start unless `kob ui --yolo-web` is passed; the TUI does not start it under yolo (#114)
+- The README "AI Controller" section describes provider selection (`AIDF_CHAT_PROVIDER`), the model precedence and the new commands (#21)
 
 ### Fixed
 
