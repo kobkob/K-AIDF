@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Security
+
+- `agent-aidf` web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once to start a session; `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
+- `kobkob-kaidf-generator`: `repo.name` must be a single directory name, and the target is resolved inside `--out` before anything is created, so a spec cannot write outside it (#117)
+
+### Changed
+
+- `agent-aidf` web UI: without a session, `GET /` returns `401`; the token is redacted from the access log (#114)
+- `kobkob-kaidf-generator`: `metadata_defaults` apply only to Markdown files; a non-Markdown file that declares `front_matter` is a spec error (#118). The default spec's duplicate sections are merged; the generated tree is unchanged
+- `mcp-aidf`: tool execution failures return `isError: true` results in HTTP 200 instead of HTTP 403, 404, 503 or 500; JSON-RPC protocol errors also use HTTP 200 (#116)
+
+### Fixed
+
+- `agent-aidf` web UI serves requests on threads, so `/api/status`, `/api/exit` and the TUI's exit no longer wait for a running mentor call (#115)
+- `agent-aidf` web UI `/api/mentor` returns `400 invalid_request` for malformed or wrong-typed bodies and `413` above 64 KiB, instead of `500` (#119)
+
 ## [0.6.3] - 2026-11-17
 
 ### Added

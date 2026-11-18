@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- `repo.name` must be a single directory name (`^[A-Za-z0-9][A-Za-z0-9._-]*$`). The target is resolved inside `--out` before any directory is created, so a spec cannot write outside it (#117)
+
+### Changed
+
+- `metadata_defaults` apply only to Markdown files: CSV, JSON and other files no longer fail at write time because of inherited front matter. A non-Markdown file that declares its own `front_matter` is rejected by `validate` (#118)
+- The default spec merges its duplicate `docs/10-maturity-model` and `docs/20-ethical-model` sections; the generated tree is unchanged (#118)
+
 ## [0.6.3] - 2026-11-17
 
 ### Changed

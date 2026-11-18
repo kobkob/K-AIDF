@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Security
+
+- Web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once; it starts a session with an HttpOnly, SameSite=Strict cookie. `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
+
+### Changed
+
+- Web UI: without a session, `GET /` returns `401`; the token in the printed URL is redacted from the werkzeug access log (#114)
+
+### Fixed
+
+- Web UI serves requests on threads: `/api/status`, `/api/exit` and the TUI's exit no longer wait for a running mentor call (#115)
+- Web UI `/api/mentor` returns `400 invalid_request` for a malformed body, a body that is not a JSON object, or an `answer` that is neither a string nor null, and `413` above 64 KiB, instead of `500` (#119)
+
 ## [0.6.3] - 2026-11-17
 
 ### Security
