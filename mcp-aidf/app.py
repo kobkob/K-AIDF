@@ -473,7 +473,8 @@ def _fetch_document(doc_id: str, *, principal: Principal | None = None) -> dict[
     return None
 
 
-def _json_error(req_id: Any, code: int, message: str, status_code: int = 400) -> tuple[Any, int]:
+def _json_error(req_id: Any, code: int, message: str, status_code: int = 200) -> tuple[Any, int]:
+    """A JSON-RPC error. Streamable HTTP carries it in HTTP 200; only transport refusals differ."""
     return (
         jsonify(
             {
@@ -483,6 +484,20 @@ def _json_error(req_id: Any, code: int, message: str, status_code: int = 400) ->
             }
         ),
         status_code,
+    )
+
+
+def _tool_error(req_id: Any, message: str):
+    """A tool execution failure: a normal result the assistant can read, flagged isError."""
+    return jsonify(
+        {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "content": [{"type": "text", "text": message}],
+                "isError": True,
+            },
+        }
     )
 
 
@@ -584,7 +599,9 @@ def mcp_endpoint():
     except Exception:
         # The traceback stays in the server log; the client only sees a generic message.
         app.logger.exception("Unhandled error while handling MCP request")
-        return _json_error(req_id, -32603, INTERNAL_ERROR_MESSAGE, 500)
+        if data.get("method") == "tools/call":
+            return _tool_error(req_id, INTERNAL_ERROR_MESSAGE)
+        return _json_error(req_id, -32603, INTERNAL_ERROR_MESSAGE)
 
 
 def _unauthorized_response(req_id: Any, auth_header: str | None):
@@ -744,7 +761,7 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any, principal: Principal)
                 return _json_error(req_id, -32602, "Missing document id.")
             doc = _fetch_document(doc_id, principal=principal)
             if doc is None:
-                return _json_error(req_id, -32602, f"Document not found: {doc_id}", 404)
+                return _tool_error(req_id, f"Document not found: {doc_id}")
             return jsonify(
                 {
                     "jsonrpc": "2.0",
@@ -757,11 +774,8 @@ def _handle_mcp_request(data: dict[str, Any], req_id: Any, principal: Principal)
 
         if name == "evaluate_repository_maturity":
             if principal.namespaces is not None:
-                return _json_error(
-                    req_id,
-                    -32001,
-                    "Forbidden: repository evaluation requires the primary token.",
-                    403,
+                return _tool_error(
+                    req_id, "Forbidden: repository evaluation requires the primary token."
                 )
             return _evaluate_maturity_tool(req_id, args)
         return _json_error(req_id, -32602, f"Unknown tool: {name}")
@@ -797,7 +811,7 @@ def _evaluate_maturity_tool(req_id: Any, args: dict[str, Any]):
     try:
         repo_root = _repo_root()
     except ValueError as exc:
-        return _json_error(req_id, -32000, str(exc), 503)
+        return _tool_error(req_id, str(exc))
     try:
         evaluation = maturity.evaluate_repository(repo_root, path)
     except maturity.MaturityError as exc:
@@ -808,9 +822,9 @@ def _evaluate_maturity_tool(req_id: Any, args: dict[str, Any]):
 
 
 def _maturity_error(req_id: Any, exc: maturity.MaturityError):
-    if exc.code == maturity.ENGINE_UNAVAILABLE:
-        return _json_error(req_id, exc.code, exc.message, 503)
-    return _json_error(req_id, exc.code, f"Invalid params: {exc.message}")
+    # Engine missing, path outside the root, path not found: the tool ran and failed, so the
+    # failure is a result the caller can read. Malformed arguments are checked before this.
+    return _tool_error(req_id, exc.message)
 
 
 @app.route("/.well-known/oauth-protected-resource")

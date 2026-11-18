@@ -90,6 +90,14 @@ def _error(response) -> dict:
     return response.get_json()["error"]
 
 
+def _tool_failure(response) -> str:
+    """Text of a tool execution failure: an isError result, delivered over HTTP 200."""
+    assert response.status_code == 200
+    result = response.get_json()["result"]
+    assert result["isError"] is True
+    return result["content"][0]["text"]
+
+
 @pytest.fixture
 def repo_root(tmp_path: Path, monkeypatch) -> Path:
     root = tmp_path / "repo"
@@ -252,14 +260,12 @@ def test_relative_path_is_taken_from_the_configured_root(client, engine, repo_ro
         ("missing-dir", "does not exist"),
     ],
 )
-def test_invalid_paths_are_rejected_with_invalid_params(
+def test_invalid_paths_are_tool_failures(
     client, engine, repo_root: Path, path: str, message: str
 ) -> None:
     response = _call(client, "evaluate_repository_maturity", {"path": path})
 
-    assert response.status_code == 400
-    assert _error(response)["code"] == -32602
-    assert message in _error(response)["message"]
+    assert message in _tool_failure(response)
 
 
 def test_a_file_is_not_a_valid_evaluation_target(client, engine, repo_root: Path) -> None:
@@ -267,8 +273,7 @@ def test_a_file_is_not_a_valid_evaluation_target(client, engine, repo_root: Path
 
     response = _call(client, "evaluate_repository_maturity", {"path": "README.md"})
 
-    assert _error(response)["code"] == -32602
-    assert "not a directory" in _error(response)["message"]
+    assert "not a directory" in _tool_failure(response)
 
 
 def test_symlink_pointing_outside_the_root_is_rejected(
@@ -280,8 +285,7 @@ def test_symlink_pointing_outside_the_root_is_rejected(
 
     response = _call(client, "evaluate_repository_maturity", {"path": "link"})
 
-    assert _error(response)["code"] == -32602
-    assert "outside the configured repository root" in _error(response)["message"]
+    assert "outside the configured repository root" in _tool_failure(response)
 
 
 def test_outside_paths_do_not_reveal_whether_they_exist(
@@ -293,7 +297,7 @@ def test_outside_paths_do_not_reveal_whether_they_exist(
     real = _call(client, "evaluate_repository_maturity", {"path": str(existing_outside)})
     missing = _call(client, "evaluate_repository_maturity", {"path": str(tmp_path / "nope")})
 
-    assert _error(real)["message"] == _error(missing)["message"]
+    assert _tool_failure(real) == _tool_failure(missing)
 
 
 def test_resolve_evaluation_path_defaults_to_the_root(tmp_path: Path) -> None:
@@ -322,8 +326,7 @@ def test_missing_repository_root_configuration_is_a_server_error(client, monkeyp
 
     response = _call(client, "evaluate_repository_maturity")
 
-    assert response.status_code == 503
-    assert "AIDF_REPO_ROOT is not configured" in _error(response)["message"]
+    assert "AIDF_REPO_ROOT is not configured" in _tool_failure(response)
 
 
 # --- authorization ------------------------------------------------------------------------------
@@ -334,8 +337,7 @@ def test_scoped_tokens_cannot_evaluate_a_repository(client, repo_root: Path, mon
 
     response = _call(client, "evaluate_repository_maturity", token=SCOPED_TOKEN)
 
-    assert response.status_code == 403
-    assert _error(response)["code"] == -32001
+    assert "requires the primary token" in _tool_failure(response)
 
 
 def test_unauthenticated_calls_are_refused(client, repo_root: Path) -> None:
@@ -363,9 +365,7 @@ def test_deployment_without_the_engine_gets_a_clear_503(
     evaluation = _call(client, "evaluate_repository_maturity")
 
     for response in (scorecard, evaluation):
-        assert response.status_code == 503
-        assert _error(response)["code"] == -32000
-        assert "not installed" in _error(response)["message"]
+        assert "not installed" in _tool_failure(response)
 
 
 def test_search_and_fetch_still_work_without_the_engine(
