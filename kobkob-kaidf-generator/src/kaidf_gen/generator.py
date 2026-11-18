@@ -55,6 +55,11 @@ def _resolve_front_matter(
     section_metadata_defaults: dict[str, Any],
     file_spec: dict[str, Any],
 ) -> dict[str, Any]:
+    if not rel_path.endswith(".md"):
+        # Inherited defaults describe documents; they never reach CSV, JSON, code or other files.
+        # A file that declares its own front matter is rejected up front by validate_spec.
+        return {}
+
     front_matter: dict[str, Any] = {}
     front_matter.update(repo_metadata_defaults)
     front_matter.update(section_metadata_defaults)
@@ -62,9 +67,6 @@ def _resolve_front_matter(
 
     if not front_matter:
         return {}
-
-    if not rel_path.endswith(".md"):
-        raise GenerationError(f"Front matter is only supported for markdown files: {rel_path}")
 
     missing = [field for field in REQUIRED_FRONT_MATTER_FIELDS if field not in front_matter]
     if missing:

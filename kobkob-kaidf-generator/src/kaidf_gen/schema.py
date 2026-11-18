@@ -30,6 +30,7 @@ def validate_spec(spec: dict[str, Any]) -> None:
         path = ".".join([str(p) for p in e.absolute_path]) if e.absolute_path else "<root>"
         raise SpecValidationError(f"Spec validation error at {path}: {e.message}") from e
     _check_duplicate_paths(spec)
+    _check_front_matter_targets(spec)
     if "audit_matrix" in spec:
         _check_audit_matrix(spec["audit_matrix"])
 
@@ -75,3 +76,18 @@ def _check_duplicate_paths(spec: dict[str, Any]) -> None:
                 f"Duplicate output path {path!r}: declared in {seen[path]} and again in {where}"
             )
         seen[path] = where
+
+
+def _check_front_matter_targets(spec: dict[str, Any]) -> None:
+    """Only Markdown files take front matter; declaring it on any other file is a spec error."""
+    declared = [(f, "repo.files") for f in spec["repo"].get("files", [])]
+    for index, section in enumerate(spec.get("sections", [])):
+        declared.extend(
+            (f, f"sections[{index}] ({section['path']})") for f in section.get("files", [])
+        )
+    for file_spec, where in declared:
+        if file_spec.get("front_matter") and not file_spec["path"].endswith(".md"):
+            raise SpecValidationError(
+                f"Front matter is only supported for markdown files: {file_spec['path']} "
+                f"(declared in {where})"
+            )
