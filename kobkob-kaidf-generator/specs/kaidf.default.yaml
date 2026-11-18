@@ -453,18 +453,8 @@ sections:
           id: "docs/10-maturity-model/assessment/scorecard.md"
           title: "Maturity Scorecard Guidance"
           assessment_type: "guidance"
-  - path: "docs/10-maturity-model"
-    files:
       - path: "assessment/scorecard.csv"
         content: "library:docs/10-maturity-model/assessment/scorecard.csv"
-  - path: "docs/10-maturity-model"
-    metadata_defaults:
-      document_class: "core-doc"
-      phase: "10-maturity-model"
-      visibility: "internal"
-      status: "active"
-      pack: "maturity-model"
-    files:
       - path: "governance/adoption-guidance.md"
         content: "library:docs/10-maturity-model/governance/adoption-guidance.md"
         front_matter:
@@ -574,6 +564,12 @@ sections:
           title: "Escalation And Review"
           control_type: "review"
           risk_type: "social-impact"
+      # Placeholders (`placeholder: true`) that the audit scores 0 until filled in; the
+      # skills.yaml under the same path is complete as generated.
+      - path: "risk-assessment.json"
+        content: "library:docs/20-ethical-model/risk-assessment.json"
+      - path: "explicability-schema.json"
+        content: "library:docs/20-ethical-model/explicability-schema.json"
 
   - path: "docs/30-kaidf-amm"
     files:
@@ -649,17 +645,6 @@ sections:
           visibility: "internal"
           status: "active"
           pack: "kaidf-amm"
-
-  # Artifacts the static audit (`kob audit`, KAIDF-AMM) checks. The ethical-model JSON files
-  # go in their own section because the pack's metadata_defaults would give them front matter.
-  # Each of these ships as a placeholder (`placeholder: true`) that the audit scores 0 until it
-  # is filled in; skills.yaml is complete as generated.
-  - path: "docs/20-ethical-model"
-    files:
-      - path: "risk-assessment.json"
-        content: "library:docs/20-ethical-model/risk-assessment.json"
-      - path: "explicability-schema.json"
-        content: "library:docs/20-ethical-model/explicability-schema.json"
 
   - path: "policy"
     files:

@@ -259,7 +259,9 @@ def test_generate_rejects_front_matter_for_non_markdown_files(tmp_path: Path) ->
         "sections": [],
     }
 
-    with pytest.raises(GenerationError, match="Front matter is only supported for markdown files"):
+    with pytest.raises(
+        SpecValidationError, match="Front matter is only supported for markdown files"
+    ):
         generate(spec, tmp_path, GenerateOptions(force=False))
 
 
@@ -398,3 +400,84 @@ def test_generate_accepts_plain_repo_name_inside_out_dir(tmp_path: Path) -> None
 
     assert target == tmp_path / "demo-repo"
     assert target.is_dir()
+
+
+def test_inherited_metadata_defaults_do_not_reach_non_markdown_files(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "files": [],
+            "metadata_defaults": {
+                "document_class": "core-doc",
+                "phase": "10-maturity-model",
+                "visibility": "internal",
+                "status": "active",
+            },
+        },
+        "sections": [
+            {
+                "path": "docs/10-maturity-model",
+                "files": [
+                    {"path": "assessment/scorecard.csv", "inline": "a,b\n1,2\n"},
+                    {"path": "data.json", "inline": "{}"},
+                ],
+            }
+        ],
+    }
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+
+    csv_text = (target / "docs/10-maturity-model/assessment/scorecard.csv").read_text("utf-8")
+    assert csv_text == "a,b\n1,2\n"
+    assert (target / "docs/10-maturity-model/data.json").read_text("utf-8") == "{}"
+
+
+def test_inherited_defaults_still_apply_to_markdown_files(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "files": [],
+            "metadata_defaults": {
+                "document_class": "core-doc",
+                "phase": "10-maturity-model",
+                "visibility": "internal",
+                "status": "active",
+            },
+        },
+        "sections": [
+            {
+                "path": "docs/10-maturity-model",
+                "files": [
+                    {
+                        "path": "README.md",
+                        "inline": "Body",
+                        "front_matter": {"id": "x", "title": "X"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+
+    text = (target / "docs/10-maturity-model/README.md").read_text(encoding="utf-8")
+    assert "document_class: core-doc" in text
+    assert "title: X" in text
+
+
+def test_own_front_matter_on_non_markdown_file_is_a_spec_error(tmp_path: Path) -> None:
+    spec = {
+        "version": "1.0",
+        "repo": {
+            "name": "demo",
+            "files": [{"path": "data.csv", "inline": "a\n", "front_matter": {"id": "x"}}],
+        },
+        "sections": [],
+    }
+
+    with pytest.raises(SpecValidationError, match="only supported for markdown"):
+        generate(spec, tmp_path, GenerateOptions(force=False))
+
+    assert not (tmp_path / "demo" / "data.csv").exists()
