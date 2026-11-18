@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import re
+import socket
+import threading
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -303,3 +308,97 @@ def test_built_bundle_references_the_kob_logo():
 
     assert bundles, "run `npm run build` in agent-aidf/webui/"
     assert any(b"/brand/kob-logo.png" in path.read_bytes() for path in bundles)
+
+
+# --- concurrency: the real run_webui server --------------------------------
+
+
+def _free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def _run_webui_in_thread(tmp_path: Path):
+    ready = threading.Event()
+    holder: dict = {}
+
+    def on_ready(server):
+        holder["server"] = server
+        ready.set()
+
+    port = _free_port()
+    thread = threading.Thread(
+        target=webui.run_webui,
+        args=(tmp_path, tmp_path),
+        kwargs={"host": "127.0.0.1", "port": port, "on_server_ready": on_ready},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(10), "run_webui never reported a ready server"
+    server = holder["server"]
+    return server, server.app.config["API_TOKEN"], f"http://127.0.0.1:{port}", thread
+
+
+def _http_status(method: str, url: str, token: str, body: bytes | None = None) -> int:
+    request = urllib.request.Request(url, method=method, data=body)
+    request.add_header(webui.API_TOKEN_HEADER, token)
+    if body is not None:
+        request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
+
+
+@pytest.fixture
+def busy_server(tmp_path: Path, monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+
+    def slow_mentor(_root, answer=None):
+        entered.set()
+        release.wait(15)
+        return SimpleNamespace(
+            message="late",
+            state=SimpleNamespace(pending_question=None, current_app_id=None),
+            token_usage=None,
+        )
+
+    monkeypatch.setattr(webui, "resolve_mentor_repo_root", lambda _project_root: tmp_path)
+    monkeypatch.setattr(webui, "continue_mentor_workflow", slow_mentor)
+    monkeypatch.setattr(webui, "_status_payload", lambda _project, _repo: {"yolo": False})
+    server, token, base, thread = _run_webui_in_thread(tmp_path)
+    mentor = threading.Thread(
+        target=_http_status,
+        args=("POST", f"{base}/api/mentor", token, b'{"answer": null}'),
+        daemon=True,
+    )
+    mentor.start()
+    assert entered.wait(10), "the mentor call never started"
+    yield base, token
+    release.set()
+    server.shutdown()
+    thread.join(timeout=10)
+
+
+def test_status_answers_while_a_mentor_call_is_in_flight(busy_server):
+    base, token = busy_server
+
+    started = time.monotonic()
+    status = _http_status("GET", f"{base}/api/status", token)
+    elapsed = time.monotonic() - started
+
+    assert status == 200
+    assert elapsed < 5, f"/api/status waited {elapsed:.1f}s behind a mentor call"
+
+
+def test_exit_is_not_queued_behind_a_mentor_call(busy_server):
+    base, token = busy_server
+
+    started = time.monotonic()
+    status = _http_status("POST", f"{base}/api/exit", token)
+    elapsed = time.monotonic() - started
+
+    assert status == 200
+    assert elapsed < 5, f"/api/exit waited {elapsed:.1f}s behind a mentor call"

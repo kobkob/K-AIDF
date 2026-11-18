@@ -236,7 +236,9 @@ def run_webui(
 ) -> None:
     """Serve the kob web UI until stopped via /api/exit, Ctrl+C, or an external shutdown() call."""
     app = create_app(project_root, repo_root, log_sink=log_sink, port=port)
-    server = make_server(host, port, app)
+    # Threaded: a mentor call can take minutes, and /api/status, /api/exit and the TUI's shutdown()
+    # must not queue behind it.
+    server = make_server(host, port, app, threaded=True)
     app.config["_server"] = server
     if on_server_ready is not None:
         on_server_ready(server)
