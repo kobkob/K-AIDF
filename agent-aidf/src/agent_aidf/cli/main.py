@@ -40,6 +40,7 @@ from ..generator_bridge import (
 from ..i18n import _
 from ..maturity import phase_progress, phase_snapshot
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from ..model_setup import status_summary as model_setup_status
 from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
     KAIDF_DIRNAME,
@@ -861,6 +862,7 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
     phases = phase_snapshot(status)
     extensions = extension_summary(inventory())
     model = active_model()
+    model_setup = model_setup_status(repo_root)
     if as_json:
         payload = status_payload(
             status,
@@ -868,12 +870,15 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
             scorecard=_project_scorecard(project_root),
             extensions=extensions,
             model=model,
+            model_setup=model_setup,
         )
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
     console = Console()
     if not use_rich(console):
-        for line in plain_status_lines(status, phases=phases, extensions=extensions, model=model):
+        for line in plain_status_lines(
+            status, phases=phases, extensions=extensions, model=model, model_setup=model_setup
+        ):
             print(line)
         return 0
     render_status(
@@ -883,6 +888,7 @@ def _run_status(project_root: Path, repo_root: Path, *, as_json: bool) -> int:
         scorecard=_project_scorecard(project_root),
         extensions=extensions,
         model=model,
+        model_setup=model_setup,
     )
     return 0
 
