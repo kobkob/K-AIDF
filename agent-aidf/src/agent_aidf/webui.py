@@ -13,6 +13,7 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.serving import BaseWSGIServer, make_server
 
 from .i18n import _
@@ -30,6 +31,8 @@ KOB_LOGO_FILENAME = "kob-logo.png"
 API_TOKEN_HEADER = "X-KAIDF-Token"
 API_TOKEN_PLACEHOLDER = "__KAIDF_API_TOKEN__"
 LOCAL_HOSTNAMES = frozenset({"127.0.0.1", "localhost"})
+# Largest request body the web UI reads; the mentor answer is the only input and is short.
+MAX_REQUEST_BYTES = 64 * 1024
 # The browser session is an HttpOnly cookie set once, when the user opens the URL that kob prints
 # in the terminal (`/?token=...`). The page itself never carries the token to a client without it.
 SESSION_COOKIE = "kaidf_session"
@@ -74,6 +77,10 @@ def _origin_allowed(origin: str, port: int | None) -> bool:
     return parts.scheme == "http" and _host_allowed(parts.netloc, port)
 
 
+def _invalid_request(detail: str):
+    return jsonify({"error": "invalid_request", "detail": detail}), 400
+
+
 def _status_payload(project_root: Path, repo_root: Path) -> dict:
     status = read_project_status(project_root, repo_root)
     current, total = phase_progress(status)
@@ -106,7 +113,13 @@ def create_app(
 
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
     app.config["_server"] = None
+    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
     _install_log_redaction()
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def _request_too_large(_error):
+        return jsonify({"error": "request_too_large", "limit_bytes": MAX_REQUEST_BYTES}), 413
+
     # Per-process secret. A browser trades the printed URL's token for a session cookie; the page
     # then embeds it for the API, and every state-changing request must echo it in API_TOKEN_HEADER.
     # Never persisted.
@@ -169,8 +182,18 @@ def create_app(
     @app.post("/api/mentor")
     @require_api_token
     def api_mentor():
-        payload = request.get_json(silent=True) or {}
-        answer = payload.get("answer") or None
+        # An empty body is a request to continue without an answer; a body that is present must be
+        # a JSON object whose "answer" is a string or null.
+        if not request.get_data(cache=True).strip():
+            payload = {}
+        else:
+            payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return _invalid_request("the body must be a JSON object")
+        answer = payload.get("answer")
+        if answer is not None and not isinstance(answer, str):
+            return _invalid_request("'answer' must be a string or null")
+        answer = answer or None
         try:
             mentor_repo_root = resolve_mentor_repo_root(project_root)
         except MentorNotInitializedError as exc:
