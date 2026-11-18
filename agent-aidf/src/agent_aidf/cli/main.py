@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pyperclip
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -50,6 +51,7 @@ from ..project import (
     resolve_project_root,
     resolve_runtime_repo_root,
 )
+from ..provider_models import ModelsUnavailableError, list_provider_models
 from ..shell import run_shell
 from ..terminal_output import (
     active_model,
@@ -688,6 +690,17 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     )
     _add_model_option(shell_parser)
 
+    models_parser = command_parser(
+        subparsers,
+        "models",
+        help=_("List the models the active inference provider serves."),
+    )
+    models_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=_("Print the provider, the active model and the model list as JSON."),
+    )
+
     # Workspace commands (docs, contracts, instant apps, chat) are first-class root subcommands.
     add_workspace_subcommands(
         subparsers,
@@ -936,6 +949,42 @@ def _run_appliance_command(args: argparse.Namespace, project_root: Path) -> int:
     return 0
 
 
+def _run_models(*, as_json: bool) -> int:
+    """`kob models`: what the active provider serves. Failures are one line, never a traceback."""
+    try:
+        listing = list_provider_models()
+    except ModelsUnavailableError as exc:
+        if as_json:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if as_json:
+        payload = {
+            "provider": listing.provider,
+            "base_url": listing.base_url,
+            "active_model": listing.active_model,
+            "models": listing.models,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    console = Console()
+    console.print(f"[bold]{escape(listing.provider)}[/bold] at {escape(listing.base_url)}")
+    if not listing.models:
+        console.print("The provider reports no models.")
+    for model in listing.models:
+        if model == listing.active_model:
+            console.print(f"  [bold green]●[/bold green] {escape(model)} [bold](active)[/bold]")
+        else:
+            console.print(f"  ○ {escape(model)}")
+    if listing.active_model not in listing.models:
+        console.print(
+            f"\nThe active model {escape(listing.active_model)} is not on this provider. "
+            "Pull it, or choose one above with AIDF_MODEL or --model."
+        )
+    return 0
+
+
 def _run_cli(argv: list[str]) -> int:
     if "--yolo" in argv:
         enable_yolo()
@@ -983,6 +1032,9 @@ def _run_cli(argv: list[str]) -> int:
 
     if args.command == "appliance":
         return _run_appliance_command(args, project_root)
+
+    if args.command == "models":
+        return _run_models(as_json=args.json)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 

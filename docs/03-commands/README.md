@@ -23,6 +23,7 @@ kob [opções globais] <comando> [argumentos]
 |---|---|---|
 | `kob init` | cria o `.kaidf/` do projeto | [init](init.md) |
 | `kob status` | mostra o estado do projeto e do runtime | [status](status.md) |
+| `kob models` | lista os modelos do provedor ativo e marca o que está em uso | [models](models.md) |
 | `kob audit` | pontua o repositório na KAIDF-AMM | [audit](audit.md) |
 | `kob mentor` | continua o fluxo do mentor | [mentor](mentor.md) |
 | `kob shell` | shell interativo com o modelo | [shell](shell.md) |
