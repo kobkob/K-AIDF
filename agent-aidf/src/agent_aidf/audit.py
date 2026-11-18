@@ -431,6 +431,18 @@ def _placeholder_outcome(shown: str) -> Outcome:
     return Outcome(0.0, f"{shown} is still the generator placeholder", shown, placeholder=True)
 
 
+def find_credentials(text: str) -> list[str]:
+    """Labels of the credential kinds that appear in `text`, ignoring documentation placeholders.
+
+    The text itself is never returned: a finding names the kind of secret, not the secret.
+    """
+    labels: list[str] = []
+    for label, pattern in SECRET_PATTERNS:
+        if any(not _is_example_token(match.group(0)) for match in pattern.finditer(text)):
+            labels.append(label)
+    return labels
+
+
 def _check_no_credentials(layout: Layout) -> Outcome:
     root = layout.root
     files = _tracked_files(root)
@@ -453,9 +465,8 @@ def _check_no_credentials(layout: Layout) -> Outcome:
         text = _read_text(path)
         if text is None:
             continue
-        for label, pattern in SECRET_PATTERNS:
-            if any(not _is_example_token(match.group(0)) for match in pattern.finditer(text)):
-                findings.append(f"{relative}: {label}")
+        for label in find_credentials(text):
+            findings.append(f"{relative}: {label}")
     # Oversized files are a blind spot, so the report names them even when nothing else fails.
     skipped = (
         f"not scanned, larger than {MAX_SCAN_BYTES} bytes: {', '.join(not_scanned[:5])}"
