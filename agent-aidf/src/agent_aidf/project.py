@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from .generator_bridge import GeneratorError, default_spec_path, generate_repo
 from .instant_apps import list_instant_apps, load_instant_app_runtime
 from .mentor import load_mentor_state
 from .repo import list_packs, load_documents, resolve_repo_root
@@ -132,79 +132,6 @@ def read_project_status(
     )
 
 
-def locate_generator_repo() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
-    generator_repo = workspace_root / "kobkob-kaidf-generator"
-    if not generator_repo.is_dir():
-        raise RuntimeError(f"Generator repository not found: {generator_repo}")
-    spec_path = generator_repo / "specs/kaidf.default.yaml"
-    if not spec_path.is_file():
-        raise RuntimeError(f"Default generator spec not found: {spec_path}")
-    return generator_repo
-
-
-# The generator needs these at runtime. Its own package is not required: the generator is run
-# from its source tree through PYTHONPATH (see generator_environment).
-GENERATOR_RUNTIME_MODULES = ("yaml", "jsonschema")
-
-
-def generator_environment(generator_repo: Path) -> dict[str, str]:
-    """Environment that runs the generator from its source tree, without an installed package."""
-    env = os.environ.copy()
-    generator_src = str(generator_repo / "src")
-    existing = env.get("PYTHONPATH", "").strip()
-    env["PYTHONPATH"] = f"{generator_src}{os.pathsep}{existing}" if existing else generator_src
-    return env
-
-
-def python_has_generator_runtime(python: str | Path) -> bool:
-    probe = "import " + ", ".join(GENERATOR_RUNTIME_MODULES)
-    try:
-        result = subprocess.run(
-            [str(python), "-c", probe], capture_output=True, check=False, timeout=60
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return result.returncode == 0
-
-
-def _fallback_to_current_python(reason: str) -> Path:
-    """Use the Python running kob when it can run the generator, instead of failing."""
-    current = Path(sys.executable)
-    if python_has_generator_runtime(current):
-        print(f"kob: using the current Python for the generator ({reason}).", file=sys.stderr)
-        return current
-    modules = " ".join(GENERATOR_RUNTIME_MODULES)
-    raise RuntimeError(
-        f"{reason}. The current Python ({current}) lacks {', '.join(GENERATOR_RUNTIME_MODULES)} "
-        f"too; install them there (python -m pip install PyYAML jsonschema), "
-        f"or fix the environment. Modules needed: {modules}."
-    )
-
-
-def resolve_generator_python(generator_repo: Path) -> Path:
-    bootstrap_script = generator_repo / "scripts/bootstrap.sh"
-    generator_python = generator_repo / ".venv/bin/python"
-    if bootstrap_script.is_file():
-        try:
-            subprocess.run(
-                ["bash", str(bootstrap_script)],
-                cwd=generator_repo,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.strip() or exc.stdout.strip()
-            return _fallback_to_current_python(f"bootstrap failed: {stderr}")
-        if generator_python.is_file() and python_has_generator_runtime(generator_python):
-            return generator_python
-        return _fallback_to_current_python("the generator .venv cannot import its runtime modules")
-    if generator_python.is_file():
-        return generator_python
-    return Path(sys.executable)
-
-
 # Runtime state that `init --force` carries over from the replaced .kaidf/ into the new one.
 # mentor-workflow.json is the progress of the user's mentor session; apps/, contracts/ and policy/
 # hold accepted work. The generator writes defaults for policy/, so the saved copy wins there.
@@ -238,41 +165,13 @@ def init_project_repo(project_root: str | Path | None = None, *, force: bool = F
     if target.exists() and not force:
         raise ProjectAlreadyInitializedError(target)
 
-    generator_repo = locate_generator_repo()
-    generator_python = resolve_generator_python(generator_repo)
-    spec_path = generator_repo / "specs/kaidf.default.yaml"
+    spec_path = default_spec_path()
     with tempfile.TemporaryDirectory(prefix="agent-aidf-init-", dir=str(project)) as temp_dir:
         temp_path = Path(temp_dir)
-        env = generator_environment(generator_repo)
-        command = [
-            str(generator_python),
-            "-m",
-            "kaidf_gen.cli",
-            "generate",
-            str(spec_path),
-            "--out",
-            str(temp_path),
-            "--force",
-        ]
         try:
-            subprocess.run(
-                command,
-                cwd=generator_repo,
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.strip() or exc.stdout.strip()
-            raise RuntimeError(f"Failed to initialize {KAIDF_DIRNAME}: {stderr}") from exc
-
-        generated_roots = sorted(path for path in temp_path.iterdir() if path.is_dir())
-        if len(generated_roots) != 1:
-            raise RuntimeError(
-                f"Expected one generated repository in {temp_path}, found {len(generated_roots)}"
-            )
-        generated = generated_roots[0]
+            generated = generate_repo(spec_path, temp_path, force=True)
+        except GeneratorError as exc:
+            raise RuntimeError(f"Failed to initialize {KAIDF_DIRNAME}: {exc}") from exc
 
         backup: Path | None = None
         if target.exists():

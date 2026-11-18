@@ -6,7 +6,6 @@ import io
 import json
 import os
 import random
-import subprocess
 import sys
 import time
 from functools import partial
@@ -32,6 +31,12 @@ from ..controller import (
     explicit_local_model,
 )
 from ..extensions.extension_loader import active_registry, inventory, render_inventory_text
+from ..generator_bridge import (
+    GeneratorError,
+    GeneratorUnavailableError,
+    default_spec_path,
+    generate_repo,
+)
 from ..i18n import _
 from ..maturity import phase_progress, phase_snapshot
 from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
@@ -41,12 +46,9 @@ from ..project import (
     MentorNotInitializedError,
     ProjectAlreadyInitializedError,
     ProjectStatus,
-    generator_environment,
     init_project_repo,
-    locate_generator_repo,
     project_repo_root,
     read_project_status,
-    resolve_generator_python,
     resolve_mentor_repo_root,
     resolve_project_root,
     resolve_runtime_repo_root,
@@ -160,30 +162,15 @@ def ui_port() -> int:
         return DEFAULT_UI_PORT
 
 
-def _run_compile_backend(spec: str | None, out: str, force: bool) -> None:
-    generator_repo = locate_generator_repo()
-    generator_python = resolve_generator_python(generator_repo)
-    # Resolve against the caller's cwd before switching to the generator repo below,
-    # otherwise relative paths would land inside the generator checkout.
-    spec_path = (
-        Path(spec).expanduser().resolve() if spec else generator_repo / "specs/kaidf.default.yaml"
-    )
-    out_path = Path(out).expanduser().resolve()
-    command = [
-        str(generator_python),
-        "-m",
-        "kaidf_gen.cli",
-        "generate",
-        str(spec_path),
-        "--out",
-        str(out_path),
-    ]
-    if force:
-        command.append("--force")
-    # The generator runs from its source tree, so the environment carries its src on PYTHONPATH.
-    subprocess.run(
-        command, cwd=generator_repo, check=True, env=generator_environment(generator_repo)
-    )
+def _run_compile_backend(spec: str | None, out: str, force: bool) -> int:
+    """Generate a repository from a spec, in-process. Returns the exit code."""
+    try:
+        spec_path = Path(spec).expanduser().resolve() if spec else default_spec_path()
+        generate_repo(spec_path, Path(out).expanduser().resolve(), force=force)
+    except (GeneratorError, GeneratorUnavailableError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 class KobAgentApp(App):
@@ -1081,7 +1068,9 @@ def _run_cli(argv: list[str]) -> int:
         return 0
 
     if args.command in ("compile", "gen"):
-        _run_compile_backend(args.spec, args.out, args.force)
+        code = _run_compile_backend(args.spec, args.out, args.force)
+        if code:
+            return code
         print(_("Generated template framework inside: {out}").format(out=args.out))
         return 0
 
