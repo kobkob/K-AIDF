@@ -104,19 +104,24 @@ def _write_file(
     write_text(out_path, content)
 
 
+def _target_dir(out_dir: Path, repo_name: str) -> Path:
+    """The directory the repo is written to. Resolved before anything is created on disk."""
+    # Generate into out_dir/repo_name unless out_dir already points to that folder.
+    if out_dir.name == repo_name:
+        return out_dir
+    # The schema only admits a plain directory name; safe_join is the backstop if validation is
+    # ever bypassed, and it refuses any name that resolves outside out_dir.
+    return safe_join(out_dir, repo_name)
+
+
 def generate(spec: dict[str, Any], out_dir: str | Path, options: GenerateOptions) -> Path:
     validate_spec(spec)
 
     out_dir = Path(out_dir)
-    _ensure_empty_or_force(out_dir, options.force)
-
     repo = spec["repo"]
-    repo_name = repo.get("name", "kobkob-kaidf")
-    # Generate into out_dir/repo_name unless out_dir already points to that folder.
-    target = out_dir
-    if target.name != repo_name:
-        target = out_dir / repo_name
+    target = _target_dir(out_dir, repo.get("name", "kobkob-kaidf"))
 
+    _ensure_empty_or_force(out_dir, options.force)
     _ensure_empty_or_force(target, options.force)
     repo_metadata_defaults = repo.get("metadata_defaults") or {}
     audit_matrix = spec.get("audit_matrix")

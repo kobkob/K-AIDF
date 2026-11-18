@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from kaidf_gen.errors import GenerationError, TemplateNotFoundError, UnsafePathError
+from kaidf_gen.errors import (
+    GenerationError,
+    SpecValidationError,
+    TemplateNotFoundError,
+    UnsafePathError,
+)
 from kaidf_gen.generator import GenerateOptions, generate
 from kaidf_gen.loader import load_yaml
 from kaidf_gen.template_loader import list_library_keys, load_template_by_key
@@ -343,3 +348,53 @@ def test_default_spec_gives_every_markdown_file_front_matter_v2(tmp_path: Path) 
         front_matter = yaml.safe_load(block)
         missing = sorted(field for field in required if not front_matter.get(field))
         assert not missing, f"{path.relative_to(target)} missing {missing}"
+
+
+MALICIOUS_REPO_NAMES = [
+    "../../x",
+    "..",
+    ".",
+    "../escape",
+    "nested/dir",
+    "nested\\dir",
+    "/tmp/absolute-escape",
+    "",
+    "-leading-dash",
+]
+
+
+@pytest.mark.parametrize("name", MALICIOUS_REPO_NAMES)
+def test_schema_rejects_repo_names_that_are_not_one_directory(tmp_path: Path, name: str) -> None:
+    out = tmp_path / "out"
+    spec = {"version": "1.0", "repo": {"name": name, "files": []}, "sections": []}
+
+    with pytest.raises(SpecValidationError):
+        generate(spec, out, GenerateOptions(force=False))
+
+    assert not out.exists()
+    assert not (tmp_path / "escape").exists()
+
+
+@pytest.mark.parametrize("name", ["../../x", "/tmp/absolute-escape"])
+def test_generate_backstop_refuses_repo_name_outside_out_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    # Bypass the schema on purpose: the path guard must hold on its own.
+    monkeypatch.setattr("kaidf_gen.generator.validate_spec", lambda _spec: None)
+    out = tmp_path / "out"
+    spec = {"version": "1.0", "repo": {"name": name, "files": []}, "sections": []}
+
+    with pytest.raises(UnsafePathError):
+        generate(spec, out, GenerateOptions(force=False))
+
+    assert not out.exists()
+    assert not any(p for p in tmp_path.rglob("*") if p.name == "x")
+
+
+def test_generate_accepts_plain_repo_name_inside_out_dir(tmp_path: Path) -> None:
+    spec = {"version": "1.0", "repo": {"name": "demo-repo", "files": []}, "sections": []}
+
+    target = generate(spec, tmp_path, GenerateOptions(force=False))
+
+    assert target == tmp_path / "demo-repo"
+    assert target.is_dir()
