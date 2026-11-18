@@ -402,3 +402,63 @@ def test_exit_is_not_queued_behind_a_mentor_call(busy_server):
 
     assert status == 200
     assert elapsed < 5, f"/api/exit waited {elapsed:.1f}s behind a mentor call"
+
+
+# --- POST /api/mentor body validation ---------------------------------------
+
+
+def _post_raw(client, token: str, data: bytes):
+    return client.post(
+        "/api/mentor",
+        base_url=BASE_URL,
+        headers={webui.API_TOKEN_HEADER: token, "Content-Type": "application/json"},
+        data=data,
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"{",
+        b"[1]",
+        b'"x"',
+        b"null",
+        b"42",
+        b'{"answer": 5}',
+        b'{"answer": ["a"]}',
+        b'{"answer": {"x": 1}}',
+        b'{"answer": true}',
+    ],
+)
+def test_mentor_rejects_malformed_bodies_with_400_and_does_not_run(
+    client, token, monkeypatch, body
+):
+    def must_not_run(*_args, **_kwargs):
+        raise AssertionError("the mentor must not run for an invalid body")
+
+    monkeypatch.setattr(webui, "continue_mentor_workflow", must_not_run)
+
+    response = _post_raw(client, token, body)
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "invalid_request"
+
+
+def test_mentor_empty_body_still_continues_without_an_answer(client, token):
+    response = _post_raw(client, token, b"")
+
+    assert response.status_code == 200
+
+
+def test_mentor_accepts_string_and_null_answers(client, token):
+    assert _post_raw(client, token, b'{"answer": "yes"}').status_code == 200
+    assert _post_raw(client, token, b'{"answer": null}').status_code == 200
+
+
+def test_mentor_oversized_body_gets_a_json_413(client, token):
+    body = b'{"answer": "' + b"a" * (webui.MAX_REQUEST_BYTES + 1) + b'"}'
+
+    response = _post_raw(client, token, body)
+
+    assert response.status_code == 413
+    assert response.get_json()["error"] == "request_too_large"
