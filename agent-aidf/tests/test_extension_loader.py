@@ -87,7 +87,7 @@ def test_default_roots_are_builtin_and_user_dirs(monkeypatch, tmp_path: Path) ->
 def test_loads_builtin_extensions_by_default() -> None:
     registry = load_extensions(roots=[BUILTIN_EXTENSIONS_DIR], disabled=[])
 
-    assert {ext.id for ext in registry.loaded} == {"ext", "words"}
+    assert {ext.id for ext in registry.loaded} == {"ext", "words", "model-setup"}
 
 
 def test_cli_flag_and_subcommand_are_added_to_the_parser(roots: list[Path]) -> None:
@@ -284,7 +284,9 @@ def test_builtin_names_are_the_commands_the_cli_defines() -> None:
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     ]
 
-    assert set(subparsers.choices) == set(BUILTIN_COMMANDS)
+    # Built-in extensions add their own subcommands to the parser; nothing else may appear.
+    assert set(subparsers.choices) >= set(BUILTIN_COMMANDS)
+    assert set(subparsers.choices) - set(BUILTIN_COMMANDS) <= {"model-setup"}
 
 
 @pytest.mark.parametrize("builtin", sorted(BUILTIN_COMMANDS))

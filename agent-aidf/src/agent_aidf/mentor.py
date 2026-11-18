@@ -484,6 +484,7 @@ def _build_mentor_reply(
     answer: str,
 ) -> tuple[str, str | None, dict[str, int] | None]:
     from .controller import MENTOR_CHAT_INSTRUCTIONS, build_controller
+    from .model_setup import mentor_context
 
     controller = build_controller()
     if hasattr(controller, "previous_response_id"):
@@ -495,6 +496,7 @@ def _build_mentor_reply(
         phase=phase,
         phase_dir=phase_dir,
         answer=answer,
+        profile_context=mentor_context(repo_root, answer or pending_question),
     )
     raw_reply = controller.chat(prompt, repo_root, instructions=MENTOR_CHAT_INSTRUCTIONS)
     next_response_id = getattr(controller, "previous_response_id", state.previous_response_id)
@@ -514,6 +516,7 @@ def _build_mentor_prompt(
     phase: dict,
     phase_dir: str,
     answer: str,
+    profile_context: str = "",
 ) -> str:
     recent = state.interactions[-3:]
     history_lines = []
@@ -555,6 +558,7 @@ def _build_mentor_prompt(
             "Do not restart the workflow. Continue from the current point. Ask exactly one next "
             "question at the end, unless you are proposing a file action instead.",
             "",
+            *([profile_context, ""] if profile_context else []),
             ACTION_PROTOCOL_INSTRUCTIONS,
             "",
             UNTRUSTED_INSTRUCTION,
