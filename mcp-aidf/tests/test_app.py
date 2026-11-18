@@ -499,7 +499,7 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
 
         self.assertEqual(response.get_json()["result"]["protocolVersion"], LATEST_PROTOCOL_VERSION)
 
-    def test_unexpected_exception_returns_sanitized_json_rpc_error(self) -> None:
+    def test_unexpected_exception_returns_sanitized_tool_error(self) -> None:
         secret = "/srv/secret/internal-path leaked-detail"
         with unittest.mock.patch.object(app, "_search_documents", side_effect=RuntimeError(secret)):
             response = self._post(
@@ -511,11 +511,15 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
                 }
             )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "application/json")
         payload = response.get_json()
         self.assertEqual(payload["id"], 5)
-        self.assertEqual(payload["error"], {"code": -32603, "message": "Internal error."})
+        self.assertEqual(
+            payload["result"],
+            {"content": [{"type": "text", "text": "Internal error."}], "isError": True},
+        )
+        self.assertNotIn("leaked-detail", response.get_data(as_text=True))
         body = response.get_data(as_text=True)
         self.assertNotIn("Traceback", body)
         self.assertNotIn("leaked-detail", body)
@@ -540,8 +544,11 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
                 os.environ["AIDF_REPO_ROOT"] = previous
 
         payload = response.get_json()
-        self.assertEqual(payload["error"]["code"], -32603)
-        self.assertEqual(payload["error"]["message"], "Internal error.")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            payload["result"],
+            {"content": [{"type": "text", "text": "Internal error."}], "isError": True},
+        )
         self.assertNotIn("private-kaidf-root", response.get_data(as_text=True))
 
     def test_maturity_evaluation_with_a_misconfigured_root_hides_the_server_path(self) -> None:
@@ -562,12 +569,17 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
             else:
                 os.environ["AIDF_REPO_ROOT"] = previous
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.get_json()["error"],
+            response.get_json()["result"],
             {
-                "code": -32000,
-                "message": "AIDF_REPO_ROOT does not exist or is not a directory.",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "AIDF_REPO_ROOT does not exist or is not a directory.",
+                    }
+                ],
+                "isError": True,
             },
         )
         self.assertNotIn("private-kaidf-root", response.get_data(as_text=True))
@@ -594,14 +606,14 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
             data="{not json",
         )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "application/json")
         self.assertEqual(response.get_json()["error"]["code"], -32700)
 
     def test_non_object_body_returns_invalid_request(self) -> None:
         response = self._post([1, 2, 3])
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["error"]["code"], -32600)
 
     def test_non_object_params_returns_invalid_params(self) -> None:
@@ -678,7 +690,7 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
                         }
                     )
 
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 200)
                 payload = response.get_json()
                 self.assertEqual(payload["error"]["code"], -32602)
                 self.assertEqual(
@@ -706,7 +718,7 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
                         }
                     )
 
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 200)
                 payload = response.get_json()
                 self.assertEqual(payload["error"]["code"], -32602)
                 self.assertEqual(
@@ -773,7 +785,7 @@ class McpAidfProtocolAndErrorTests(unittest.TestCase):
                         }
                     )
 
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 200)
                 payload = response.get_json()
                 self.assertEqual(payload["error"]["code"], -32602)
                 self.assertEqual(
@@ -847,7 +859,7 @@ class McpStreamableHttpTransportTests(unittest.TestCase):
     def test_unknown_method_with_an_id_returns_method_not_found(self) -> None:
         response = self._post({"jsonrpc": "2.0", "id": 9, "method": "resources/list"})
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertEqual(payload["id"], 9)
         self.assertEqual(payload["error"]["code"], -32601)
@@ -864,12 +876,12 @@ class McpStreamableHttpTransportTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.get_json()["result"], {})
 
-    def test_unsupported_protocol_version_header_is_rejected_with_400(self) -> None:
+    def test_unsupported_protocol_version_header_is_a_json_rpc_error(self) -> None:
         response = self._post(
             {"jsonrpc": "2.0", "id": 1, "method": "ping"}, {"MCP-Protocol-Version": "1999-01-01"}
         )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertEqual(payload["id"], 1)
         self.assertEqual(payload["error"]["code"], -32600)
@@ -884,7 +896,7 @@ class McpStreamableHttpTransportTests(unittest.TestCase):
             {"MCP-Protocol-Version": "1999-01-01"},
         )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["error"]["code"], -32600)
 
     def test_missing_protocol_version_header_is_served(self) -> None:
@@ -1347,9 +1359,12 @@ class McpVisibilityAclTests(unittest.TestCase):
         missing = self._call("fetch", {"id": "docs/acl/does-not-exist.md"})
 
         self.assertEqual(private.status_code, missing.status_code)
-        self.assertEqual(private.get_json()["error"]["code"], missing.get_json()["error"]["code"])
         self.assertEqual(
-            private.get_json()["error"]["message"], "Document not found: docs/acl/private-note.md"
+            private.get_json()["result"]["isError"], missing.get_json()["result"]["isError"]
+        )
+        self.assertEqual(
+            private.get_json()["result"]["content"][0]["text"],
+            "Document not found: docs/acl/private-note.md",
         )
         self.assertNotIn("marker-private-note", private.get_data(as_text=True))
 
@@ -1469,10 +1484,11 @@ class McpTenantScopeTests(unittest.TestCase):
         cross = self._fetch(TENANT_A_TOKEN, "docs/beta/b-internal.md")
         missing = self._fetch(TENANT_A_TOKEN, "docs/beta/does-not-exist.md")
 
-        self.assertEqual(cross.status_code, 404)
-        self.assertEqual(cross.get_json()["error"]["code"], missing.get_json()["error"]["code"])
+        self.assertEqual(cross.status_code, missing.status_code)
+        self.assertTrue(cross.get_json()["result"]["isError"])
         self.assertEqual(
-            cross.get_json()["error"]["message"], "Document not found: docs/beta/b-internal.md"
+            cross.get_json()["result"]["content"][0]["text"],
+            "Document not found: docs/beta/b-internal.md",
         )
         self.assertNotIn("Beta Internal", cross.get_data(as_text=True))
 
