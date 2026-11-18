@@ -18,7 +18,9 @@
       ],
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "Single directory name under --out. No separators, no '.' or '..'.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         },
         "description": {
           "type": "string"
