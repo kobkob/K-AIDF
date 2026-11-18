@@ -249,6 +249,18 @@ def create_app(
     return app
 
 
+class WebUIYoloRefused(RuntimeError):
+    """The web UI was asked to start under KOB_YOLO without the explicit --yolo-web opt-in."""
+
+
+def yolo_refusal_message() -> str:
+    return _(
+        "Refusing to start the web UI while KOB_YOLO is set. Under yolo, anyone who can reach the "
+        "page can have file writes applied without confirmation. To accept that risk explicitly, "
+        "run `kob ui --yolo-web`."
+    )
+
+
 def run_webui(
     project_root: Path,
     repo_root: Path,
@@ -256,8 +268,15 @@ def run_webui(
     port: int = 8501,
     log_sink: LogSink | None = None,
     on_server_ready: ServerReadyCallback | None = None,
+    allow_yolo: bool = False,
 ) -> None:
-    """Serve the kob web UI until stopped via /api/exit, Ctrl+C, or an external shutdown() call."""
+    """Serve the kob web UI until stopped via /api/exit, Ctrl+C, or an external shutdown() call.
+
+    Under KOB_YOLO the web UI is refused unless allow_yolo is True (the --yolo-web opt-in).
+    The check runs before anything is bound, so a refused start leaves no listening socket.
+    """
+    if is_yolo_enabled() and not allow_yolo:
+        raise WebUIYoloRefused(yolo_refusal_message())
     app = create_app(project_root, repo_root, log_sink=log_sink, port=port)
     # Threaded: a mentor call can take minutes, and /api/status, /api/exit and the TUI's shutdown()
     # must not queue behind it.

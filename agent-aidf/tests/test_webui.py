@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import re
 import socket
 import threading
@@ -319,7 +320,7 @@ def _free_port() -> int:
         return probe.getsockname()[1]
 
 
-def _run_webui_in_thread(tmp_path: Path):
+def _run_webui_in_thread(tmp_path: Path, **extra):
     ready = threading.Event()
     holder: dict = {}
 
@@ -331,7 +332,7 @@ def _run_webui_in_thread(tmp_path: Path):
     thread = threading.Thread(
         target=webui.run_webui,
         args=(tmp_path, tmp_path),
-        kwargs={"host": "127.0.0.1", "port": port, "on_server_ready": on_ready},
+        kwargs={"host": "127.0.0.1", "port": port, "on_server_ready": on_ready, **extra},
         daemon=True,
     )
     thread.start()
@@ -462,3 +463,93 @@ def test_mentor_oversized_body_gets_a_json_413(client, token):
 
     assert response.status_code == 413
     assert response.get_json()["error"] == "request_too_large"
+
+
+# --- KOB_YOLO guard (#114) ---------------------------------------------------
+
+
+def test_run_webui_refuses_to_start_under_kob_yolo(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("KOB_YOLO", "1")
+    started: list = []
+
+    with pytest.raises(webui.WebUIYoloRefused, match="kob ui --yolo-web"):
+        webui.run_webui(tmp_path, tmp_path, port=_free_port(), on_server_ready=started.append)
+
+    assert started == [], "a refused start must not bind or report a server"
+
+
+@pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
+def test_every_kob_yolo_spelling_refuses_the_web_ui(tmp_path: Path, monkeypatch, value: str):
+    monkeypatch.setenv("KOB_YOLO", value)
+
+    with pytest.raises(webui.WebUIYoloRefused):
+        webui.run_webui(tmp_path, tmp_path, port=_free_port())
+
+
+def test_run_webui_starts_under_kob_yolo_with_the_yolo_web_opt_in(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("KOB_YOLO", "1")
+    monkeypatch.setattr(webui, "_status_payload", lambda _project, _repo: {"yolo": True})
+    server, token, base, thread = _run_webui_in_thread(tmp_path, allow_yolo=True)
+    try:
+        assert _http_status("GET", f"{base}/api/status", token) == 200
+    finally:
+        server.shutdown()
+        thread.join(timeout=10)
+
+
+def test_yolo_refusal_message_names_the_opt_in():
+    message = webui.yolo_refusal_message()
+
+    assert "KOB_YOLO" in message
+    assert "kob ui --yolo-web" in message
+
+
+def test_tui_will_not_start_the_web_ui_under_kob_yolo(monkeypatch):
+    from types import SimpleNamespace
+
+    cli_main = importlib.import_module("agent_aidf.cli.main")
+
+    monkeypatch.setenv("KOB_YOLO", "1")
+    started: list = []
+    fake_tui = SimpleNamespace(
+        _web_server=None,
+        _web_url=None,
+        run_worker=lambda *args, **kwargs: started.append(args),
+    )
+
+    message = cli_main.KobAgentApp._start_webui(fake_tui)
+
+    assert message == webui.yolo_refusal_message()
+    assert started == []
+
+
+def test_cli_ui_refuses_under_kob_yolo_with_exit_code_2(tmp_path: Path, monkeypatch, capsys):
+    cli_main = importlib.import_module("agent_aidf.cli.main")
+
+    monkeypatch.setenv("KOB_YOLO", "1")
+    monkeypatch.chdir(tmp_path)
+
+    code = cli_main._run_cli(["ui", "--port", str(_free_port())])
+
+    assert code == 2
+    assert "kob ui --yolo-web" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("argv", "allow"),
+    [(["ui"], False), (["ui", "--yolo-web"], True), (["serve", "--yolo-web"], True)],
+)
+def test_cli_passes_the_yolo_web_opt_in_to_run_webui(
+    tmp_path: Path, monkeypatch, argv: list[str], allow: bool
+):
+    cli_main = importlib.import_module("agent_aidf.cli.main")
+
+    monkeypatch.setenv("KOB_YOLO", "1")
+    monkeypatch.chdir(tmp_path)
+    calls: list[dict] = []
+    monkeypatch.setattr(cli_main, "run_webui", lambda *a, **kw: calls.append(kw))
+
+    code = cli_main._run_cli([*argv, "--port", str(_free_port())])
+
+    assert code == 0
+    assert calls and calls[0]["allow_yolo"] is allow

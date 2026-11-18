@@ -61,7 +61,7 @@ from ..terminal_output import (
     use_rich,
 )
 from ..tools import enable_yolo, is_yolo_enabled
-from ..webui import run_webui
+from ..webui import WebUIYoloRefused, run_webui, yolo_refusal_message
 from .help import command_parser, main_epilog, run_help
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
@@ -499,6 +499,9 @@ class KobAgentApp(App):
     def _start_webui(self) -> str:
         if self._web_server is not None:
             return _("Web UI is already running at {url}").format(url=self._web_url)
+        # The TUI has no --yolo-web opt-in; under KOB_YOLO, start it with `kob ui --yolo-web`.
+        if is_yolo_enabled():
+            return yolo_refusal_message()
         port = ui_port()
         self._web_url = f"http://127.0.0.1:{port}"
         self.run_worker(partial(self._run_webui_worker, port), thread=True, group="webui")
@@ -707,6 +710,14 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     for name in ("ui", "serve"):
         ui_parser = command_parser(subparsers, name, help=ui_help)
         ui_parser.add_argument("--port", type=tcp_port_argument, default=ui_port())
+        ui_parser.add_argument(
+            "--yolo-web",
+            action="store_true",
+            help=_(
+                "Allow the web UI to start while KOB_YOLO is set. Anyone who can reach the page "
+                "can then apply file writes without confirmation."
+            ),
+        )
         _add_model_option(ui_parser)
 
     for name in ("compile", "gen"):
@@ -989,7 +1000,16 @@ def _run_cli(argv: list[str]) -> int:
 
     if args.command in ("ui", "serve"):
         try:
-            run_webui(project_root, repo_root, port=args.port, log_sink=print)
+            run_webui(
+                project_root,
+                repo_root,
+                port=args.port,
+                log_sink=print,
+                allow_yolo=args.yolo_web,
+            )
+        except WebUIYoloRefused as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         except KeyboardInterrupt:
             pass
         return 0
