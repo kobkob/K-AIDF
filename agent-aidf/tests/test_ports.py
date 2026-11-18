@@ -91,8 +91,9 @@ def test_repl_app_run_survives_invalid_port(
 ) -> None:
     _run_repl(monkeypatch, tmp_path, [f"app-run demo --port {bad_port}"])
 
-    out = capsys.readouterr().out
-    assert "app-run: Port must" in out
+    captured = capsys.readouterr()
+    # argparse reports a bad --port on stderr; the shell delegates to the root CLI.
+    assert "Port must" in captured.out + captured.err
 
 
 def test_repl_app_run_reports_unknown_app_instead_of_crashing(
@@ -100,4 +101,5 @@ def test_repl_app_run_reports_unknown_app_instead_of_crashing(
 ) -> None:
     _run_repl(monkeypatch, tmp_path, ["app-run missing-app --port 8080"])
 
-    assert "app-run: Instant app not found: missing-app" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "Instant app not found: missing-app" in captured.out + captured.err

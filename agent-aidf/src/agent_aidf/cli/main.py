@@ -62,6 +62,11 @@ from ..terminal_output import (
 )
 from ..tools import enable_yolo, is_yolo_enabled
 from ..webui import WebUIYoloRefused, run_webui, yolo_refusal_message
+from ..workspace_commands import (
+    WORKSPACE_COMMANDS,
+    add_workspace_subcommands,
+    dispatch_workspace_command,
+)
 from .help import command_parser, main_epilog, run_help
 
 PACKAGE_DISTRIBUTION = "agent-aidf"
@@ -679,9 +684,15 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     _add_model_option(mentor_parser)
 
     shell_parser = command_parser(
-        subparsers, "shell", help=_("Start the interactive OLMo-backed shell.")
+        subparsers, "shell", help=_("Start the interactive OLMo-backed shell (deprecated).")
     )
     _add_model_option(shell_parser)
+
+    # Workspace commands (docs, contracts, instant apps, chat) are first-class root subcommands.
+    add_workspace_subcommands(
+        subparsers,
+        add=lambda name, **kwargs: command_parser(subparsers, name, **kwargs),
+    )
 
     audit_parser = command_parser(
         subparsers, "audit", help=_("Score a K-AIDF repository against the KAIDF-AMM audit matrix.")
@@ -974,6 +985,9 @@ def _run_cli(argv: list[str]) -> int:
         return _run_appliance_command(args, project_root)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
+
+    if args.command in WORKSPACE_COMMANDS:
+        return dispatch_workspace_command(args, repo_root)
 
     if args.command == "status":
         return _run_status(project_root, repo_root, as_json=args.json)

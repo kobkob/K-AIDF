@@ -222,10 +222,12 @@ def test_repl_audit_reports_the_project_and_survives_a_missing_path(
 
     run_shell(tmp_path / "repo-missing-kaidf", tmp_path)
 
-    out = capsys.readouterr().out
+    captured = capsys.readouterr()
+    out = captured.out
     assert "KAIDF-AMM v1.0 - Audit Scorecard" in out
     assert "Score: 0/100" in out
-    assert "audit: " in out and "does not exist" in out
+    # The missing path is an error, so it goes to stderr like any kob command.
+    assert "does not exist" in captured.out + captured.err
 
 
 def test_rich_scorecard_colours_the_tier_on_a_terminal(tmp_path: Path) -> None:

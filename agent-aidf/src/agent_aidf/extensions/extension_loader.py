@@ -63,6 +63,21 @@ BUILTIN_COMMANDS: frozenset[str] = frozenset(
         "ext",
         "appliance",
         "help",
+        # Workspace commands (workspace_commands.WORKSPACE_COMMANDS), promoted from `kob shell`.
+        "packs",
+        "docs",
+        "find",
+        "open",
+        "chat",
+        "apps",
+        "app-create",
+        "app-open",
+        "app-run",
+        "app-runtime",
+        "app-stop",
+        "contracts",
+        "contract-create",
+        "contract-open",
     }
 )
 
