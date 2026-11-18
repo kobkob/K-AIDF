@@ -2,7 +2,12 @@
 
 Rodam o gerador do K-AIDF sobre uma especificação e escrevem o scaffold em `--out`. `kob gen` é um alias de `kob compile`, com as mesmas opções.
 
-O gerador vem do componente `kobkob-kaidf-generator`. O `kob` localiza o checkout dele e roda o gerador com o próprio venv.
+O gerador vem do componente `kobkob-kaidf-generator`, importado como o pacote `kaidf_gen` e executado dentro do próprio `kob`. O `kob` não instala nada em tempo de execução e não procura o gerador ao lado do projeto. Ele usa, nesta ordem:
+
+1. o pacote `kaidf_gen` instalado no Python do `kob` (`pip install` do `kobkob-kaidf-generator`);
+2. o checkout indicado por `KAIDF_GENERATOR_DIR`, cujo `src/` entra no caminho de importação. É o override para desenvolvimento.
+
+Sem nenhum dos dois, o comando termina com `error: The K-AIDF generator is not installed...` e código 1. O spec padrão vem dentro do pacote (`kaidf_gen/specs/kaidf.default.yaml`), então quem instala o gerador não precisa do checkout.
 
 ## Uso
 

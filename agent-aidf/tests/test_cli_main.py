@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -51,51 +50,36 @@ def test_active_model_label_reflects_explicit_openai_provider(monkeypatch) -> No
 
 
 def test_gen_resolves_relative_out_and_spec_against_caller_cwd(monkeypatch, tmp_path) -> None:
-    # Regression: the generator subprocess runs with cwd=generator_repo, so relative
-    # --out/--spec must be made absolute in the caller's cwd first, or the output
-    # lands inside the generator checkout instead of the user's project.
+    # Regression: relative --out/--spec must resolve against the caller's cwd. The generator now
+    # runs in-process, so a relative path that resolved anywhere else would write into the wrong
+    # project.
     import importlib
-    import sys
-    from pathlib import Path
 
     # Import the module explicitly: `agent_aidf.cli` re-exports a `main` function that shadows it.
     cli_main = importlib.import_module("agent_aidf.cli.main")
 
-    generator_repo = tmp_path / "kobkob-kaidf-generator"
-    generator_repo.mkdir()
     project = tmp_path / "user-project"
     project.mkdir()
     (project / "spec_relative.yaml").write_text("name: demo\n", encoding="utf-8")
-
-    monkeypatch.setattr(cli_main, "locate_generator_repo", lambda: generator_repo)
-    monkeypatch.setattr(cli_main, "resolve_generator_python", lambda repo: Path(sys.executable))
     monkeypatch.chdir(project)
 
-    calls = []
+    calls: list[tuple[Path, Path]] = []
 
-    def fake_generator(command, cwd, check, env=None):
-        # Emulate the generator: relative paths are interpreted against the subprocess cwd.
-        calls.append((command, cwd, check))
-        assert env is not None and env["PYTHONPATH"].split(os.pathsep)[0] == str(cwd / "src")
-        spec_arg = Path(cwd) / command[command.index("generate") + 1]
-        out_arg = Path(cwd) / command[command.index("--out") + 1]
-        assert spec_arg.read_text(encoding="utf-8") == "name: demo\n"
-        out_arg.mkdir(parents=True, exist_ok=True)
-        (out_arg / "generated.txt").write_text("ok", encoding="utf-8")
+    def fake_generate(spec_path, out_dir, *, force):
+        calls.append((Path(spec_path), Path(out_dir)))
+        assert Path.cwd() == project
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / "generated.txt").write_text("ok", encoding="utf-8")
+        return Path(out_dir)
 
-    monkeypatch.setattr(cli_main.subprocess, "run", fake_generator)
+    monkeypatch.setattr(cli_main, "generate_repo", fake_generate)
 
-    cli_main._run_compile_backend("./spec_relative.yaml", "./out_relative", force=False)
+    assert cli_main._run_compile_backend("./spec_relative.yaml", "./out_relative", force=False) == 0
 
-    assert len(calls) == 1
-    command, cwd, check = calls[0]
-    assert cwd == generator_repo
-    assert check is True
-    spec_arg = Path(command[command.index("generate") + 1])
-    assert spec_arg == (project / "spec_relative.yaml").resolve()
-    assert Path(command[command.index("--out") + 1]) == (project / "out_relative").resolve()
+    assert calls == [
+        ((project / "spec_relative.yaml").resolve(), (project / "out_relative").resolve())
+    ]
     assert (project / "out_relative" / "generated.txt").is_file()
-    assert not (generator_repo / "out_relative").exists()
 
 
 FRONT_MATTER = (
@@ -289,24 +273,19 @@ def test_kob_init_on_an_initialized_project_prints_guidance_and_exits_one(
 def test_kob_init_force_reinitializes_an_existing_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import subprocess
-    import sys
-
     from agent_aidf import project as project_module
 
     _write(tmp_path / ".kaidf/stale.txt", "old\n")
-    fake_generator = tmp_path / "fake-generator"
+    spec = tmp_path / "default.yaml"
+    spec.write_text("repo:\n  name: kobkob-kaidf\n", encoding="utf-8")
+    monkeypatch.setattr(project_module, "default_spec_path", lambda: spec)
 
-    def fake_generator_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess:
-        out_dir = Path(command[command.index("--out") + 1])
-        _write(out_dir / "kobkob-kaidf/README.md", "# fresh\n")
-        return subprocess.CompletedProcess(command, 0, "", "")
+    def fake_generate(spec_path, out_dir, *, force):
+        assert force is True
+        _write(Path(out_dir) / "kobkob-kaidf/README.md", "# fresh\n")
+        return Path(out_dir) / "kobkob-kaidf"
 
-    monkeypatch.setattr(project_module, "locate_generator_repo", lambda: fake_generator)
-    monkeypatch.setattr(
-        project_module, "resolve_generator_python", lambda repo: Path(sys.executable)
-    )
-    monkeypatch.setattr(project_module.subprocess, "run", fake_generator_run)
+    monkeypatch.setattr(project_module, "generate_repo", fake_generate)
 
     code = _run_cli(["--project", str(tmp_path), "init", "--force"])
 

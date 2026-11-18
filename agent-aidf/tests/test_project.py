@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -70,25 +68,43 @@ def test_read_project_status_reports_pack_counts(tmp_path: Path) -> None:
     assert status.mentor_current_app_url is None
 
 
+def _generator(tmp_path: Path, monkeypatch, spec: str = "repo:\n  name: demo\n") -> Path:
+    """The default spec is a file the test controls; init reads it through default_spec_path()."""
+    spec_path = tmp_path / "default.yaml"
+    spec_path.write_text(spec, encoding="utf-8")
+    monkeypatch.setattr("agent_aidf.project.default_spec_path", lambda: spec_path)
+    return spec_path
+
+
+def _fake_generate(monkeypatch, *, files: dict[str, str] | None = None, error=None) -> None:
+    """Replace the in-process generator: write `files` under out_dir/demo, or raise `error`."""
+
+    def _generate(spec_path, out_dir, *, force):
+        if error is not None:
+            raise error
+        generated = Path(out_dir) / "demo"
+        for relative, content in (files or {"README.md": "# Demo\n"}).items():
+            _write(generated / relative, content)
+        return generated
+
+    monkeypatch.setattr("agent_aidf.project.generate_repo", _generate)
+
+
+def _generator_succeeds(monkeypatch) -> None:
+    _fake_generate(
+        monkeypatch, files={"README.md": "# Fresh\n", "policy/budget.yaml": "max_tokens: 1\n"}
+    )
+
+
+def _generator_fails(monkeypatch) -> None:
+    _fake_generate(monkeypatch, error=project_module.GeneratorError("spec is invalid"))
+
+
 def test_init_project_repo_uses_generator_output(tmp_path: Path, monkeypatch) -> None:
     project = tmp_path / "project"
     project.mkdir()
-    generator_repo = tmp_path / "generator"
-    (generator_repo / "specs").mkdir(parents=True)
-    (generator_repo / "specs/kaidf.default.yaml").write_text(
-        "repo:\n  name: demo\n", encoding="utf-8"
-    )
-
-    monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
-
-    def _fake_run(command, **kwargs):
-        out_dir = Path(command[command.index("--out") + 1])
-        generated = out_dir / "demo"
-        generated.mkdir()
-        (generated / "README.md").write_text("# Demo\n", encoding="utf-8")
-        return None
-
-    monkeypatch.setattr("subprocess.run", _fake_run)
+    _generator(tmp_path, monkeypatch)
+    _fake_generate(monkeypatch)
 
     repo_root = init_project_repo(project)
 
@@ -101,19 +117,9 @@ def test_init_project_repo_records_the_spec_it_used_under_dot_kaidf_specs(
 ) -> None:
     project = tmp_path / "project"
     project.mkdir()
-    generator_repo = tmp_path / "generator"
-    (generator_repo / "specs").mkdir(parents=True)
     spec = "version: '1.0'\nrepo:\n  name: demo\n  files: []\nsections: []\n"
-    (generator_repo / "specs/kaidf.default.yaml").write_text(spec, encoding="utf-8")
-    monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
-
-    def _fake_run(command, **kwargs):
-        generated = Path(command[command.index("--out") + 1]) / "demo"
-        generated.mkdir()
-        (generated / "README.md").write_text("# Demo\n", encoding="utf-8")
-        return None
-
-    monkeypatch.setattr("subprocess.run", _fake_run)
+    _generator(tmp_path, monkeypatch, spec=spec)
+    _fake_generate(monkeypatch)
 
     init_project_repo(project)
 
@@ -122,127 +128,21 @@ def test_init_project_repo_records_the_spec_it_used_under_dot_kaidf_specs(
     assert recorded.read_text(encoding="utf-8") == spec
 
 
-def _generator_repo(tmp_path: Path) -> Path:
-    repo = tmp_path / "kobkob-kaidf-generator"
-    (repo / "scripts").mkdir(parents=True)
-    (repo / "scripts/bootstrap.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
-    (repo / ".venv/bin").mkdir(parents=True)
-    (repo / ".venv/bin/python").write_text("", encoding="utf-8")
-    return repo
+def test_init_generates_in_process_without_a_subprocess_or_pip(tmp_path: Path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    _generator(tmp_path, monkeypatch)
+    _fake_generate(monkeypatch)
 
+    def _refuse(*args, **kwargs):
+        raise AssertionError("init must not spawn a process or install packages")
 
-def _bootstrap_fails(monkeypatch, stderr: str) -> None:
-    def fake_run(command, **kwargs):
-        if command[0] == "bash":
-            raise subprocess.CalledProcessError(1, command, output="", stderr=stderr)
-        raise AssertionError(f"unexpected command: {command}")
+    monkeypatch.setattr(subprocess, "run", _refuse)
+    monkeypatch.setattr(subprocess, "Popen", _refuse)
 
-    monkeypatch.setattr(project_module.subprocess, "run", fake_run)
+    init_project_repo(project)
 
-
-def test_bootstrap_failure_falls_back_to_current_python_when_it_has_the_runtime(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    repo = _generator_repo(tmp_path)
-    _bootstrap_fails(monkeypatch, "ensurepip is not available")
-    monkeypatch.setattr(
-        project_module,
-        "python_has_generator_runtime",
-        lambda python: Path(python) == Path(sys.executable),
-    )
-
-    assert project_module.resolve_generator_python(repo) == Path(sys.executable)
-    assert "ensurepip is not available" in capsys.readouterr().err
-
-
-def test_bootstrap_failure_without_the_runtime_anywhere_explains_what_to_install(
-    tmp_path: Path, monkeypatch
-) -> None:
-    repo = _generator_repo(tmp_path)
-    _bootstrap_fails(monkeypatch, "ensurepip is not available")
-    monkeypatch.setattr(project_module, "python_has_generator_runtime", lambda python: False)
-
-    with pytest.raises(RuntimeError, match="bootstrap failed: ensurepip is not available") as info:
-        project_module.resolve_generator_python(repo)
-
-    assert "python -m pip install PyYAML jsonschema" in str(info.value)
-
-
-def test_venv_without_its_runtime_uses_the_current_python(tmp_path: Path, monkeypatch) -> None:
-    repo = _generator_repo(tmp_path)
-    monkeypatch.setattr(
-        project_module.subprocess,
-        "run",
-        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "", ""),
-    )
-    monkeypatch.setattr(
-        project_module,
-        "python_has_generator_runtime",
-        lambda python: Path(python) == Path(sys.executable),
-    )
-
-    assert project_module.resolve_generator_python(repo) == Path(sys.executable)
-
-
-def test_working_venv_is_preferred_when_it_has_the_runtime(tmp_path: Path, monkeypatch) -> None:
-    repo = _generator_repo(tmp_path)
-    monkeypatch.setattr(
-        project_module.subprocess,
-        "run",
-        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "", ""),
-    )
-    monkeypatch.setattr(project_module, "python_has_generator_runtime", lambda python: True)
-
-    assert project_module.resolve_generator_python(repo) == repo / ".venv/bin/python"
-
-
-def test_generator_environment_puts_its_source_first_on_pythonpath(
-    tmp_path: Path, monkeypatch
-) -> None:
-    monkeypatch.setenv("PYTHONPATH", "/existing/path")
-
-    env = project_module.generator_environment(tmp_path)
-
-    assert env["PYTHONPATH"] == f"{tmp_path / 'src'}{os.pathsep}/existing/path"
-
-
-def test_runtime_probe_matches_what_the_interpreter_can_import(tmp_path: Path) -> None:
-    # The expected answer depends on the environment: agent-aidf does not declare jsonschema,
-    # so a CI environment may lack it. The probe must report exactly what can be imported.
-    import importlib.util
-
-    expected = all(importlib.util.find_spec(name) is not None for name in ("yaml", "jsonschema"))
-
-    assert project_module.python_has_generator_runtime(sys.executable) is expected
-    assert project_module.python_has_generator_runtime(tmp_path / "no-such-python") is False
-
-
-# --- kob init --force must not lose the existing .kaidf/ (#109) ----------------------------------
-
-
-def _generator(tmp_path: Path, monkeypatch) -> Path:
-    generator_repo = tmp_path / "generator"
-    (generator_repo / "specs").mkdir(parents=True)
-    (generator_repo / "specs/kaidf.default.yaml").write_text("repo:\n  name: demo\n", "utf-8")
-    monkeypatch.setattr("agent_aidf.project.locate_generator_repo", lambda: generator_repo)
-    return generator_repo
-
-
-def _generator_succeeds(monkeypatch) -> None:
-    def _fake_run(command, **kwargs):
-        generated = Path(command[command.index("--out") + 1]) / "demo"
-        _write(generated / "README.md", "# Fresh\n")
-        _write(generated / "policy/budget.yaml", "max_tokens: 1\n")
-        return None
-
-    monkeypatch.setattr("subprocess.run", _fake_run)
-
-
-def _generator_fails(monkeypatch) -> None:
-    def _fake_run(command, **kwargs):
-        raise project_module.subprocess.CalledProcessError(1, command, stderr="spec is invalid")
-
-    monkeypatch.setattr("subprocess.run", _fake_run)
+    assert (project / ".kaidf" / "README.md").is_file()
 
 
 def _existing_project_with_state(project: Path) -> Path:
