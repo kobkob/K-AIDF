@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 ## [Unreleased]
 
+### Added
+
+- `agent-aidf`: `kob models` lists the models of the active provider from its `/v1/models`, marks the one in use, supports `--json`, and reports an offline provider in one line (#143)
+- `agent-aidf`: `kob model-setup` manages `.kaidf/model-setup.json`, a profile in three layers: the profile (mood, parameters, instructions), RAG over project documents and allowlisted URLs under the visibility and credential rules, and a QLoRA adapter with an Ollama Modelfile export and a base-model fallback. `kob status` and the mentor use it (#156)
+- `agent-aidf`: the workspace commands (`packs`, `docs`, `find`, `open`, `chat`, `apps`, `app-*`, `contracts`, `contract-*`) are root `kob` subcommands with help text (#155)
+
 ### Security
 
 - `agent-aidf` web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once to start a session; `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
@@ -16,11 +22,18 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `agent-aidf` web UI: without a session, `GET /` returns `401`; the token is redacted from the access log (#114)
 - `kobkob-kaidf-generator`: `metadata_defaults` apply only to Markdown files; a non-Markdown file that declares `front_matter` is a spec error (#118). The default spec's duplicate sections are merged; the generated tree is unchanged
 - `mcp-aidf`: tool execution failures return `isError: true` results in HTTP 200 instead of HTTP 403, 404, 503 or 500; JSON-RPC protocol errors also use HTTP 200 (#116)
+- `kob shell` is deprecated and scheduled for removal in v0.8.0. Each of its lines runs through the root CLI, and `mentor-status` and `mentor-reset` map to `kob mentor --status` and `--reset` (#155)
+- `kob init` and `kob compile` run the generator in-process, found as an installed `kaidf_gen` or through `KAIDF_GENERATOR_DIR`. Nothing is installed or bootstrapped at runtime (#16)
+- `kobkob-kaidf-generator`: the default spec ships inside the package (`kaidf_gen/specs/`), identical to `specs/kaidf.default.yaml` (#16)
+- `agent-aidf` web UI: under `KOB_YOLO` the web UI refuses to start unless `kob ui --yolo-web` is passed, and the TUI does not start it under yolo (#114)
+- `agent-aidf` README: the legacy "AI Controller" section describes provider selection, model precedence and the new commands (#21)
 
 ### Fixed
 
 - `agent-aidf` web UI serves requests on threads, so `/api/status`, `/api/exit` and the TUI's exit no longer wait for a running mentor call (#115)
 - `agent-aidf` web UI `/api/mentor` returns `400 invalid_request` for malformed or wrong-typed bodies and `413` above 64 KiB, instead of `500` (#119)
+- `agent-aidf` `kob ui`: the web UI is not started under `KOB_YOLO` without `--yolo-web`, and its refusal says how to opt in (#114)
+
 
 ## [0.6.3] - 2026-11-17
 
