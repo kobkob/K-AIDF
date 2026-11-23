@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-23
+
 ### Added
 
 - `kob models` lists the models of the active provider from its `/v1/models`, marks the one in use, supports `--json`, and reports an offline provider in one line (#143)

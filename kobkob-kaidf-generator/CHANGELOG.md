@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-23
+
 ### Security
 
 - `repo.name` must be a single directory name (`^[A-Za-z0-9][A-Za-z0-9._-]*$`). The target is resolved inside `--out` before any directory is created, so a spec cannot write outside it (#117)

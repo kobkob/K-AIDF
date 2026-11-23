@@ -1,6 +1,6 @@
 [project]
 name = "mcp-aidf"
-version = "0.6.3"
+version = "0.6.4"
 license = {text = "MIT"}
 description = "MCP server exposing K-AIDF documents and maturity tools."
 requires-python = ">=3.11"
