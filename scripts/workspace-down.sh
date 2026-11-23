@@ -9,4 +9,5 @@ source "$(dirname "${BASH_SOURCE[0]}")/env-common.sh"
 
 cd "${KAIDF_WORKSPACE_ROOT}"
 
-docker compose -f docker-compose.local.yml down
+# --profile mcp so the optional MCP server, if it was started, comes down with the stack.
+docker compose -f docker-compose.local.yml --profile mcp down

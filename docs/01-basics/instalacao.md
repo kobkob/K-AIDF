@@ -42,6 +42,18 @@ make workspace-down      # para a stack
 
 O `make workspace-up` escolhe a variante do modelo pela máquina. Para forçar uma variante, defina `AIDF_OLLAMA_MODEL` antes. Veja [provedores de inferência](../05-models/inference-providers.md) para a lista completa de variáveis.
 
+## Servidor MCP (opcional)
+
+Os alvos do servidor MCP leem o `.env` da raiz e exigem dois segredos: `SECRET_KEY` e `MCP_BEARER_TOKEN`. Copie `.env.example` para `.env` e preencha os dois (o bloco do MCP no arquivo mostra como gerar cada um). Sem eles, o alvo para antes de subir o contêiner.
+
+```bash
+make mcp-up                 # servidor standalone de mcp-aidf/, porta 7777
+make workspace-mcp-up       # servidor na stack local, sobre o repositório gerado, porta 8080
+make mcp-down               # para o servidor standalone
+```
+
+`make workspace-up` sobe só o Ollama. `make workspace-down` para também o servidor MCP da stack local, se ele estiver de pé.
+
 ## Verificação
 
 ```bash

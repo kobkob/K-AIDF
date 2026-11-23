@@ -17,6 +17,10 @@ services:
       retries: 20
 
   mcp-server:
+    # Optional, in the "mcp" profile: `make workspace-mcp-up` starts it and `make workspace-up`
+    # does not. It needs SECRET_KEY and MCP_BEARER_TOKEN from .env, so the Ollama stack must not
+    # depend on them.
+    profiles: ["mcp"]
     build:
       context: .
       dockerfile: mcp-aidf/Dockerfile
@@ -27,6 +31,15 @@ services:
     environment:
       - KAIDF_LOCAL_INFERENCE=true
       - OLLAMA_HOST=http://aidf-ollama:11434
+      - AIDF_REPO_ROOT=/data/kaidf-repo
+      # Empty defaults on purpose: compose also checks inactive profiles, and `make workspace-up`
+      # must not fail on these. `make workspace-mcp-up` refuses to start without them.
+      - SECRET_KEY=${SECRET_KEY:-}
+      - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN:-}
+      - MCP_TOKEN_SCOPES=${MCP_TOKEN_SCOPES:-}
+    volumes:
+      # The K-AIDF repository the tools read. `make workspace-mcp-up` points it at the generated repo.
+      - ${AIDF_REPO_HOST_PATH:-.}:/data/kaidf-repo:ro
     depends_on:
       aidf-ollama:
         condition: service_healthy
