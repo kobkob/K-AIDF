@@ -64,6 +64,8 @@ class InstallPreview:
     description: str
     source: str
     sha256: str
+    entrypoints: tuple[str, ...] = ()
+    topics: tuple[str, ...] = ()
 
 
 ConsentCallback = Callable[[InstallPreview], bool]
@@ -124,6 +126,8 @@ def install_extension(
                 description=metadata.description,
                 source=source,
                 sha256=digest,
+                entrypoints=metadata.entrypoints,
+                topics=metadata.topics,
             )
             if not confirm(preview):
                 raise InstallError("installation cancelled by the operator")
@@ -135,10 +139,25 @@ def install_extension(
         shutil.rmtree(staging, ignore_errors=True)
 
 
+class _HttpsOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """Checks every hop of a redirect chain, not only the final address.
+
+    An https -> http -> https chain would otherwise pass a check on the final URL alone. The
+    standard handler still caps the number of redirects.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if urlsplit(newurl).scheme != "https":
+            raise InstallError("the download redirected to a non-HTTPS address")
+        _require_tgz_name(urlsplit(newurl).path)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def fetch_remote_archive(url: str) -> bytes:
     """Download an archive. Kept as its own function so tests can stand in for the network."""
+    opener = urllib.request.build_opener(_HttpsOnlyRedirects())
     try:
-        with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+        with opener.open(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
             if urlsplit(response.geturl()).scheme != "https":
                 raise InstallError("the download redirected to a non-HTTPS address")
             return response.read(MAX_ARCHIVE_BYTES + 1)
@@ -183,17 +202,24 @@ def _require_tgz_name(name: str) -> None:
 
 
 def _extract(archive: Path, destination: Path) -> None:
+    """Extract in one pass, checking each entry's declared size before its data is read.
+
+    tar.getmembers() would decompress the whole archive before any limit applies, so a small
+    archive holding a huge zero-filled member could cost gigabytes of work. Walking the entries
+    with tar.next() stops at the first header that breaks a limit.
+    """
     try:
         with tarfile.open(archive, "r:gz") as tar:
-            members = tar.getmembers()
-            if len(members) > MAX_ENTRIES:
-                raise InstallError(f"archive has more than {MAX_ENTRIES} entries")
-            plan: list[tuple[tarfile.TarInfo, Path]] = []
+            count = 0
             total = 0
-            for member in members:
+            while (member := tar.next()) is not None:
+                count += 1
+                if count > MAX_ENTRIES:
+                    raise InstallError(f"archive has more than {MAX_ENTRIES} entries")
                 relative = _safe_relative_path(member.name)
+                target = destination / relative
                 if member.isdir():
-                    plan.append((member, relative))
+                    target.mkdir(parents=True, exist_ok=True)
                     continue
                 if not member.isreg():
                     raise InstallError(
@@ -202,15 +228,9 @@ def _extract(archive: Path, destination: Path) -> None:
                 total += member.size
                 if total > MAX_EXTRACTED_BYTES:
                     raise InstallError(f"archive expands to more than {MAX_EXTRACTED_BYTES} bytes")
-                plan.append((member, relative))
 
-            # Files are written by hand rather than via tar.extract, so no archive-supplied
-            # mode, owner or link can reach the filesystem.
-            for member, relative in plan:
-                target = destination / relative
-                if member.isdir():
-                    target.mkdir(parents=True, exist_ok=True)
-                    continue
+                # Files are written by hand rather than via tar.extract, so no archive-supplied
+                # mode, owner or link can reach the filesystem.
                 source_file = tar.extractfile(member)
                 if source_file is None:
                     raise InstallError(f"cannot read archive entry {member.name!r}")

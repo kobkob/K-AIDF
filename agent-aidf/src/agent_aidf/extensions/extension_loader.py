@@ -26,7 +26,7 @@ import os
 import sys
 from argparse import ArgumentParser, Namespace, _SubParsersAction
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from ..prompt_hooks import clear_prompt_interceptors, register_prompt_interceptor
@@ -178,6 +178,23 @@ class ExtensionRegistry:
         self._claimed_commands: set[str] = set(BUILTIN_COMMANDS)
 
     def merge(self, loaded: LoadedExtension, contributions: _Contributions) -> Registration:
+        # The header's Entrypoints is what the operator reads in the consent prompt, so the loader
+        # enforces it: anything the extension registered outside those entrypoints is dropped.
+        declared = set(loaded.metadata.entrypoints)
+        if "cli" not in declared and (
+            contributions.arguments or contributions.handlers or contributions.subcommands
+        ):
+            logger.warning(
+                "extension %r did not declare the cli entrypoint; dropping its CLI contributions",
+                loaded.id,
+            )
+            contributions = replace(contributions, arguments=[], handlers=[], subcommands=[])
+        if "prompt" not in declared and contributions.interceptors:
+            logger.warning(
+                "extension %r did not declare the prompt entrypoint; its interceptors are dropped",
+                loaded.id,
+            )
+            contributions = replace(contributions, interceptors=[])
         self.loaded.append(loaded)
         self._arguments.extend(contributions.arguments)
         for owner, handler in contributions.handlers:
