@@ -28,6 +28,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - Web UI serves requests on threads: `/api/status`, `/api/exit` and the TUI's exit no longer wait for a running mentor call (#115)
 - Web UI `/api/mentor` returns `400 invalid_request` for a malformed body, a body that is not a JSON object, or an `answer` that is neither a string nor null, and `413` above 64 KiB, instead of `500` (#119)
+- `run_shell` commands have a 600 s limit (set with `KOB_SHELL_TIMEOUT_SECONDS`), get no stdin, and a timeout stops the whole process group. Non-UTF-8 output no longer raises (#120)
+- `chat()` reports unusable URLs instead of raising: a bare `OLLAMA_HOST=host:port` gets `http://`, other non-http(s) addresses are refused before any request, `http.client` errors are retried as transient, and non-object JSON replies are reported (#121)
+- The global `--project` and `--repo` options are passed to the TUI, and a missing project directory exits with code 2 instead of a traceback (#122)
+- `kob shell`: an apostrophe in `chat` or `find` text is kept, other unclosed quotes get a short explanation, and Ctrl+C cancels the line or the running command without ending the session (#123)
+- `/ui`: a busy port or missing web assets is reported in the TUI, which keeps running; errors from the web UI worker no longer end the TUI (#124)
+- Web UI: pressing Enter during a request keeps the typed text, and a failed `/exit` is reported instead of showing "Session ended" (#125)
 
 ## [0.6.3] - 2026-11-17
 
