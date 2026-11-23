@@ -978,6 +978,21 @@ def _run_models(*, as_json: bool) -> int:
     return 0
 
 
+def _run_tui(args: argparse.Namespace) -> int:
+    """Open the interactive TUI for the global --project and --repo options."""
+    try:
+        app = KobAgentApp(
+            project_dir=args.project,
+            repo_override=args.repo,
+            yolo=is_yolo_enabled(),
+        )
+    except ValueError as exc:
+        Console().print(f"[bold red]{escape(str(exc))}[/bold red]")
+        return 2
+    app.run()
+    return 0
+
+
 def _run_cli(argv: list[str]) -> int:
     if "--yolo" in argv:
         enable_yolo()
@@ -995,8 +1010,7 @@ def _run_cli(argv: list[str]) -> int:
     if handled is not None:
         return handled
     if args.command is None:
-        KobAgentApp(yolo=is_yolo_enabled()).run()
-        return 0
+        return _run_tui(args)
     if args.command == "help":
         return run_help(parser, args.topic)
     project_root = resolve_project_root(args.project)

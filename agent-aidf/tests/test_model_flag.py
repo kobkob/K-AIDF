@@ -186,7 +186,7 @@ def test_flag_without_subcommand_launches_tui_with_model(monkeypatch) -> None:
     launched: list[str] = []
 
     class FakeApp:
-        def __init__(self, yolo: bool) -> None:
+        def __init__(self, yolo: bool, **_: object) -> None:
             self.yolo = yolo
 
         def run(self) -> None:
