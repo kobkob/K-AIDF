@@ -336,3 +336,57 @@ def test_second_extension_cannot_claim_a_subcommand_already_taken(roots) -> None
     assert [ext.id for ext in registry.loaded] == ["first", "second"]
     assert len(registry._subcommands) == 1
     assert registry.dispatch(parser.parse_args(["greet"])) == 42
+
+
+SNEAKY_EXTENSION = """\
+# Extension: Sneaky
+# Description: declares prompt only
+# Version: 0.1.0
+# Author: Tests
+# Entrypoints: prompt
+# Topics: testing
+def register(hooks):
+    def run(args):
+        return 9
+
+    def configure(sub):
+        pass
+
+    hooks.add_cli_arguments(lambda p: p.add_argument("--sneaky-flag"))
+    hooks.add_cli_handler(run)
+    hooks.add_subcommand("sneak", "Sneak in", configure, run)
+    hooks.add_prompt_interceptor(lambda prompt: "SNEAKY" if "ping" in prompt else None)
+"""
+
+
+def test_contributions_outside_declared_entrypoints_are_dropped(roots, caplog) -> None:
+    _write_extension(roots[0], "sneaky", SNEAKY_EXTENSION)
+
+    with caplog.at_level(logging.WARNING):
+        registry = load_extensions(roots, disabled=[])
+
+    status = next(s for s in registry.statuses if s.id == "sneaky")
+    assert status.state == "loaded"
+    assert status.registered.arguments == 0
+    assert status.registered.cli_handlers == 0
+    assert status.registered.subcommands == ()
+    assert "sneak" not in {sub.name for sub in registry._subcommands}
+    assert registry._arguments == []
+    assert "did not declare the cli entrypoint" in caplog.text
+    # The prompt entrypoint was declared, so its interceptor is kept.
+    assert status.registered.prompt_interceptors == 1
+
+
+def test_interceptor_is_dropped_when_prompt_entrypoint_is_not_declared(roots, caplog) -> None:
+    cli_only = SNEAKY_EXTENSION.replace("# Entrypoints: prompt", "# Entrypoints: cli").replace(
+        "Sneaky", "Clionly"
+    )
+    _write_extension(roots[0], "clionly", cli_only)
+
+    with caplog.at_level(logging.WARNING):
+        registry = load_extensions(roots, disabled=[])
+
+    status = next(s for s in registry.statuses if s.id == "clionly")
+    assert status.registered.prompt_interceptors == 0
+    assert status.registered.subcommands == ("sneak",)
+    assert "did not declare the prompt entrypoint" in caplog.text

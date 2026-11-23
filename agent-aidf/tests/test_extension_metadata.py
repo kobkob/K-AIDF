@@ -106,3 +106,25 @@ def test_builtin_headers_are_valid() -> None:
 
     for main in sorted(BUILTIN_EXTENSIONS_DIR.glob("*/main.py")):
         assert read_metadata(main).entrypoints, main
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "A demo \x1b[2Jcleared",  # ESC with a CSI sequence
+        "Mallory\x1b]0;title\x07",  # OSC sequence with BEL
+        "C1 control \x9b31m",  # 8-bit CSI
+    ],
+)
+def test_rejects_control_characters_in_any_header_field(value: str) -> None:
+    text = VALID_HEADER.replace("A demo extension", value)
+
+    with pytest.raises(MetadataError, match="control characters"):
+        parse_metadata_text(text + "\ndef register(hooks):\n    pass\n")
+
+
+def test_rejects_control_characters_in_the_author_field() -> None:
+    text = VALID_HEADER.replace("Kobkob LLC", "Kobkob\x1b[31m LLC")
+
+    with pytest.raises(MetadataError, match="Author contains control characters"):
+        parse_metadata_text(text)

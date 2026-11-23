@@ -27,6 +27,8 @@ MAX_HEADER_LINES = 64
 
 _HEADER_LINE = re.compile(r"^#\s?([A-Za-z]+):\s*(.*?)\s*$")
 _VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+# C0 and C1 control characters, including ESC: a header value must never carry terminal escapes.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 class MetadataError(ValueError):
@@ -62,6 +64,10 @@ def parse_metadata_text(text: str, source: str = "main.py") -> ExtensionMetadata
     missing = [field for field in REQUIRED_FIELDS if not values.get(field)]
     if missing:
         raise MetadataError(f"{source}: missing metadata: {', '.join(missing)}")
+
+    for field, value in values.items():
+        if _CONTROL.search(value):
+            raise MetadataError(f"{source}: {field} contains control characters")
 
     version = values["Version"]
     if not _VERSION.match(version):

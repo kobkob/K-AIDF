@@ -98,14 +98,22 @@ def _consent(assume_yes: bool):
     return confirm
 
 
+def _printable(value: object) -> str:
+    """The text with every non-printable character shown as an escape, so no terminal sequence
+    in a field can rewrite or hide the lines above it."""
+    return "".join(ch if ch.isprintable() else f"\\x{ord(ch):02x}" for ch in str(value))
+
+
 def _print_preview(preview: InstallPreview) -> None:
     print("Extensão remota a instalar:")
-    print(f"  Nome:       {preview.name}")
-    print(f"  Autor:      {preview.author}")
-    print(f"  Versão:     {preview.version}")
-    print(f"  Descrição:  {preview.description}")
-    print(f"  Origem:     {preview.source}")
-    print(f"  SHA-256:    {preview.sha256}")
+    print(f"  Nome:       {_printable(preview.name)}")
+    print(f"  Autor:      {_printable(preview.author)}")
+    print(f"  Versão:     {_printable(preview.version)}")
+    print(f"  Descrição:  {_printable(preview.description)}")
+    print(f"  Origem:     {_printable(preview.source)}")
+    print(f"  SHA-256:    {_printable(preview.sha256)}")
+    print(f"  Entrypoints: {_printable(', '.join(preview.entrypoints))}")
+    print(f"  Tópicos:    {_printable(', '.join(preview.topics))}")
     print(
         "Uma extensão executa código Python ao iniciar o kob. Instale apenas se confiar no autor."
     )

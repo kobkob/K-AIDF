@@ -249,24 +249,34 @@ def test_remote_archive_over_the_size_limit_is_rejected(target, monkeypatch) -> 
         install_extension("https://example.org/huge.tgz", target, confirm=_approve)
 
 
-def test_fetch_rejects_redirect_to_http(monkeypatch) -> None:
-    class Redirected:
-        def __enter__(self):
-            return self
+def _redirect(newurl: str):
+    """Ask the redirect handler what it does with one hop to newurl."""
+    handler = installer._HttpsOnlyRedirects()
+    request = installer.urllib.request.Request("https://example.org/demo.tgz")
+    return handler.redirect_request(request, None, 302, "Found", {}, newurl)
 
-        def __exit__(self, *exc):
-            return None
 
-        def geturl(self):
-            return "http://mirror.example.org/demo.tgz"
-
-        def read(self, _n):
-            return b""
-
-    monkeypatch.setattr(installer.urllib.request, "urlopen", lambda *a, **k: Redirected())
-
+def test_fetch_rejects_redirect_to_http() -> None:
     with pytest.raises(InstallError, match="non-HTTPS"):
-        installer.fetch_remote_archive("https://example.org/demo.tgz")
+        _redirect("http://mirror.example.org/demo.tgz")
+
+
+def test_fetch_rejects_a_redirect_chain_that_returns_to_https_on_another_path() -> None:
+    # https -> http -> https: the middle hop is refused, so the chain never reaches the end.
+    with pytest.raises(InstallError, match="non-HTTPS"):
+        _redirect("http://mirror.example.org/hop.tgz")
+
+
+def test_fetch_rejects_a_redirect_that_changes_the_archive_name() -> None:
+    with pytest.raises(InstallError, match=".tgz"):
+        _redirect("https://mirror.example.org/index.html")
+
+
+def test_fetch_follows_an_https_redirect_to_an_archive() -> None:
+    request = _redirect("https://mirror.example.org/demo.tgz")
+
+    assert request is not None
+    assert request.full_url == "https://mirror.example.org/demo.tgz"
 
 
 def test_cli_flag_installs_and_reports_success(archives, target, monkeypatch, capsys) -> None:
@@ -493,3 +503,59 @@ def test_cli_sha256_flag_pins_a_local_archive(archives, target, monkeypatch, cap
 def test_cli_rejects_sha256_or_yes_without_a_source(monkeypatch, capsys) -> None:
     assert cli_main._run_cli(["--yes"]) == 2
     assert "apply only with -x" in capsys.readouterr().err
+
+
+def test_archive_with_a_huge_declared_member_is_refused_without_reading_the_stream(
+    archives, target, monkeypatch
+) -> None:
+    # The limit must trip on the member's declared size. tar.getmembers() would decompress the
+    # whole stream first, so it is made to fail here: the install must not reach it.
+    def _getmembers_must_not_run(self):
+        raise AssertionError("the archive was scanned with getmembers(), which reads everything")
+
+    monkeypatch.setattr(installer.tarfile.TarFile, "getmembers", _getmembers_must_not_run)
+    monkeypatch.setattr(installer, "MAX_EXTRACTED_BYTES", 1024 * 1024)
+    tgz = archives / "bomb.tgz"
+    with tarfile.open(tgz, "w:gz") as tar:
+        info = tarfile.TarInfo("demo/filler.bin")
+        info.size = 8 * 1024 * 1024
+        tar.addfile(info, io.BytesIO(b"\0" * info.size))
+
+    with pytest.raises(InstallError, match="expands to more than"):
+        install_extension(str(tgz), target)
+    assert _leftovers(target) == []
+
+
+def test_archive_with_too_many_entries_is_refused(archives, target, monkeypatch) -> None:
+    monkeypatch.setattr(installer, "MAX_ENTRIES", 3)
+    members = {f"demo/f{i}.txt": b"x" for i in range(5)}
+    members["demo/main.py"] = VALID_MAIN.encode()
+    tgz = make_tgz(archives / "many.tgz", members)
+
+    with pytest.raises(InstallError, match="more than 3 entries"):
+        install_extension(str(tgz), target)
+    assert _leftovers(target) == []
+
+
+def test_consent_preview_escapes_terminal_sequences_and_lists_entrypoints(
+    capsys, monkeypatch
+) -> None:
+    ext_main = importlib.import_module("agent_aidf.ext.ext.main")
+    preview = installer.InstallPreview(
+        name="demo",
+        author="Mallory\x1b[2J",
+        version="1.0.0",
+        description="ok\x1b]0;owned\x07",
+        source="https://example.org/demo.tgz",
+        sha256="a" * 64,
+        entrypoints=("cli", "prompt"),
+        topics=("demo",),
+    )
+
+    ext_main._print_preview(preview)
+
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    assert "\\x1b[2J" in out
+    assert "Entrypoints: cli, prompt" in out
+    assert "Tópicos:    demo" in out
