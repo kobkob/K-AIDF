@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import socket
 from pathlib import Path
 from urllib import request
 
@@ -130,41 +129,41 @@ def test_run_and_stop_web_instant_app_runtime(tmp_path: Path) -> None:
         answer="Build a localhost review page with clear human validation.",
         mentor_reply="Keep the page interactive and preserve the review trail.",
     )
-    port = _free_port()
+    runtime = run_instant_app(repo, "mentor-web-app")
+    try:
+        # The runtime picks the port itself, so the test does not race another process for one.
+        port = runtime.port
+        loaded = load_instant_app_runtime(repo, "mentor-web-app")
 
-    runtime = run_instant_app(repo, "mentor-web-app", port=port)
-    loaded = load_instant_app_runtime(repo, "mentor-web-app")
+        assert runtime.status == "running"
+        assert port is not None
+        assert runtime.pid is not None
+        assert loaded is not None
+        assert loaded.status == "running"
+        state = json.loads(
+            request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8")
+        )
+        assert state["question"] == "What should we build next?"
+        post = request.Request(
+            f"http://127.0.0.1:{port}/api/answers",
+            data=json.dumps({"text": "We need approval notes and doc links."}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        saved = json.loads(request.urlopen(post).read().decode("utf-8"))
+        assert saved["text"] == "We need approval notes and doc links."
+        refreshed = json.loads(
+            request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8")
+        )
+        assert refreshed["answers"][-1]["text"] == "We need approval notes and doc links."
 
-    assert runtime.status == "running"
-    assert runtime.port == port
-    assert runtime.pid is not None
-    assert loaded is not None
-    assert loaded.status == "running"
-    state = json.loads(request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8"))
-    assert state["question"] == "What should we build next?"
-    post = request.Request(
-        f"http://127.0.0.1:{port}/api/answers",
-        data=json.dumps({"text": "We need approval notes and doc links."}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    saved = json.loads(request.urlopen(post).read().decode("utf-8"))
-    assert saved["text"] == "We need approval notes and doc links."
-    refreshed = json.loads(
-        request.urlopen(f"http://127.0.0.1:{port}/api/state").read().decode("utf-8")
-    )
-    assert refreshed["answers"][-1]["text"] == "We need approval notes and doc links."
+        stopped = stop_instant_app(repo, "mentor-web-app")
 
-    stopped = stop_instant_app(repo, "mentor-web-app")
-
-    assert stopped.status == "stopped"
-    assert stopped.pid is None
-    loaded_stopped = load_instant_app_runtime(repo, "mentor-web-app")
-    assert loaded_stopped is not None
-    assert loaded_stopped.status == "stopped"
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+        assert stopped.status == "stopped"
+        assert stopped.pid is None
+        loaded_stopped = load_instant_app_runtime(repo, "mentor-web-app")
+        assert loaded_stopped is not None
+        assert loaded_stopped.status == "stopped"
+    finally:
+        # Runs on assertion failure too: the server must not outlive the test.
+        stop_instant_app(repo, "mentor-web-app")

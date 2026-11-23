@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import contextlib
+import json
+import os
+import signal
+from pathlib import Path
+
 import pytest
 
 
@@ -32,3 +38,44 @@ def _isolate_extensions(tmp_path, monkeypatch: pytest.MonkeyPatch):
     reset_active_registry()
     yield
     reset_active_registry()
+
+
+def _is_running(pid: int) -> bool:
+    """True for a live process. A zombie (exited, not yet reaped) does not count."""
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
+            state = handle.read().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return False
+    return state != "Z"
+
+
+def stop_leftover_app_servers(root: Path) -> list[int]:
+    """Kill every instant-app server whose runtime state file sits under root. Returns the pids."""
+    from agent_aidf.instant_apps import RUNTIME_STATE_FILENAME
+
+    killed: list[int] = []
+    for state_file in root.rglob(RUNTIME_STATE_FILENAME):
+        try:
+            data = json.loads(state_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        pid = data.get("pid") if isinstance(data, dict) else None
+        if not isinstance(pid, int) or pid <= 0 or not _is_running(pid):
+            continue
+        # Instant apps start in their own session, so the pid is also the process group id.
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+        killed.append(pid)
+    return killed
+
+
+@pytest.fixture(autouse=True)
+def _no_instant_app_server_survives(tmp_path: Path):
+    """Safety net for every test: whatever a test started, its server is gone when the test ends,
+    even when an assertion failed before the test could stop it."""
+    yield
+    stop_leftover_app_servers(tmp_path)

@@ -277,16 +277,20 @@ def test_app_run_runtime_and_stop_commands(tmp_path: Path) -> None:
     port = _free_port()
 
     started = _run_project("app-run", "mentor-web", "--port", str(port), project=project)
-    runtime = _run_project("app-runtime", "mentor-web", project=project)
-    stopped = _run_project("app-stop", "mentor-web", project=project)
+    try:
+        runtime = _run_project("app-runtime", "mentor-web", project=project)
+        stopped = _run_project("app-stop", "mentor-web", project=project)
 
-    assert started.returncode == 0, started.stderr
-    assert "status: running" in started.stdout
-    assert f"port: {port}" in started.stdout
-    assert runtime.returncode == 0
-    assert "status: running" in runtime.stdout
-    assert stopped.returncode == 0
-    assert "status: stopped" in stopped.stdout
+        assert started.returncode == 0, started.stderr
+        assert "status: running" in started.stdout
+        assert f"port: {port}" in started.stdout
+        assert runtime.returncode == 0
+        assert "status: running" in runtime.stdout
+        assert stopped.returncode == 0
+        assert "status: stopped" in stopped.stdout
+    finally:
+        # Runs on assertion failure too: the server started by `app-run` must not outlive the test.
+        _run_project("app-stop", "mentor-web", project=project)
 
 
 def test_init_command_creates_dot_kaidf_in_current_project(
