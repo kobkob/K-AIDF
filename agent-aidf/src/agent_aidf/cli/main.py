@@ -6,6 +6,7 @@ import io
 import json
 import os
 import random
+import socket
 import sys
 import time
 from functools import partial
@@ -22,6 +23,7 @@ from textual.widgets import Input, Static
 from werkzeug.serving import BaseWSGIServer
 
 from .. import __version__
+from .. import webui as webui_module
 from ..appliance import ApplianceError, apply_notebook, write_template
 from ..audit import SEVERITY_ORDER, has_critical_findings, print_audit_report, run_audit
 from ..controller import (
@@ -150,6 +152,17 @@ def active_model_label() -> str:
         # pulled a real tag (AIDF_MODEL) — once it has, reflect that exact model.
         return explicit_local_model() or DEFAULT_LOCAL_MODEL
     return getattr(controller, "model", None) or DEFAULT_LOCAL_MODEL
+
+
+def _tcp_port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    """True when the web UI could bind host:port now. Mirrors the server's SO_REUSEADDR setting."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((host, port))
+        except OSError:
+            return False
+    return True
 
 
 def ui_port() -> int:
@@ -486,6 +499,14 @@ class KobAgentApp(App):
                 log_sink=self._log_from_thread,
                 on_server_ready=self._set_web_server,
             )
+        except (OSError, RuntimeError) as exc:
+            # The port was taken after the probe, or the assets vanished: report it, keep the TUI.
+            self.call_from_thread(
+                self._log,
+                _("The web UI could not start on port {port}: {error}").format(
+                    port=port, error=escape(str(exc))
+                ),
+            )
         finally:
             self._web_server = None
             self._web_url = None
@@ -497,9 +518,24 @@ class KobAgentApp(App):
         # The TUI has no --yolo-web opt-in; under KOB_YOLO, start it with `kob ui --yolo-web`.
         if is_yolo_enabled():
             return yolo_refusal_message()
+        if not webui_module.STATIC_DIR.is_dir():
+            return _(
+                "The web UI assets are missing ({path}). Run `npm run build` in "
+                "agent-aidf/webui/ first."
+            ).format(path=webui_module.STATIC_DIR)
         port = ui_port()
+        if not _tcp_port_is_free(port):
+            return _(
+                "Port {port} is already in use, so the web UI was not started. Free the port or "
+                "set AIDF_UI_PORT to another one."
+            ).format(port=port)
         self._web_url = f"http://127.0.0.1:{port}"
-        self.run_worker(partial(self._run_webui_worker, port), thread=True, group="webui")
+        self.run_worker(
+            partial(self._run_webui_worker, port),
+            thread=True,
+            group="webui",
+            exit_on_error=False,
+        )
         return _("Starting the web UI at {url} ...").format(url=self._web_url)
 
     def _stop_webui(self) -> str | None:
