@@ -14,9 +14,11 @@ from agent_aidf.tools import (
     apply_action,
     apply_run_shell_action,
     apply_write_action,
+    describe_action,
     extract_proposed_action,
     is_affirmative,
     resolve_safe_path,
+    resolve_shell_timeout,
 )
 
 
@@ -302,3 +304,69 @@ def test_action_protocol_instructions_show_a_closing_marker_for_every_example() 
     for example in examples:
         if ACTION_MARKER_START in example:
             assert ACTION_MARKER_END in example
+
+
+def _process_is_running(pid: int) -> bool:
+    """True only for a live process: a killed child that is still a zombie counts as gone."""
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
+            state = handle.read().rsplit(")", 1)[1].split()[0]
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+    return state != "Z"
+
+
+def test_resolve_shell_timeout_defaults_and_honours_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("KOB_SHELL_TIMEOUT_SECONDS", raising=False)
+    assert resolve_shell_timeout() == 600
+
+    monkeypatch.setenv("KOB_SHELL_TIMEOUT_SECONDS", "900")
+    assert resolve_shell_timeout() == 900
+
+
+@pytest.mark.parametrize("raw", ["", "soon", "0", "-5"])
+def test_resolve_shell_timeout_falls_back_on_invalid_values(
+    monkeypatch: pytest.MonkeyPatch, raw: str
+) -> None:
+    monkeypatch.setenv("KOB_SHELL_TIMEOUT_SECONDS", raw)
+    assert resolve_shell_timeout() == 600
+
+
+def test_describe_action_shows_the_time_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KOB_SHELL_TIMEOUT_SECONDS", "120")
+    prompt = describe_action(ProposedAction(kind="run_shell", command="kob gen"))
+    assert "time limit 120s" in prompt
+    assert "kob gen" in prompt
+
+
+def test_apply_run_shell_action_gets_no_stdin(tmp_path: Path) -> None:
+    # `cat` with no arguments blocks forever on a terminal; with stdin closed it exits at once.
+    action = ProposedAction(kind="run_shell", command="cat")
+
+    summary = apply_run_shell_action(tmp_path, action, timeout=10)
+
+    assert "exit code 0" in summary
+
+
+def test_apply_run_shell_action_tolerates_non_utf8_output(tmp_path: Path) -> None:
+    action = ProposedAction(kind="run_shell", command="printf '\\377\\376ok'")
+
+    summary = apply_run_shell_action(tmp_path, action)
+
+    assert "exit code 0" in summary
+    assert "ok" in summary
+
+
+def test_apply_run_shell_action_timeout_kills_background_children(tmp_path: Path) -> None:
+    pid_file = tmp_path / "child.pid"
+    # The shell starts a long-lived grandchild (like pip left running) and then waits on it.
+    action = ProposedAction(
+        kind="run_shell",
+        command=f"sleep 60 & echo $! > {pid_file}; wait",
+    )
+
+    summary = apply_run_shell_action(tmp_path, action, timeout=1)
+
+    assert "timed out" in summary
+    child_pid = int(pid_file.read_text(encoding="utf-8").strip())
+    assert not _process_is_running(child_pid)
