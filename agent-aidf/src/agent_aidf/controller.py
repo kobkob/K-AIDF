@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import re
@@ -10,6 +11,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Protocol
 from urllib import error, request
+from urllib.parse import urlsplit
 
 from .instant_apps import list_instant_apps, load_instant_app_runtime
 from .mentor import load_mentor_state
@@ -139,6 +141,33 @@ def _unavailable_reply(error_: ModelUnavailableError) -> str:
     )
 
 
+_URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+
+
+def normalize_base_url(value: str) -> str:
+    """Add http:// to a bare host such as 'localhost:11434', which OLLAMA_HOST is often set to."""
+    value = value.strip()
+    if value and not _URL_SCHEME_RE.match(value):
+        return f"http://{value}"
+    return value
+
+
+def _endpoint_url(base_url: str, path: str) -> str:
+    """Join base_url and path; raise ValueError unless the result is an http(s) URL."""
+    url = f"{normalize_base_url(base_url).rstrip('/')}{path}"
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        raise ValueError(f"{base_url!r} is not an http:// or https:// address")
+    return url
+
+
+def _error_body(exc: error.HTTPError) -> str:
+    try:
+        return exc.read().decode("utf-8", errors="replace")
+    except (OSError, http.client.HTTPException):
+        return ""
+
+
 def _send_with_retry(build_request: Callable[[], request.Request], *, service: str) -> bytes:
     """POST the request and return the response body, retrying transient failures."""
     attempts = len(RETRY_DELAYS_SECONDS) + 1
@@ -157,6 +186,10 @@ def _send_with_retry(build_request: Callable[[], request.Request], *, service: s
             reason = f"timed out after {_HTTP_TIMEOUT_SECONDS}s"
         except error.URLError as exc:
             reason = f"connection failed: {exc.reason}"
+        except http.client.HTTPException as exc:
+            # The server dropped the connection or sent a broken response mid-body
+            # (IncompleteRead, RemoteDisconnected, ...). Treat it as transient.
+            reason = f"malformed response: {exc}"
         except OSError as exc:
             reason = f"connection failed: {exc}"
     raise ModelUnavailableError(service, attempts, reason)
@@ -197,8 +230,13 @@ class OpenAIResponsesController:
             return intercepted
         repo = resolve_repo_root(repo_root)
         payload = self._build_payload(prompt, repo, instructions)
+        try:
+            url = _endpoint_url(self.base_url, "/responses")
+        except ValueError as exc:
+            self.last_usage = None
+            return f"OpenAI base URL is not usable: {exc}. Set OPENAI_BASE_URL to http(s)."
         http_request = request.Request(
-            url=f"{self.base_url.rstrip('/')}/responses",
+            url=url,
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {self.api_key}",
@@ -212,14 +250,16 @@ class OpenAIResponsesController:
             self.last_usage = None
             return _unavailable_reply(exc)
         except error.HTTPError as exc:
-            details = exc.read().decode("utf-8", errors="replace")
             self.last_usage = None
-            return f"OpenAI API error {exc.code}: {details}"
+            return f"OpenAI API error {exc.code}: {_error_body(exc)}"
         try:
             data = json.loads(body.decode("utf-8", errors="replace"))
         except json.JSONDecodeError as exc:
             self.last_usage = None
             return f"OpenAI API returned an unreadable response: {exc}"
+        if not isinstance(data, dict):
+            self.last_usage = None
+            return "OpenAI API returned an unexpected response (expected a JSON object)."
 
         self.previous_response_id = data.get("id")
         usage = data.get("usage")
@@ -296,8 +336,13 @@ class OllamaChatController:
             "options": {"temperature": self.temperature},
             "stream": False,
         }
+        try:
+            url = _endpoint_url(self.base_url, "/api/generate")
+        except ValueError as exc:
+            self.last_usage = None
+            return f"Ollama base URL is not usable: {exc}. Set OLLAMA_HOST to an http(s) address."
         http_request = request.Request(
-            url=f"{self.base_url.rstrip('/')}/api/generate",
+            url=url,
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -313,14 +358,19 @@ class OllamaChatController:
             self.last_usage = None
             return _unavailable_reply(exc)
         except error.HTTPError as exc:
-            details = exc.read().decode("utf-8", errors="replace")
             self.last_usage = None
-            return f"Ollama API error {exc.code} from {self.base_url}: {details}"
+            return f"Ollama API error {exc.code} from {self.base_url}: {_error_body(exc)}"
         try:
             data = json.loads(body.decode("utf-8", errors="replace"))
         except json.JSONDecodeError as exc:
             self.last_usage = None
             return f"Ollama at {self.base_url} returned an unreadable response: {exc}"
+        if not isinstance(data, dict):
+            self.last_usage = None
+            return (
+                f"Ollama at {self.base_url} returned an unexpected response "
+                "(expected a JSON object)."
+            )
 
         prompt_tokens = data.get("prompt_eval_count")
         completion_tokens = data.get("eval_count")
@@ -332,7 +382,9 @@ class OllamaChatController:
         else:
             self.last_usage = None
         text = data.get("response", "")
-        return _with_caveat(text.strip()) if text else "Ollama returned no text output."
+        if not isinstance(text, str):
+            text = ""
+        return _with_caveat(text.strip()) if text.strip() else "Ollama returned no text output."
 
 
 def explicit_local_model() -> str | None:
@@ -388,7 +440,7 @@ def build_controller() -> ChatController:
     # setting AIDF_CHAT_PROVIDER=openai.
     return OllamaChatController(
         model=resolve_local_model(),
-        base_url=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+        base_url=normalize_base_url(os.environ.get("OLLAMA_HOST", "")) or "http://localhost:11434",
     )
 
 
