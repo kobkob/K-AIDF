@@ -85,7 +85,11 @@ async function postMentor(answer: string | null): Promise<MentorResponse> {
 }
 
 async function postExit(): Promise<void> {
-  await fetch("/api/exit", { method: "POST", headers: { "X-KAIDF-Token": apiToken() } })
+  const response = await fetch("/api/exit", {
+    method: "POST",
+    headers: { "X-KAIDF-Token": apiToken() },
+  })
+  if (!response.ok) throw new Error(`POST /api/exit -> ${response.status}`)
 }
 
 function PhaseCard({ phase }: { phase: Phase }) {
@@ -207,10 +211,17 @@ export default function App() {
       if (trimmed === "/exit") {
         appendLog("> " + trimmed)
         setBusy(true)
-        await postExit()
-        appendLog("Session ended. You can close this tab.")
-        setExited(true)
-        setBusy(false)
+        try {
+          await postExit()
+          appendLog("Session ended. You can close this tab.")
+          setExited(true)
+        } catch (error) {
+          appendLog(
+            `Could not end the session: ${(error as Error).message}. The server may still be running; try /exit again.`,
+          )
+        } finally {
+          setBusy(false)
+        }
         return
       }
 
@@ -254,6 +265,8 @@ export default function App() {
 
   const onSubmit = (event: React.FormEvent) => {
     event.preventDefault()
+    // While a request is in flight, keep the typed text in the box so it can be sent afterwards.
+    if (busy || exited) return
     const text = input
     setInput("")
     runCommand(text)
