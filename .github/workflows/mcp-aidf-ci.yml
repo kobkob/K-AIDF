@@ -26,6 +26,9 @@ on:
       - "docs/**"
       - ".github/workflows/mcp-aidf-ci.yml"
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -34,22 +37,21 @@ jobs:
         working-directory: mcp-aidf
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint Markdown
-        run: npx --yes markdownlint-cli2 "**/*.md" "!**/node_modules/**"
+        run: npx --yes markdownlint-cli2@0.24.1 "**/*.md" "!**/node_modules/**"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest ruff "mcp>=2,<3"
+          pip install -r requirements-ci.txt
           # The maturity tools import the audit engine from agent-aidf (the image bundles it too).
-          pip install ../agent-aidf
+          pip install -c ../agent-aidf/constraints-ci.txt ../agent-aidf
 
       - name: Lint Python
         run: python -m ruff check .
@@ -74,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build and check the image
         run: bash mcp-aidf/scripts/check-image.sh

@@ -1,0 +1,2 @@
+# Lint tool pinned for CI; keep in step with the ruff pin in the other components.
+ruff==0.17.6

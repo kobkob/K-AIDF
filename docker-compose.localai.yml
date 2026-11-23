@@ -22,7 +22,7 @@
 #   "nvidia" device driver. Switch back to the CPU image to recover.
 services:
   localai:
-    image: localai/localai:latest-aio-cpu
+    image: localai/localai:latest-aio-cpu@sha256:4cbc20c59558ed6c1cae9bc3f6ae34d75d390b370aa8ac62a59327089fa56cec
     container_name: aidf-localai
     restart: unless-stopped
     environment:

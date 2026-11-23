@@ -15,6 +15,9 @@ on:
       - "kobkob-kaidf-generator/**"
       - ".github/workflows/kobkob-kaidf-generator-ci.yml"
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,18 +26,18 @@ jobs:
         working-directory: kobkob-kaidf-generator
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint Markdown
-        run: npx --yes markdownlint-cli2 "**/*.md" "!**/node_modules/**"
+        run: npx --yes markdownlint-cli2@0.24.1 "**/*.md" "!**/node_modules/**"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
       - name: Install package and dev tools
-        run: pip install -e ".[dev]"
+        run: pip install -c constraints-ci.txt -e ".[dev]"
 
       - name: Lint Python
         run: python -m ruff check .
