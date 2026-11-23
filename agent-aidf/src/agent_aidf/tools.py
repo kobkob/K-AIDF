@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -43,7 +44,11 @@ _TRAILING_MARKER_RE = re.compile(r"[\s<>]*(?:KOB_ACTION)?[\s<>]*")
 
 _SUPPORTED_ACTIONS = {"write_file", "run_shell"}
 
-_DEFAULT_SHELL_TIMEOUT_SECONDS = 30
+# Shell commands kob runs on the user's behalf can legitimately be slow (the first `kob gen`
+# bootstraps a virtualenv and pip-installs dependencies), so the default is generous. Override it
+# with KOB_SHELL_TIMEOUT_SECONDS; invalid or non-positive values fall back to the default.
+_SHELL_TIMEOUT_ENV_VAR = "KOB_SHELL_TIMEOUT_SECONDS"
+_DEFAULT_SHELL_TIMEOUT_SECONDS = 600
 
 # Text the model did not write (document excerpts, earlier answers, file names) goes into prompts
 # inside <untrusted>...</untrusted>, with < and > escaped. The escaping also keeps an action marker
@@ -219,12 +224,23 @@ def content_digest(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def resolve_shell_timeout() -> int:
+    """The time limit, in seconds, for a confirmed run_shell command."""
+    raw = os.environ.get(_SHELL_TIMEOUT_ENV_VAR, "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_SHELL_TIMEOUT_SECONDS
+    return value if value > 0 else _DEFAULT_SHELL_TIMEOUT_SECONDS
+
+
 def describe_action(action: ProposedAction, *, staged_path: str | None = None) -> str:
     """A human-readable confirmation prompt for a proposed action - shown to the user
     verbatim before anything is applied."""
     if action.kind == "run_shell":
         return (
-            f"Proposed action: run this shell command from the project root:\n"
+            f"Proposed action: run this shell command from the project root "
+            f"(time limit {resolve_shell_timeout()}s):\n"
             "---\n"
             f"{action.command}\n"
             "---\n"
@@ -303,11 +319,23 @@ def _check_write_target(root: Path, target: Path, requested: str) -> None:
         raise UnsafeActionPathError(f"{requested} is the action log")
 
 
+def _kill_process_group(process: subprocess.Popen) -> None:
+    """Kill the command and everything it spawned (e.g. a pip install started by `kob gen`)."""
+    if os.name == "posix":
+        try:
+            # The child was started in its own session, so its pid is also its process group id.
+            os.killpg(process.pid, signal.SIGKILL)
+            return
+        except OSError:
+            pass  # Already gone, or not a group leader: fall back to killing the child alone.
+    process.kill()
+
+
 def apply_run_shell_action(
     project_root: str | Path,
     action: ProposedAction,
     *,
-    timeout: int = _DEFAULT_SHELL_TIMEOUT_SECONDS,
+    timeout: int | None = None,
 ) -> str:
     """Run action.command in a shell, cwd'd to project_root.
 
@@ -316,26 +344,37 @@ def apply_run_shell_action(
     can affect anything the OS user running kob can touch. The confirmation step (or, in
     --yolo mode, the user's own decision to run without confirmation) is the whole safety
     boundary here, by design - matching what was asked for.
+
+    The command gets no stdin (so it cannot hang waiting for input), runs in its own process
+    group (so a timeout kills everything it started, not just the shell), and non-UTF-8 output
+    is decoded with replacement characters instead of raising.
     """
     if action.kind != "run_shell":
         raise ValueError(f"Unsupported action kind: {action.kind}")
     root = Path(project_root).expanduser().resolve()
+    limit = resolve_shell_timeout() if timeout is None else timeout
+    process = subprocess.Popen(
+        action.command,
+        shell=True,  # noqa: S602 - intentional: this tool's entire purpose is running a
+        # user-confirmed, model-proposed shell command; the command IS the trusted payload.
+        cwd=root,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+        start_new_session=os.name == "posix",
+    )
     try:
-        result = subprocess.run(
-            action.command,
-            shell=True,  # noqa: S602 - intentional: this tool's entire purpose is running a
-            # user-confirmed, model-proposed shell command; the command IS the trusted payload.
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        stdout, stderr = process.communicate(timeout=limit)
     except subprocess.TimeoutExpired:
-        return f"Command timed out after {timeout}s: {action.command}"
-    output = ((result.stdout or "") + (result.stderr or "")).strip()
+        _kill_process_group(process)
+        process.communicate()  # Reap the child and drain its pipes.
+        return f"Command timed out after {limit}s and was stopped: {action.command}"
+    output = ((stdout or "") + (stderr or "")).strip()
     if len(output) > _PREVIEW_CHARS:
         output = output[:_PREVIEW_CHARS] + "\n... (truncated)"
-    summary = f"Ran `{action.command}` (exit code {result.returncode})."
+    summary = f"Ran `{action.command}` (exit code {process.returncode})."
     return f"{summary}\n{output}" if output else summary
 
 
