@@ -3,7 +3,7 @@
 # mcp-aidf/docker-compose.yml and deploy/easypanel/easypanel.json set this context.
 
 # Stage 1: build the agent-aidf wheel. Nothing from this stage but the wheel reaches the runtime.
-FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS builder
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -14,7 +14,7 @@ COPY agent-aidf /src/agent-aidf
 RUN python -m build --wheel --outdir /dist /src/agent-aidf
 
 # Stage 2: the runtime image.
-FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
