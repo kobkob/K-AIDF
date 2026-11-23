@@ -1,0 +1,28 @@
+# Keeps the pinned GitHub Actions, Python constraints, and Docker base images current.
+# Each update arrives as a pull request, so a new pin is reviewed before it is merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: "/agent-aidf"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: "/kobkob-kaidf-generator"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: "/mcp-aidf"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: "/mcp-aidf"
+    schedule:
+      interval: weekly

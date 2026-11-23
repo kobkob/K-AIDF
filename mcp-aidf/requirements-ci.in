@@ -1,0 +1,5 @@
+# Test and lint tools for the CI job; the runtime pins come from requirements.txt.
+-r requirements.txt
+mcp>=2,<3
+pytest
+ruff==0.17.6
