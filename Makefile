@@ -10,7 +10,7 @@ export PROMPT
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
 	mcp-up mcp-down mcp-logs \
-	workspace-up workspace-down workspace-logs workspace-localai workspace-localai-down \
+	workspace-up workspace-down workspace-logs workspace-mcp-up workspace-localai workspace-localai-down \
 	check-version bump-version
 
 help:
@@ -48,6 +48,7 @@ help:
 	@echo "make workspace-up     Install/start the local OLMo-over-Ollama Docker stack, sized to this machine"
 	@echo "make workspace-down   Stop the local OLMo/Ollama stack"
 	@echo "make workspace-logs   Tail the local OLMo/Ollama stack logs"
+	@echo "make workspace-mcp-up Start the local MCP server on :8080 (needs SECRET_KEY and MCP_BEARER_TOKEN in .env)"
 	@echo "make workspace-localai Start the LocalAI (OpenAI-compatible) stack and wait until its API is ready"
 	@echo "make workspace-localai-down Stop the LocalAI stack"
 	@echo "make check-version    Check the four version sites and changelogs against VERSION=x.y.z (what the release workflow verifies)"
@@ -155,7 +156,11 @@ agent-app-stop:
 	@$(MAKE) ensure-generated-repo >/dev/null && source ./scripts/load-agent-env.sh && cd agent-aidf && bash scripts/bootstrap.sh && PYTHONPATH=src .venv/bin/python -m agent_aidf.legacy_cli --repo "$$AIDF_REPO_ROOT" app-stop "$(APP)"
 
 mcp-up:
-	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose up --build -d
+	@source ./scripts/load-mcp-env.sh >/dev/null && \
+	if [[ -z "$$SECRET_KEY" || -z "$$MCP_BEARER_TOKEN" ]]; then \
+		echo "mcp-up needs SECRET_KEY and MCP_BEARER_TOKEN in .env. Copy .env.example to .env and fill them in (the MCP block in .env.example shows how)."; exit 1; \
+	fi && \
+	cd mcp-aidf && docker compose up --build -d
 
 mcp-down:
 	@source ./scripts/load-mcp-env.sh && cd mcp-aidf && docker compose down
@@ -171,6 +176,14 @@ workspace-down:
 
 workspace-logs:
 	@docker compose -f docker-compose.local.yml logs -f
+
+workspace-mcp-up:
+	@$(MAKE) ensure-generated-repo >/dev/null && \
+	source ./scripts/load-mcp-env.sh >/dev/null && \
+	if [[ -z "$$SECRET_KEY" || -z "$$MCP_BEARER_TOKEN" ]]; then \
+		echo "workspace-mcp-up needs SECRET_KEY and MCP_BEARER_TOKEN in .env. Copy .env.example to .env and fill them in (the MCP block in .env.example shows how)."; exit 1; \
+	fi && \
+	docker compose -f docker-compose.local.yml --profile mcp up -d --build mcp-server
 
 workspace-localai:
 	@mkdir -p models && \

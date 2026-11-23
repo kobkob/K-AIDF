@@ -102,7 +102,8 @@ make agent-ui                        # kob ui (web UI)
 make agent-packs                     # legacy CLI: doctrine packs
 make agent-apps                      # legacy CLI: list instant apps
 make agent-app-run APP=<id> [PORT=...]  # legacy CLI: start a web instant app
-make mcp-up / mcp-down / mcp-logs    # Docker Compose control for mcp-aidf
+make mcp-up / mcp-down / mcp-logs    # Docker Compose control for mcp-aidf (needs SECRET_KEY and MCP_BEARER_TOKEN in .env)
+make workspace-mcp-up                # MCP server in the local stack on :8080 (same .env requirement)
 make workspace-up / workspace-down / workspace-logs  # Docker Compose control for the local OLMo/Ollama stack
 make agent-tui                       # kob (interactive TUI, no subcommand)
 ```

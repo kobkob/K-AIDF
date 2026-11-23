@@ -27,3 +27,7 @@ export OPENAI_MODEL="${OPENAI_MODEL:-gpt-5}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
 # No default: docker-compose.yml fails fast when SECRET_KEY is empty.
 export SECRET_KEY="${SECRET_KEY:-}"
+# Read by the MCP server through docker compose; without the export a value set in .env stays
+# in the shell and compose never sees it.
+export MCP_BEARER_TOKEN="${MCP_BEARER_TOKEN:-}"
+export MCP_TOKEN_SCOPES="${MCP_TOKEN_SCOPES:-}"
