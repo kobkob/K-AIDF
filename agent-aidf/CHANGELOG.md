@@ -15,6 +15,8 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Security
 
 - Web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once; it starts a session with an HttpOnly, SameSite=Strict cookie. `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
+- Extensions: header values with control characters (ESC, CSI, OSC) are rejected, and the consent prompt escapes every field. The loader enforces the declared `Entrypoints`, and the consent prompt shows the entrypoints and topics (#128)
+- Extension downloads check every redirect hop: each must be https and keep the `.tgz` name. Archives are inspected in one pass, so a member whose declared size breaks the limit is refused before it is decompressed (#128)
 
 ### Changed
 
@@ -34,6 +36,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - `kob shell`: an apostrophe in `chat` or `find` text is kept, other unclosed quotes get a short explanation, and Ctrl+C cancels the line or the running command without ending the session (#123)
 - `/ui`: a busy port or missing web assets is reported in the TUI, which keeps running; errors from the web UI worker no longer end the TUI (#124)
 - Web UI: pressing Enter during a request keeps the typed text, and a failed `/exit` is reported instead of showing "Session ended" (#125)
+- Tests that start an instant-app server stop it when the test ends, even after a failed assertion (#126)
 
 ## [0.6.3] - 2026-11-17
 

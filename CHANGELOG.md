@@ -16,6 +16,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 
 - `agent-aidf` web UI: the API token is no longer served to any loopback client. Open the URL that `kob` prints (`/?token=...`) once to start a session; `GET /api/status` requires that session or the `X-KAIDF-Token` header (#114)
 - `kobkob-kaidf-generator`: `repo.name` must be a single directory name, and the target is resolved inside `--out` before anything is created, so a spec cannot write outside it (#117)
+- `agent-aidf`: extension hardening: header values with control characters, including ESC and CSI/OSC sequences, are rejected; the consent prompt escapes every field and shows the entrypoints and topics; the loader drops contributions outside the declared `Entrypoints`; download redirects are checked at every hop; archives are inspected in one pass and refused before a member is decompressed past the limit (#128)
+- CI: the three component workflows declare `permissions: contents: read`, pin actions by commit SHA, pin markdownlint-cli2 to 0.24.1 and the `mcp-aidf` and LocalAI base images by digest, and install Python dependencies from lock files (ruff pinned to 0.17.6). Dependabot tracks the pins (#127)
 
 ### Changed
 
@@ -27,6 +29,7 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `kobkob-kaidf-generator`: the default spec ships inside the package (`kaidf_gen/specs/`), identical to `specs/kaidf.default.yaml` (#16)
 - `agent-aidf` web UI: under `KOB_YOLO` the web UI refuses to start unless `kob ui --yolo-web` is passed, and the TUI does not start it under yolo (#114)
 - `agent-aidf` README: the legacy "AI Controller" section describes provider selection, model precedence and the new commands (#21)
+- `make mcp-up` and the new `make workspace-mcp-up` refuse to start without `SECRET_KEY` and `MCP_BEARER_TOKEN` in `.env`, and say how to set them. `make workspace-up` starts only the Ollama stack; the local MCP server is in the `mcp` profile and is started by `make workspace-mcp-up` (#9)
 
 ### Fixed
 
@@ -39,7 +42,8 @@ The format is based on Keep a Changelog and the workspace follows SemVer while i
 - `agent-aidf` `kob shell`: an apostrophe in `chat` or `find` text is kept, other unclosed quotes get a short explanation, and Ctrl+C cancels the line or the running command without ending the session (#123)
 - `agent-aidf` `/ui`: a busy port or missing web assets is reported in the TUI, which keeps running; errors from the web UI worker no longer end the TUI (#124)
 - `agent-aidf` web UI: pressing Enter during a request keeps the typed text, and a failed `/exit` is reported instead of showing "Session ended" (#125)
-
+- `agent-aidf` tests: an instant-app server started by a test is stopped when the test ends, including after a failed assertion, so no process or port is left behind (#126)
+- `make mcp-up` could not start from the documented `.env` setup: `MCP_BEARER_TOKEN` was missing from the workspace template and was not exported to compose (#9)
 
 ## [0.6.3] - 2026-11-17
 

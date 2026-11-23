@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 - `metadata_defaults` apply only to Markdown files: CSV, JSON and other files no longer fail at write time because of inherited front matter. A non-Markdown file that declares its own `front_matter` is rejected by `validate` (#118)
 - The default spec merges its duplicate `docs/10-maturity-model` and `docs/20-ethical-model` sections; the generated tree is unchanged (#118)
+- CI installs the package and dev tools from `constraints-ci.txt`, a lock file compiled with pip-compile, and pins ruff to 0.17.6 (#127)
 
 ## [0.6.3] - 2026-11-17
 

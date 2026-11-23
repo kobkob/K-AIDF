@@ -9,6 +9,7 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Changed
 
 - Tool execution failures (unknown document, scope refusal, missing engine, unconfigured or outside-root repository path) return a `tools/call` result with `isError: true` in HTTP 200, instead of HTTP 403, 404, 503 or 500. An unexpected exception inside `tools/call` gets the same result with a generic message. JSON-RPC protocol errors also travel in HTTP 200; authentication, rate limiting and oversize bodies keep their statuses (#116)
+- The image builds from `python:3.11-slim` pinned by digest, and CI installs from `requirements-ci.txt`, a lock file that includes the test tools (#127)
 
 ## [0.6.3] - 2026-11-17
 
