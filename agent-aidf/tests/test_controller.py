@@ -607,3 +607,180 @@ def test_model_unavailable_detection_ignores_normal_replies() -> None:
     assert is_model_unavailable_reply(f"{MODEL_UNAVAILABLE_PREFIX} anything")
     assert not is_model_unavailable_reply("Here is my answer.")
     assert not is_model_unavailable_reply("OpenAI API error 401: details")
+
+
+class _FakeResponse:
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def __enter__(self) -> _FakeResponse:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self._body
+
+
+def _fail_if_called(*args, **kwargs):
+    raise AssertionError("no request should be sent for an unusable URL")
+
+
+def test_build_controller_adds_http_to_a_bare_ollama_host(monkeypatch) -> None:
+    monkeypatch.delenv("AIDF_CHAT_PROVIDER", raising=False)
+    monkeypatch.setenv("OLLAMA_HOST", "localhost:11434")
+
+    controller = build_controller()
+
+    assert controller.base_url == "http://localhost:11434"
+
+
+def test_ollama_controller_accepts_a_schemeless_base_url(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    seen: list[str] = []
+
+    def _answer(http_request, timeout):
+        seen.append(http_request.full_url)
+        return _FakeResponse(json.dumps({"response": "hi"}).encode("utf-8"))
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _answer)
+    controller = OllamaChatController(base_url="localhost:11434")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert seen == ["http://localhost:11434/api/generate"]
+    assert "hi" in reply
+
+
+@pytest.mark.parametrize("base_url", ["ftp://models.local", "file:///etc/passwd", "http://"])
+def test_ollama_controller_rejects_non_http_urls_without_sending(
+    tmp_path: Path, monkeypatch, base_url: str
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    monkeypatch.setattr(controller_module.request, "urlopen", _fail_if_called)
+    controller = OllamaChatController(base_url=base_url)
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "not usable" in reply
+    assert not is_model_unavailable_reply(reply)
+
+
+@pytest.mark.parametrize("base_url", ["ftp://api.example.com", "http://"])
+def test_openai_controller_rejects_non_http_urls_without_sending(
+    tmp_path: Path, monkeypatch, base_url: str
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    monkeypatch.setattr(controller_module.request, "urlopen", _fail_if_called)
+    controller = OpenAIResponsesController(api_key="test-key", base_url=base_url)
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "not usable" in reply
+
+
+def test_ollama_controller_retries_an_incomplete_body_without_raising(
+    tmp_path: Path, monkeypatch, _record_backoff_sleeps: list[float]
+) -> None:
+    import http.client
+
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def _drop_mid_body(*args, **kwargs):
+        raise http.client.IncompleteRead(b"partial")
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _drop_mid_body)
+    controller = OllamaChatController()
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert is_model_unavailable_reply(reply)
+    assert "malformed response" in reply
+    assert _record_backoff_sleeps == [1.0, 2.0]
+
+
+def test_openai_controller_reports_remote_disconnect_without_raising(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import http.client
+
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    def _disconnect(*args, **kwargs):
+        raise http.client.RemoteDisconnected("closed")
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _disconnect)
+    controller = OpenAIResponsesController(api_key="test-key")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert is_model_unavailable_reply(reply)
+
+
+def test_non_transient_http_error_with_broken_body_does_not_raise(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import http.client
+
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+    class _BrokenBody(io.BytesIO):
+        def read(self, *args, **kwargs):
+            raise http.client.IncompleteRead(b"")
+
+    def _unauthorized(http_request, timeout):
+        raise error.HTTPError(http_request.full_url, 401, "Unauthorized", {}, _BrokenBody())
+
+    monkeypatch.setattr(controller_module.request, "urlopen", _unauthorized)
+    controller = OpenAIResponsesController(api_key="bad-key")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert reply.startswith("OpenAI API error 401")
+
+
+@pytest.mark.parametrize("payload", [b"[]", b'"just a string"', b"42", b"null"])
+def test_ollama_controller_rejects_non_object_json(
+    tmp_path: Path, monkeypatch, payload: bytes
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    monkeypatch.setattr(
+        controller_module.request, "urlopen", lambda *a, **k: _FakeResponse(payload)
+    )
+    controller = OllamaChatController()
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "expected a JSON object" in reply
+
+
+@pytest.mark.parametrize("payload", [b"[]", b"null"])
+def test_openai_controller_rejects_non_object_json(
+    tmp_path: Path, monkeypatch, payload: bytes
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    monkeypatch.setattr(
+        controller_module.request, "urlopen", lambda *a, **k: _FakeResponse(payload)
+    )
+    controller = OpenAIResponsesController(api_key="test-key")
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert "expected a JSON object" in reply
+
+
+def test_ollama_controller_treats_non_string_response_as_no_output(
+    tmp_path: Path, monkeypatch
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    monkeypatch.setattr(
+        controller_module.request,
+        "urlopen",
+        lambda *a, **k: _FakeResponse(json.dumps({"response": ["not", "text"]}).encode()),
+    )
+    controller = OllamaChatController()
+
+    reply = controller.chat("hello", tmp_path)
+
+    assert reply == "Ollama returned no text output."
