@@ -255,6 +255,25 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
             Example("kob scan --yes", "Write the drafts, corpus and dataset without asking."),
         ),
     ),
+    "review": CommandDoc(
+        description=(
+            "Ask the active model to revise one project document, following your instruction. "
+            "It shows the change as a unified diff. Nothing is written until you confirm; "
+            "declining leaves the file untouched. The path must stay inside the project. Every "
+            "applied edit is logged in .kaidf/action-log.jsonl with the model used. Works with "
+            "local providers, so the document does not leave the machine."
+        ),
+        examples=(
+            Example(
+                "kob review docs/01-basics/scope.md 'tighten the scope section'",
+                "Propose a revision, show the diff, and ask before writing.",
+            ),
+            Example(
+                "kob review docs/01-basics/scope.md 'fix typos' --yes",
+                "Write the revision without asking (same rule as kob scan --yes).",
+            ),
+        ),
+    ),
     "menu": CommandDoc(
         description=(
             "A numbered menu over the everyday commands: status, mentor, models, scan and audit. "

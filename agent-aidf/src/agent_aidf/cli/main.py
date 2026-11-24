@@ -850,6 +850,22 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     appliance_template.add_argument("out", metavar="FILE.ipynb")
     appliance_template.add_argument("--force", action="store_true")
 
+    review_parser = command_parser(
+        subparsers,
+        "review",
+        help=_("Revise a project document with the active model. Shows a diff; writes on confirm."),
+    )
+    review_parser.add_argument("path", help=_("Document to revise, relative to the project."))
+    review_parser.add_argument(
+        "instruction", help=_("What to change, for example 'tighten the scope section'.")
+    )
+    review_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help=_("Write the change without asking. Same confirmation rule as kob scan --yes."),
+    )
+    _add_model_option(review_parser)
+
     help_parser = command_parser(
         subparsers, "help", help=_("Show the command list, or the help of one command.")
     )
@@ -1145,6 +1161,59 @@ def _run_menu(project_root: Path, repo_override: str | None) -> int:
     return run_menu(actions, interactive=interactive)
 
 
+def _run_review_command(
+    project_root: Path, path: str, instruction: str, *, assume_yes: bool
+) -> int:
+    """`kob review`: propose a revision, show the diff, and write only after confirmation."""
+    from ..controller import build_controller
+    from ..review import ReviewError, propose_revision, run_review
+
+    try:
+        scaffold = resolve_mentor_repo_root(project_root)
+    except MentorNotInitializedError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    yolo = is_yolo_enabled()
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    if not (assume_yes or yolo or interactive):
+        print(
+            "kob review: confirming the change needs a terminal. Run it in one, or pass --yes.",
+            file=sys.stderr,
+        )
+        return 2
+
+    controller = build_controller()
+
+    def ask(prompt: str, instructions: str) -> str:
+        return controller.chat(prompt, scaffold, instructions=instructions)
+
+    def confirm(prompt: str) -> bool:
+        if assume_yes or yolo:
+            return True
+        try:
+            return input(prompt).strip().lower() in {"y", "yes"}
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return False
+
+    try:
+        proposal = propose_revision(project_root, path, instruction, ask)
+        if proposal.changed:
+            print(proposal.diff)
+        outcome = run_review(
+            project_root,
+            scaffold,
+            proposal,
+            confirm=confirm,
+            model=active_model_label(),
+        )
+    except ReviewError as exc:
+        print(f"kob review: {exc}", file=sys.stderr)
+        return 1
+    print(outcome)
+    return 0
+
+
 def _run_tui(args: argparse.Namespace) -> int:
     """Open the interactive TUI for the global --project and --repo options."""
     try:
@@ -1220,6 +1289,9 @@ def _run_cli(argv: list[str]) -> int:
 
     if args.command == "menu":
         return _run_menu(project_root, args.repo)
+
+    if args.command == "review":
+        return _run_review_command(project_root, args.path, args.instruction, assume_yes=args.yes)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 
