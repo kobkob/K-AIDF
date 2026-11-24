@@ -19,6 +19,7 @@ from werkzeug.serving import BaseWSGIServer, make_server
 from .i18n import _
 from .maturity import phase_progress, phase_snapshot
 from .mentor import continue_mentor_workflow
+from .model_setup import status_summary as model_setup_status
 from .project import MentorNotInitializedError, read_project_status, resolve_mentor_repo_root
 from .tools import is_yolo_enabled
 
@@ -95,6 +96,8 @@ def _status_payload(project_root: Path, repo_root: Path) -> dict:
         "current_phase": current,
         "total_phases": total,
         "phases": phase_snapshot(status),
+        # The active model-setup profile (mood, RAG/QLoRA, fallback), or None without one.
+        "model_setup": model_setup_status(repo_root),
         "yolo": is_yolo_enabled(),
     }
 

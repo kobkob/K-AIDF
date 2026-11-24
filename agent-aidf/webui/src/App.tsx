@@ -17,6 +17,20 @@ interface Phase {
   state: PhaseState
 }
 
+interface ModelSetup {
+  valid: boolean
+  error?: string
+  name?: string
+  mood?: string
+  strategy?: string
+  rag_enabled?: boolean
+  qlora_enabled?: boolean
+  qlora_ready?: boolean
+  fallback_active?: boolean
+  fallback_reason?: string | null
+  blocked_reason?: string | null
+}
+
 interface Status {
   project_root: string
   repo_root: string
@@ -28,7 +42,37 @@ interface Status {
   current_phase: number
   total_phases: number
   phases: Phase[]
+  model_setup?: ModelSetup | null
   yolo: boolean
+}
+
+// The active model-setup profile: who the model is, what grounding it uses, and any fallback.
+function ModelSetupLine({ setup }: { setup: ModelSetup | null | undefined }) {
+  if (!setup) {
+    return <p className="text-xs text-muted-foreground">No model-setup profile in this project.</p>
+  }
+  if (!setup.valid) {
+    return (
+      <p className="text-xs text-destructive">model-setup.json is invalid: {setup.error}</p>
+    )
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="Active model setup">
+      <Badge variant="outline">{setup.name}</Badge>
+      <Badge variant="outline">mood: {setup.mood}</Badge>
+      <Badge variant="outline">strategy: {setup.strategy}</Badge>
+      <Badge variant={setup.rag_enabled ? "default" : "secondary"}>
+        RAG {setup.rag_enabled ? "on" : "off"}
+      </Badge>
+      <Badge variant={setup.qlora_enabled ? "default" : "secondary"}>
+        QLoRA {setup.qlora_enabled ? (setup.qlora_ready ? "ready" : "not ready") : "off"}
+      </Badge>
+      {setup.fallback_active && (
+        <span className="font-semibold text-destructive">fallback: {setup.fallback_reason}</span>
+      )}
+      {setup.blocked_reason && <span className="text-destructive">blocked: {setup.blocked_reason}</span>}
+    </div>
+  )
 }
 
 interface MentorResponse extends Status {
@@ -291,6 +335,7 @@ export default function App() {
               : "Loading status..."}
           </CardDescription>
           <Progress value={status ? (status.current_phase / status.total_phases) * 100 : 0} />
+          {status && <ModelSetupLine setup={status.model_setup} />}
         </CardHeader>
       </Card>
 
