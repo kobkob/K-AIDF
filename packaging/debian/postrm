@@ -1,0 +1,15 @@
+#!/bin/sh
+# Debian maintainer script. The virtualenv is generated, not a package file, so it is removed only
+# on purge. A plain remove or an upgrade keeps it. Project .kaidf/ and ~/.config/kaidf are never
+# touched here.
+set -e
+
+KAIDF_HOME="${KAIDF_HOME:-/usr/lib/kaidf}"
+
+case "$1" in
+  purge)
+    rm -rf "$KAIDF_HOME/venv"
+    ;;
+esac
+
+exit 0

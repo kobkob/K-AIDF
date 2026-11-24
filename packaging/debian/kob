@@ -4,14 +4,37 @@
 # Project state lives in each project's .kaidf/ and user settings in ~/.config/kaidf. This
 # launcher reads neither path to decide where the code is, and the package never ships them,
 # so an upgrade or a removal leaves them untouched.
+#
+# The Python libraries come from a private virtualenv (/usr/lib/kaidf/venv, made by the package's
+# postinst from requirements.txt), because the distributions' own packages are older than the
+# versions the agent needs (for example python3-textual 0.1.x on Ubuntu 22.04). If the venv is
+# missing or incomplete, the launcher says how to fix it and exits 1, instead of a traceback.
 set -e
 
 KAIDF_HOME="${KAIDF_HOME:-/usr/lib/kaidf}"
-KAIDF_PYTHON="${KAIDF_PYTHON:-/usr/bin/python3}"
+KAIDF_VENV="${KAIDF_VENV:-$KAIDF_HOME/venv}"
+if [ -z "$KAIDF_PYTHON" ]; then
+  if [ -x "$KAIDF_VENV/bin/python" ]; then
+    KAIDF_PYTHON="$KAIDF_VENV/bin/python"
+  else
+    KAIDF_PYTHON=/usr/bin/python3
+  fi
+fi
 KAIDF_GENERATOR_DIR="${KAIDF_GENERATOR_DIR:-$KAIDF_HOME/generator}"
 export KAIDF_GENERATOR_DIR
+
+# find_spec locates a module without importing it, so the check stays fast.
+if ! "$KAIDF_PYTHON" -c '
+import importlib.util, sys
+names = ["yaml", "jsonschema", "flask", "werkzeug", "rich", "textual", "pyperclip"]
+sys.exit(0 if all(importlib.util.find_spec(n) for n in names) else 1)
+' 2>/dev/null; then
+  echo "kob: the Python libraries are not installed for $KAIDF_PYTHON." >&2
+  echo "kob: run  sudo $KAIDF_HOME/install-deps.sh  (needs network once), then try again." >&2
+  exit 1
+fi
 
 PYTHONPATH="$KAIDF_HOME/agent/src${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONPATH
 
-exec "$KAIDF_PYTHON" -m agent_aidf.cli.main "$@"
+exec "$KAIDF_PYTHON" -c 'import sys; from agent_aidf.cli.main import main; sys.exit(main())' "$@"

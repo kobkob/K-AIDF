@@ -4,10 +4,13 @@
 # Usage: packaging/debian/build-deb.sh [OUT_DIR]     (default OUT_DIR: <repo>/dist)
 #
 # Layout inside the package:
-#   /usr/bin/kob                          launcher (see kob in this directory)
-#   /usr/lib/kaidf/agent/src/agent_aidf   the agent
-#   /usr/lib/kaidf/generator/src/kaidf_gen the generator, found via KAIDF_GENERATOR_DIR
-#   /usr/share/doc/kaidf/copyright        the license
+#   /usr/bin/kob                             launcher (see kob in this directory)
+#   /usr/lib/kaidf/agent/src/agent_aidf      the agent
+#   /usr/lib/kaidf/generator/src/kaidf_gen   the generator, found via KAIDF_GENERATOR_DIR
+#   /usr/lib/kaidf/requirements.txt          libraries for the private virtualenv
+#   /usr/lib/kaidf/install-deps.sh           creates /usr/lib/kaidf/venv (run by postinst)
+#   /usr/share/doc/kaidf/copyright           the license
+# The virtualenv itself is made at install time, not packed here.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,8 +43,13 @@ cp -r "$root/kobkob-kaidf-generator/src/kaidf_gen" "$pkg/usr/lib/kaidf/generator
 find "$pkg/usr/lib/kaidf" -name __pycache__ -type d -prune -exec rm -rf {} +
 
 install -m 0755 "$here/kob" "$pkg/usr/bin/kob"
+printf '%s\n' "$version" > "$pkg/usr/lib/kaidf/agent/src/agent_aidf/PACKAGED_VERSION"
+install -m 0644 "$here/requirements.txt" "$pkg/usr/lib/kaidf/requirements.txt"
+install -m 0755 "$here/install-deps.sh" "$pkg/usr/lib/kaidf/install-deps.sh"
 install -m 0644 "$root/LICENSE" "$pkg/usr/share/doc/kaidf/copyright"
 sed "s/@VERSION@/$version/" "$here/control.in" > "$pkg/DEBIAN/control"
+install -m 0755 "$here/postinst" "$pkg/DEBIAN/postinst"
+install -m 0755 "$here/postrm" "$pkg/DEBIAN/postrm"
 
 mkdir -p "$out"
 deb="$out/kaidf_${version}_all.deb"
