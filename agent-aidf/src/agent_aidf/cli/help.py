@@ -240,6 +240,21 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
             Example("kob help ext list", "Full help for a nested subcommand."),
         ),
     ),
+    "scan": CommandDoc(
+        description=(
+            "Bootstrap a project from the files it already has. It reads the project tree (git's "
+            "view, so .gitignore applies), detects languages, manifests, CI and apps, and chunks "
+            "the Markdown and code. It drafts the discovery and design documents, builds a RAG "
+            "corpus and a synthetic QLoRA dataset under .kaidf/, and points model-setup.json at "
+            "them. A credential in any file stops the scan, and only the kind is reported. "
+            "Nothing is written without confirmation."
+        ),
+        examples=(
+            Example("kob scan --dry-run", "Show what would be written; write nothing."),
+            Example("kob scan --json", "Print the plan as JSON; write nothing."),
+            Example("kob scan --yes", "Write the drafts, corpus and dataset without asking."),
+        ),
+    ),
     "models": CommandDoc(
         description=(
             "List the models the active inference provider serves, from its /v1/models. The "

@@ -725,6 +725,21 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         help=_("Print the provider, the active model and the model list as JSON."),
     )
 
+    scan_parser = command_parser(
+        subparsers,
+        "scan",
+        help=_("Bootstrap the project's docs, RAG corpus and QLoRA dataset from its files."),
+    )
+    scan_parser.add_argument(
+        "--dry-run", action="store_true", help=_("Show what would be written; write nothing.")
+    )
+    scan_parser.add_argument(
+        "--json", action="store_true", help=_("Print the scan plan as JSON; write nothing.")
+    )
+    scan_parser.add_argument(
+        "--yes", action="store_true", help=_("Write the outputs without asking first.")
+    )
+
     # Workspace commands (docs, contracts, instant apps, chat) are first-class root subcommands.
     add_workspace_subcommands(
         subparsers,
@@ -978,6 +993,57 @@ def _run_appliance_command(args: argparse.Namespace, project_root: Path) -> int:
     return 0
 
 
+def _run_scan(project_root: Path, *, dry_run: bool, as_json: bool, assume_yes: bool) -> int:
+    """`kob scan`: extract, then draft and fork after confirmation. A credential blocks it all."""
+    from ..scan import ScanError, compute, extract, write_outputs
+
+    scaffold = project_repo_root(project_root)
+    if not scaffold.is_dir():
+        print(f"kob scan needs a .kaidf/ in {project_root}. Run `kob init` first.", file=sys.stderr)
+        return 2
+    plan = extract(project_root, scaffold)
+    compute(plan, scaffold)
+    if as_json:
+        print(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False))
+    if plan.is_blocked:
+        if not as_json:
+            for path, kinds in sorted(plan.blocked.items()):
+                print(f"blocked: {path} contains a credential ({'; '.join(kinds)})")
+            print("nothing was written. Remove the credentials and run kob scan again.")
+        return 1
+    if not as_json:
+        print(f"Scanned {plan.files_seen} files in {project_root.name}.")
+        print(f"  languages: {', '.join(sorted(plan.languages)) or 'none detected'}")
+        print(f"  manifests: {len(plan.manifests)}, CI workflows: {len(plan.ci_workflows)}")
+        print(f"  apps: {', '.join(plan.apps) or 'none detected'}")
+        print(f"  chunks for the RAG corpus and QLoRA dataset: {len(plan.chunks)}")
+        print(f"  withheld by visibility: {len(plan.withheld)}")
+        for rel in sorted(plan.drafts):
+            print(f"  draft: {rel}")
+        for rel, why in sorted(plan.skipped_drafts.items()):
+            print(f"  not drafted: {rel} ({why})")
+    if dry_run:
+        if not as_json:
+            print("Dry run: nothing was written.")
+        return 0
+    if not assume_yes:
+        if as_json or not sys.stdin.isatty():
+            if not as_json:
+                print("Re-run with --yes to write these files.", file=sys.stderr)
+            return 0 if as_json else 2
+        if input("Write these files? [y/N] ").strip().lower() not in {"y", "yes"}:
+            print("Nothing was written.")
+            return 0
+    try:
+        written = write_outputs(plan, scaffold)
+    except ScanError as exc:
+        print(f"kob scan: {exc}", file=sys.stderr)
+        return 1
+    if not as_json:
+        print("Wrote: " + ", ".join(written))
+    return 0
+
+
 def _run_models(*, as_json: bool) -> int:
     """`kob models`: what the active provider serves. Failures are one line, never a traceback."""
     try:
@@ -1050,6 +1116,14 @@ def _run_cli(argv: list[str]) -> int:
     if args.command == "help":
         return run_help(parser, args.topic)
     project_root = resolve_project_root(args.project)
+
+    if args.command == "scan":
+        return _run_scan(
+            project_root,
+            dry_run=args.dry_run,
+            as_json=args.json,
+            assume_yes=args.yes,
+        )
 
     if args.command == "init":
         try:
