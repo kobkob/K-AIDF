@@ -41,7 +41,13 @@ from ..generator_bridge import (
 )
 from ..i18n import _
 from ..maturity import phase_progress, phase_snapshot
-from ..mentor import continue_mentor_workflow, mentor_status_text, reset_mentor_state
+from ..mentor import (
+    continue_mentor_workflow,
+    mentor_status_text,
+    mentor_transcript_data,
+    mentor_transcript_text,
+    reset_mentor_state,
+)
 from ..model_setup import status_summary as model_setup_status
 from ..ports import parse_tcp_port, tcp_port_argument
 from ..project import (
@@ -706,6 +712,16 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     mentor_parser = command_parser(subparsers, "mentor", help=mentor_help)
     mentor_parser.add_argument("answer", nargs="?")
     mentor_parser.add_argument("--status", dest="show_status", action="store_true")
+    mentor_parser.add_argument(
+        "--transcript",
+        action="store_true",
+        help=_("List every mentor question asked so far, with its answer, in order."),
+    )
+    mentor_parser.add_argument(
+        "--json",
+        action="store_true",
+        help=_("With --transcript: print the transcript as JSON instead of text."),
+    )
     mentor_parser.add_argument("--reset", action="store_true")
     _add_model_option(mentor_parser)
 
@@ -1225,6 +1241,16 @@ def _run_cli(argv: list[str]) -> int:
             return 0
         if args.show_status:
             print(mentor_status_text(mentor_repo_root))
+            return 0
+        if args.transcript:
+            if args.json:
+                print(
+                    json.dumps(
+                        mentor_transcript_data(mentor_repo_root), indent=2, ensure_ascii=False
+                    )
+                )
+            else:
+                print(mentor_transcript_text(mentor_repo_root))
             return 0
         turn = continue_mentor_workflow(mentor_repo_root, answer=args.answer)
         _print_mentor_turn(project_root, turn)
