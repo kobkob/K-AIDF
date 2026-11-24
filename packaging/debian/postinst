@@ -1,0 +1,17 @@
+#!/bin/sh
+# Debian maintainer script. On install and upgrade, make sure the private virtualenv has the
+# libraries. A failure is reported but does not leave the package half-installed: `kob` then
+# prints how to finish the setup.
+set -e
+
+KAIDF_HOME="${KAIDF_HOME:-/usr/lib/kaidf}"
+
+case "$1" in
+  configure)
+    if ! "$KAIDF_HOME/install-deps.sh"; then
+      echo "kaidf: the package is installed, but its Python libraries are not yet." >&2
+    fi
+    ;;
+esac
+
+exit 0

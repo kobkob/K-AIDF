@@ -1,0 +1,8 @@
+# Runtime libraries of the K-AIDF agent, installed into /usr/lib/kaidf/venv by install-deps.sh.
+# Kept equal to the [project] dependencies of agent-aidf/pyproject.toml (a test checks this).
+PyYAML>=6.0.1
+jsonschema>=4.22.0
+textual>=0.58
+Flask>=3.0
+pyperclip>=1.9
+rich>=13.0
