@@ -91,7 +91,7 @@ pytest==9.2.0
     # via -r requirements-ci.in
 python-multipart==0.0.34
     # via mcp
-pyyaml==6.0.3
+pyyaml==6.0.4
     # via -r requirements.txt
 referencing==0.37.0
     # via
