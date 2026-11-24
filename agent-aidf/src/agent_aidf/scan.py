@@ -32,7 +32,16 @@ from typing import Any
 
 from .artifacts import document_problems, phase_templates, template_sections
 from .audit import find_credentials
-from .model_setup import Chunk, chunk_markdown, profile_file, refusal, validate_profile
+from .model_setup import (
+    Chunk,
+    ModelSetupError,
+    chunk_markdown,
+    load_profile,
+    load_rag_chunks,
+    profile_file,
+    refusal,
+    validate_profile,
+)
 
 MAX_FILE_BYTES = 512 * 1024
 CODE_WINDOW_LINES = 60
@@ -242,7 +251,38 @@ def extract(root: Path, scaffold: Path) -> ScanPlan:
         plan.chunk_digests[rel] = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     plan.apps = sorted(set(plan.apps))
+    _ingest_allowlisted_urls(root, scaffold, plan)
     return plan
+
+
+def _ingest_allowlisted_urls(root: Path, scaffold: Path, plan: ScanPlan) -> None:
+    """Fetch the URL sources of model-setup.json whose host is allowlisted, into the chunks.
+
+    Only `url` sources are read here; local `path` sources are already covered by the walk above.
+    Hosts outside `allowed_url_hosts` are never requested, and what was withheld is noted.
+    """
+    try:
+        profile = load_profile(scaffold)
+    except ModelSetupError as exc:
+        plan.notes.append(f"URL sources skipped: {exc}")
+        return
+    if not profile:
+        return
+    rag = profile.get("rag", {})
+    url_sources = [
+        source for source in rag.get("sources", []) if isinstance(source, dict) and "url" in source
+    ]
+    if not url_sources:
+        return
+    scoped = {
+        "rag": {"sources": url_sources, "allowed_url_hosts": rag.get("allowed_url_hosts", [])}
+    }
+    chunks, notices = load_rag_chunks(scoped, root)
+    plan.notes.extend(notices)
+    plan.chunks.extend(chunks)
+    for source in sorted({chunk.source for chunk in chunks}):
+        texts = "\n".join(chunk.text for chunk in chunks if chunk.source == source)
+        plan.chunk_digests[source] = hashlib.sha256(texts.encode("utf-8")).hexdigest()
 
 
 # --- stage 2: chunk -----------------------------------------------------------------------------
