@@ -19,6 +19,25 @@ from agent_aidf.tools import (
 )
 
 
+def _icb(body: str) -> str:
+    """A draft that passes the mentor's document checks, with `body` as its Problem Statement."""
+    return (
+        "---\n"
+        "id: icb-onboarding\n"
+        "title: Intent & Constraint Brief\n"
+        "document_class: icb\n"
+        "phase: 01_intent_constraints\n"
+        "visibility: internal\n"
+        "status: draft\n"
+        "---\n"
+        "# Intent & Constraint Brief (ICB)\n\n"
+        f"## Problem Statement\n{body}\n\n"
+        "## Business Objective\nShorten onboarding.\n\n"
+        "## Non-Negotiables\nA human approves every change.\n\n"
+        "## Constraints\nLocal-first.\n"
+    )
+
+
 def _write_action(path: str, content: str) -> str:
     payload = json.dumps({"action": "write_file", "path": path, "content": content})
     return f"Drafting it.\n<<<KOB_ACTION\n{payload}\nKOB_ACTION>>>"
@@ -54,18 +73,22 @@ def test_anything_else_is_not_a_confirmation(answer: str) -> None:
 
 def test_yes_with_changes_does_not_write_the_file(tmp_path: Path, monkeypatch) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    target = repo / "docs/01_intent_constraints/templates/ICB.md"
+    target = repo / "docs/01_intent_constraints/ICB.md"
     _propose(
         repo,
         monkeypatch,
-        _write_action(".kaidf/docs/01_intent_constraints/templates/ICB.md", "Draft\n"),
+        _write_action(".kaidf/docs/01_intent_constraints/ICB.md", _icb("Draft")),
     )
 
     turn = continue_mentor_workflow(repo, answer="yes, but change the title first")
 
     assert "Draft" not in target.read_text(encoding="utf-8")
     assert load_mentor_state(repo).pending_file_action is None
-    assert [entry["event"] for entry in _action_log(repo)] == ["proposed", "rejected"]
+    assert [entry["event"] for entry in _action_log(repo)] == [
+        "self-repair",
+        "proposed",
+        "rejected",
+    ]
     assert turn.message
 
 
@@ -80,7 +103,7 @@ def test_protected_targets_are_refused_on_confirmation(
     tmp_path: Path, monkeypatch, protected: str
 ) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    _propose(repo, monkeypatch, _write_action(protected, "echo pwned\n"))
+    _propose(repo, monkeypatch, _write_action(protected, "{}\n"))
 
     turn = continue_mentor_workflow(repo, answer="yes")
 
@@ -110,12 +133,12 @@ def test_a_symlink_into_a_protected_directory_is_refused(tmp_path: Path) -> None
 def test_yolo_still_applies_a_file_write_without_asking(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("KOB_YOLO", "1")
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    target = repo / "docs/01_intent_constraints/templates/ICB.md"
+    target = repo / "docs/01_intent_constraints/ICB.md"
     monkeypatch.setattr(
         controller_module,
         "build_controller",
         lambda: _FakeController(
-            [_write_action(".kaidf/docs/01_intent_constraints/templates/ICB.md", "Yolo draft\n")]
+            [_write_action(".kaidf/docs/01_intent_constraints/ICB.md", _icb("Yolo draft"))]
         ),
     )
 
@@ -123,7 +146,7 @@ def test_yolo_still_applies_a_file_write_without_asking(tmp_path: Path, monkeypa
     turn = continue_mentor_workflow(repo, answer="We need a tool to help onboard new hires.")
 
     assert "[--yolo]" in turn.message
-    assert target.read_text(encoding="utf-8") == "Yolo draft\n"
+    assert "Yolo draft" in target.read_text(encoding="utf-8")
     assert [entry["source"] for entry in _action_log(repo) if entry["event"] == "applied"] == [
         "--yolo"
     ]
@@ -155,12 +178,12 @@ def test_long_content_is_staged_and_named_by_sha256(tmp_path: Path, monkeypatch)
     from agent_aidf.tools import content_digest
 
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    content = "# Long\n" + ("line of text\n" * (FULL_PREVIEW_CHARS // 10))
+    content = _icb("# Long\n" + ("line of text\n" * (FULL_PREVIEW_CHARS // 10)))
     assert len(content) > FULL_PREVIEW_CHARS
     _propose(
         repo,
         monkeypatch,
-        _write_action(".kaidf/docs/01_intent_constraints/templates/ICB.md", content),
+        _write_action(".kaidf/docs/01_intent_constraints/ICB.md", content),
     )
 
     digest = content_digest(content)
@@ -177,7 +200,7 @@ def test_short_content_is_shown_in_full(tmp_path: Path, monkeypatch) -> None:
     _propose(
         repo,
         monkeypatch,
-        _write_action(".kaidf/docs/01_intent_constraints/templates/ICB.md", "Short body\n"),
+        _write_action(".kaidf/docs/01_intent_constraints/ICB.md", _icb("Short body")),
     )
 
     state = load_mentor_state(repo)
@@ -238,13 +261,13 @@ def test_the_action_log_records_proposal_and_outcome_without_file_content(
     _propose(
         repo,
         monkeypatch,
-        _write_action(".kaidf/docs/01_intent_constraints/templates/ICB.md", secret_body),
+        _write_action(".kaidf/docs/01_intent_constraints/ICB.md", _icb(secret_body)),
     )
 
     continue_mentor_workflow(repo, answer="yes")
     entries = _action_log(repo)
 
-    assert [entry["event"] for entry in entries] == ["proposed", "applied"]
-    assert entries[1]["source"] == "confirmed"
+    assert [entry["event"] for entry in entries] == ["self-repair", "proposed", "applied"]
+    assert entries[2]["source"] == "confirmed"
     assert all("sha256" in entry for entry in entries)
     assert "confidential body text" not in (repo / "action-log.jsonl").read_text(encoding="utf-8")

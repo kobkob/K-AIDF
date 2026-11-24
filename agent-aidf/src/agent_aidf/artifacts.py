@@ -14,10 +14,18 @@ Three things live here, and all of them use the same rules as the audit (documen
 
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from .document_rules import CRITERIA_SUMMARY
+import yaml
+
+from .audit import find_credentials
+from .document_rules import CRITERIA_SUMMARY, REQUIRED_FRONT_MATTER, VISIBILITY_LEVELS
+from .index import parse_front_matter
+from .tools import ProposedAction, extract_proposed_action
 
 MAX_REPAIR_ATTEMPTS = 2
 GROUNDING_BUDGET_CHARS = 6000
@@ -118,3 +126,128 @@ def grounding_block(
         lines.append(f"Golden example, {path.name} (same class of document, accepted):")
         lines.append(_truncate(text.strip(), left))
     return _truncate("\n".join(lines), budget)
+
+
+# --- document checks ----------------------------------------------------------------------------
+
+
+def document_problems(
+    relative: str, text: str, repo_root: Path | None = None, phase_dir: str | None = None
+) -> list[str]:
+    """What is wrong with a draft, as plain sentences. An empty list means it may be offered."""
+    suffix = PurePosixPath(relative).suffix.lower()
+    if suffix == ".json":
+        try:
+            json.loads(text)
+        except ValueError as exc:
+            return [f"{relative} is not valid JSON: {exc}"]
+        return []
+    if suffix in {".yaml", ".yml"}:
+        try:
+            yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            return [f"{relative} is not valid YAML: {exc}"]
+        return []
+    if suffix != ".md":
+        return []
+
+    problems: list[str] = []
+    if "templates" in PurePosixPath(relative).parts:
+        # The template is the grounding source for the phase; a draft written over it would
+        # ground every later draft on the draft itself.
+        problems.append(
+            "drafts must not overwrite a canonical template under templates/; "
+            "write the document beside it"
+        )
+    front, body = parse_front_matter(text)
+    missing = [field_name for field_name in REQUIRED_FRONT_MATTER if not front.get(field_name)]
+    if missing:
+        problems.append(f"Front Matter is missing: {', '.join(missing)}")
+    visibility = front.get("visibility")
+    if visibility and visibility not in VISIBILITY_LEVELS:
+        problems.append(
+            f"visibility {visibility!r} is not one of {', '.join(sorted(VISIBILITY_LEVELS))}"
+        )
+
+    kinds = find_credentials(text)
+    if kinds:
+        # Only the kinds are reported, never the value.
+        problems.append(f"contains a credential ({'; '.join(kinds)}); remove it")
+
+    if repo_root is not None and phase_dir is not None:
+        templates = phase_templates(repo_root, phase_dir)
+        template = _template_for(relative, templates, str(front.get("document_class", "")))
+        if template is not None:
+            present = {title.lower() for title in template_sections(body)}
+            absent = [
+                title for title in template_sections(template) if title.lower() not in present
+            ]
+            if absent:
+                problems.append(f"missing template section(s): {', '.join(absent)}")
+            if body.strip() and _normalized(body) == _normalized(template):
+                problems.append("echoes the template without any project content")
+    return problems
+
+
+def _normalized(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+# --- self-repair --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RepairOutcome:
+    action: ProposedAction | None
+    attempts: int
+    problems: list[str] = field(default_factory=list)
+
+
+def repair_prompt(relative: str, draft: str, problems: list[str]) -> str:
+    return "\n".join(
+        [
+            f"Your draft for {relative} did not pass the K-AIDF document checks.",
+            "Problems to fix:",
+            *[f"- {problem}" for problem in problems],
+            "",
+            "Return the complete corrected file as ONE action block that writes the same path. "
+            "Keep the content that was already right, and change only what the problems require.",
+            "",
+            "Draft to correct:",
+            draft,
+        ]
+    )
+
+
+def repair_draft(
+    repo_root: Path,
+    action: ProposedAction,
+    *,
+    ask: Callable[[str], str],
+    phase_dir: str | None = None,
+    max_attempts: int = MAX_REPAIR_ATTEMPTS,
+) -> RepairOutcome:
+    """Check a drafted file and repair it until it passes or the attempts run out.
+
+    `ask` sends a prompt to the model and returns its reply. Only a write_file action for the same
+    path counts as a repair; anything else is a failed attempt.
+    """
+    relative = action.path
+    content = action.content
+    problems = document_problems(relative, content, repo_root, phase_dir)
+    attempts = 0
+    while problems and attempts < max_attempts:
+        attempts += 1
+        _cleaned, proposed = extract_proposed_action(
+            ask(repair_prompt(relative, content, problems))
+        )
+        if proposed is not None and proposed.kind == "write_file" and proposed.path == relative:
+            content = proposed.content
+        problems = document_problems(relative, content, repo_root, phase_dir)
+    if problems:
+        return RepairOutcome(action=None, attempts=attempts, problems=problems)
+    return RepairOutcome(
+        action=ProposedAction(kind="write_file", path=relative, content=content),
+        attempts=attempts,
+        problems=[],
+    )

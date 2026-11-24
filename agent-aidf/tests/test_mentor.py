@@ -14,6 +14,51 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+COMPLIANT_ICB = """---
+id: icb-onboarding
+title: Intent & Constraint Brief
+document_class: icb
+phase: 01_intent_constraints
+visibility: internal
+status: draft
+---
+# Intent & Constraint Brief (ICB)
+
+## Problem Statement
+New hires take too long to become productive.
+
+## Business Objective
+Shorten the time to the first merged change.
+
+## Non-Negotiables
+A human approves every change.
+
+## Constraints
+Local-first; no customer data leaves the machine.
+
+## Out of Scope
+Payroll and HR records.
+
+## Success Metrics
+Median days to the first merged change.
+
+## Risks & Assumptions
+The onboarding checklist is current.
+"""
+
+
+def _icb_action(preamble: str, content: str = COMPLIANT_ICB) -> str:
+    """A proposal that drafts the ICB, in the action block format the mentor parses."""
+    import json
+
+    payload = {
+        "action": "write_file",
+        "path": ".kaidf/docs/01_intent_constraints/ICB.md",
+        "content": content,
+    }
+    return f"{preamble}\n<<<KOB_ACTION\n{json.dumps(payload)}\nKOB_ACTION>>>"
+
+
 def _build_repo_with_phase_one_scaffold(tmp_path: Path) -> Path:
     """A real project_root/.kaidf/-shaped repo (matching resolve_mentor_repo_root's contract)
     with phase 1's real (stub) artifact files, matching exactly what kaidf-gen scaffolds: pure
@@ -25,7 +70,7 @@ def _build_repo_with_phase_one_scaffold(tmp_path: Path) -> Path:
         "# Phase 1 - Intent & Constraints\n\nDeliverable: Intent & Constraint Brief (ICB)\n",
     )
     _write(
-        repo / "docs/01_intent_constraints/templates/ICB.md",
+        repo / "docs/01_intent_constraints/ICB.md",
         "# Intent & Constraint Brief (ICB)\n\n"
         "## Problem Statement\n## Business Objective\n## Non-Negotiables\n## Constraints\n"
         "## Out of Scope\n## Success Metrics\n## Risks & Assumptions\n",
@@ -274,14 +319,7 @@ def test_mentor_proposes_file_action_and_pauses_for_confirmation(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    action_block = (
-        "Here is a draft ICB for you.\n"
-        "<<<KOB_ACTION\n"
-        '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need '
-        'X.\\n"}\n'
-        "KOB_ACTION>>>"
-    )
+    action_block = _icb_action("Here is a draft ICB for you.")
     fake = _FakeController([action_block])
     monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
 
@@ -292,9 +330,9 @@ def test_mentor_proposes_file_action_and_pauses_for_confirmation(
     assert "Proposed action: write" in turn.message
     assert "ICB.md" in turn.message
     assert state.pending_file_action is not None
-    assert state.pending_file_action["path"].endswith("templates/ICB.md")
+    assert state.pending_file_action["path"].endswith("01_intent_constraints/ICB.md")
     # Not written yet - still just the stub.
-    icb_path = repo / "docs/01_intent_constraints/templates/ICB.md"
+    icb_path = repo / "docs/01_intent_constraints/ICB.md"
     assert "We need X." not in icb_path.read_text(encoding="utf-8")
 
 
@@ -302,14 +340,7 @@ def test_confirming_file_action_writes_it_and_can_lead_to_acceptance(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    action_block = (
-        "Here is a draft ICB for you.\n"
-        "<<<KOB_ACTION\n"
-        '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem Statement\\nWe need '
-        'X.\\n"}\n'
-        "KOB_ACTION>>>"
-    )
+    action_block = _icb_action("Here is a draft ICB for you.")
     fake = _FakeController([action_block])
     monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
 
@@ -318,8 +349,8 @@ def test_confirming_file_action_writes_it_and_can_lead_to_acceptance(
     turn = continue_mentor_workflow(repo, answer="yes")
     state = load_mentor_state(repo)
 
-    icb_path = repo / "docs/01_intent_constraints/templates/ICB.md"
-    assert "We need X." in icb_path.read_text(encoding="utf-8")
+    icb_path = repo / "docs/01_intent_constraints/ICB.md"
+    assert "New hires take too long" in icb_path.read_text(encoding="utf-8")
     assert state.pending_file_action is None
     # ICB.md is filled in now, but constraint-matrix.csv and data-provenance.md are still
     # stubs, so the phase should NOT be ready for acceptance yet.
@@ -330,13 +361,7 @@ def test_confirming_file_action_writes_it_and_can_lead_to_acceptance(
 
 def test_rejecting_a_proposed_file_action_does_not_write_it(tmp_path: Path, monkeypatch) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    action_block = (
-        "Here is a draft.\n"
-        "<<<KOB_ACTION\n"
-        '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "should not be written"}\n'
-        "KOB_ACTION>>>"
-    )
+    action_block = _icb_action("Here is a draft.")
     fake = _FakeController([action_block, "Understood, I will hold off on that draft."])
     monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
 
@@ -345,7 +370,7 @@ def test_rejecting_a_proposed_file_action_does_not_write_it(tmp_path: Path, monk
     continue_mentor_workflow(repo, answer="no, let's not write that yet")
     state = load_mentor_state(repo)
 
-    icb_path = repo / "docs/01_intent_constraints/templates/ICB.md"
+    icb_path = repo / "docs/01_intent_constraints/ICB.md"
     assert "should not be written" not in icb_path.read_text(encoding="utf-8")
     assert state.pending_file_action is None
 
@@ -354,7 +379,7 @@ def test_full_phase_acceptance_advances_to_phase_two(tmp_path: Path, monkeypatch
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
     # Fill in phase 1's artifacts directly (simulating prior mentor-driven or manual edits).
     _write(
-        repo / "docs/01_intent_constraints/templates/ICB.md",
+        repo / "docs/01_intent_constraints/ICB.md",
         "# Intent & Constraint Brief (ICB)\n\n## Problem Statement\nWe need an onboarding tool.\n",
     )
     _write(
@@ -394,7 +419,7 @@ def test_full_phase_acceptance_advances_to_phase_two(tmp_path: Path, monkeypatch
 def test_rejecting_acceptance_keeps_phase_open(tmp_path: Path, monkeypatch) -> None:
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
     _write(
-        repo / "docs/01_intent_constraints/templates/ICB.md",
+        repo / "docs/01_intent_constraints/ICB.md",
         "# Intent & Constraint Brief (ICB)\n\n## Problem Statement\nWe need an onboarding tool.\n",
     )
     _write(
@@ -441,14 +466,7 @@ def test_unsafe_proposed_path_is_reported_without_crashing(tmp_path: Path, monke
 def test_yolo_applies_write_action_immediately_without_pausing(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("KOB_YOLO", "1")
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
-    action_block = (
-        "Drafting now.\n"
-        "<<<KOB_ACTION\n"
-        '{"action": "write_file", "path": ".kaidf/docs/01_intent_constraints/templates/ICB.md", '
-        '"content": "# Intent & Constraint Brief (ICB)\\n\\n## Problem '
-        'Statement\\nAuto-drafted.\\n"}\n'
-        "KOB_ACTION>>>"
-    )
+    action_block = _icb_action("Drafting now.")
     fake = _FakeController([action_block])
     monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
 
@@ -459,8 +477,8 @@ def test_yolo_applies_write_action_immediately_without_pausing(tmp_path: Path, m
     assert "[--yolo]" in turn.message
     assert "Next question" in turn.message
     assert state.pending_file_action is None
-    icb_path = repo / "docs/01_intent_constraints/templates/ICB.md"
-    assert "Auto-drafted." in icb_path.read_text(encoding="utf-8")
+    icb_path = repo / "docs/01_intent_constraints/ICB.md"
+    assert "New hires take too long" in icb_path.read_text(encoding="utf-8")
 
 
 def test_yolo_never_runs_a_shell_command_without_confirmation(tmp_path: Path, monkeypatch) -> None:
@@ -498,7 +516,7 @@ def test_yolo_does_not_bypass_phase_acceptance_confirmation(tmp_path: Path, monk
     monkeypatch.setenv("KOB_YOLO", "1")
     repo = _build_repo_with_phase_one_scaffold(tmp_path)
     _write(
-        repo / "docs/01_intent_constraints/templates/ICB.md",
+        repo / "docs/01_intent_constraints/ICB.md",
         "# Intent & Constraint Brief (ICB)\n\n## Problem Statement\nWe need an onboarding tool.\n",
     )
     _write(
@@ -549,3 +567,41 @@ def test_unavailable_model_records_nothing_and_keeps_the_question_pending(
 
     assert recovered.step_count == 1
     assert recovered.interactions[0].mentor_reply == "Mentor assessment: thanks, that is clear."
+
+
+def test_mentor_repairs_an_invalid_draft_before_offering_it(tmp_path: Path, monkeypatch) -> None:
+    repo = _build_repo_with_phase_one_scaffold(tmp_path)
+    broken = "# Intent & Constraint Brief (ICB)\n\nNo front matter here.\n"
+    fake = _FakeController([_icb_action("Draft:", content=broken), _icb_action("Corrected:")])
+    monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
+
+    continue_mentor_workflow(repo)
+    turn = continue_mentor_workflow(repo, answer="We need a tool to help onboard new hires.")
+    state = load_mentor_state(repo)
+
+    assert "passed the document checks after 1 repair attempt" in turn.message
+    assert state.pending_file_action is not None
+    assert "New hires take too long" in state.pending_file_action["content"]
+
+
+def test_mentor_does_not_offer_a_draft_that_still_fails_after_repair(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = _build_repo_with_phase_one_scaffold(tmp_path)
+    broken = "# Still no front matter\n"
+    fake = _FakeController(
+        [
+            _icb_action("Draft:", content=broken),
+            _icb_action("Retry:", content=broken),
+            _icb_action("Again:", content=broken),
+        ]
+    )
+    monkeypatch.setattr(controller_module, "build_controller", lambda: fake)
+
+    continue_mentor_workflow(repo)
+    turn = continue_mentor_workflow(repo, answer="We need a tool to help onboard new hires.")
+    state = load_mentor_state(repo)
+
+    assert "was not offered after 2 repair attempt(s)" in turn.message
+    assert state.pending_file_action is None
+    assert "Proposed action" not in turn.message
