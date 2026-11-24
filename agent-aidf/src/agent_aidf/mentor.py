@@ -205,6 +205,62 @@ def mentor_status_text(repo_root: str | Path | None) -> str:
     return "\n".join(lines)
 
 
+def mentor_transcript_data(repo_root: str | Path | None) -> dict[str, Any]:
+    """The Q&A record of the workflow, in the order the questions were asked.
+
+    Each entry is one answered question. The pending question, if any, is listed apart: it has
+    no answer yet. The state does not store timestamps, so none are reported.
+    """
+    state = load_mentor_state(repo_root)
+    return {
+        "step_count": state.step_count,
+        "accepted_phases": state.accepted_phases,
+        "completed": len(state.accepted_phases) >= _total_phases(),
+        "interactions": [
+            {
+                "step": item.step,
+                "category": item.category,
+                "document_path": item.document_path,
+                "question": item.question,
+                "answer": item.answer,
+                "app_id": item.app_id,
+                "action_summary": item.action_summary,
+            }
+            for item in state.interactions
+        ],
+        "pending_question": state.pending_question,
+        "pending_category": state.pending_category,
+        "pending_document_path": state.pending_document_path,
+    }
+
+
+def mentor_transcript_text(repo_root: str | Path | None) -> str:
+    """The Q&A record as plain text. An empty workflow says so instead of printing nothing."""
+    data = mentor_transcript_data(repo_root)
+    interactions = data["interactions"]
+    if not interactions and not data["pending_question"]:
+        return "No mentor questions have been answered yet. Run `kob mentor` to start."
+    lines: list[str] = []
+    for item in interactions:
+        lines.append(f"[{item['step']}] {item['category']} · {item['document_path']}")
+        lines.append(f"  Q: {item['question']}")
+        lines.append(f"  A: {item['answer']}")
+        if item["action_summary"]:
+            lines.append(f"  Action: {item['action_summary']}")
+        lines.append("")
+    if data["pending_question"]:
+        lines.append(f"[pending] {data['pending_category'] or 'question'}")
+        lines.append(f"  Q: {data['pending_question']}")
+        lines.append("  A: (not answered yet)")
+    else:
+        lines.append(
+            "Workflow complete: all phases accepted."
+            if data["completed"]
+            else "No question is pending."
+        )
+    return "\n".join(lines).rstrip()
+
+
 def continue_mentor_workflow(
     repo_root: str | Path | None,
     *,
