@@ -5,7 +5,12 @@ SHELL := /usr/bin/env bash
 export ANSWER
 export PROMPT
 
+PACKAGE_DIST ?= $(CURDIR)/dist
+PACKAGE_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' agent-aidf/pyproject.toml | head -n 1)
+DEB_FILE := $(PACKAGE_DIST)/kaidf_$(PACKAGE_VERSION)_all.deb
+
 .PHONY: help env-agent env-mcp test-generator test-agent test-mcp test-all \
+	deb install uninstall update upgrade \
 	install-agent install-generator install-mcp ensure-generated-repo generate-default generate-maturity generate-ethical agent-shell agent-tui agent-packs \
 	agent-status agent-context agent-mentor agent-mentor-status agent-mentor-reset agent-ui \
 	agent-apps agent-app-run agent-app-runtime agent-app-stop \
@@ -20,6 +25,11 @@ help:
 	@echo "make test-agent       Run agent tests"
 	@echo "make test-mcp         Run MCP tests"
 	@echo "make test-all         Run all test targets"
+	@echo "make deb              Build the kaidf Debian package into dist/ (needs dpkg-deb)"
+	@echo "make install          Build the .deb and install it system-wide with apt (sudo)"
+	@echo "make uninstall        Remove the kaidf package (project .kaidf/ and ~/.config/kaidf are kept)"
+	@echo "make update           Report whether a newer K-AIDF release exists (read-only)"
+	@echo "make upgrade          Rebuild from this checkout and upgrade the installed kaidf package (sudo)"
 	@echo "make install-generator Create/update the generator virtualenv and install dependencies"
 	@echo "make install-agent    Create/update the agent virtualenv and install dependencies"
 	@echo "make install-mcp      Create/update the MCP virtualenv and install dependencies"
@@ -70,6 +80,23 @@ test-mcp:
 	@cd mcp-aidf && bash scripts/check.sh
 
 test-all: test-generator test-agent test-mcp
+
+# Debian packaging. The package lives in packaging/debian/ and is built from this tree.
+deb:
+	@bash packaging/debian/build-deb.sh "$(PACKAGE_DIST)"
+
+install: deb
+	@sudo apt-get install -y "$(DEB_FILE)"
+
+uninstall:
+	@sudo apt-get remove -y kaidf
+
+update:
+	@bash packaging/debian/check-update.sh
+
+upgrade: deb
+	@-bash packaging/debian/check-update.sh
+	@sudo apt-get install -y "$(DEB_FILE)"
 
 install-generator:
 	@cd kobkob-kaidf-generator && bash scripts/bootstrap.sh

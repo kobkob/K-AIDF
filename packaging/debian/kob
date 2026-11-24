@@ -1,0 +1,17 @@
+#!/bin/sh
+# /usr/bin/kob: starts the K-AIDF agent from the package tree under /usr/lib/kaidf.
+#
+# Project state lives in each project's .kaidf/ and user settings in ~/.config/kaidf. This
+# launcher reads neither path to decide where the code is, and the package never ships them,
+# so an upgrade or a removal leaves them untouched.
+set -e
+
+KAIDF_HOME="${KAIDF_HOME:-/usr/lib/kaidf}"
+KAIDF_PYTHON="${KAIDF_PYTHON:-/usr/bin/python3}"
+KAIDF_GENERATOR_DIR="${KAIDF_GENERATOR_DIR:-$KAIDF_HOME/generator}"
+export KAIDF_GENERATOR_DIR
+
+PYTHONPATH="$KAIDF_HOME/agent/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+
+exec "$KAIDF_PYTHON" -m agent_aidf.cli.main "$@"
