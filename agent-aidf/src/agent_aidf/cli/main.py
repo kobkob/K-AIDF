@@ -725,6 +725,12 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         help=_("Print the provider, the active model and the model list as JSON."),
     )
 
+    command_parser(
+        subparsers,
+        "menu",
+        help=_("Open a numbered menu over status, mentor, models, scan and audit."),
+    )
+
     scan_parser = command_parser(
         subparsers,
         "scan",
@@ -1080,6 +1086,49 @@ def _run_models(*, as_json: bool) -> int:
     return 0
 
 
+def _run_menu_mentor(project_root: Path) -> int:
+    """Menu action: show the pending mentor question; an answer typed here is recorded."""
+    try:
+        mentor_repo_root = resolve_mentor_repo_root(project_root)
+    except MentorNotInitializedError as exc:
+        print(str(exc))
+        return 1
+    turn = continue_mentor_workflow(mentor_repo_root, answer=None)
+    _print_mentor_turn(project_root, turn)
+    if not turn.state.pending_question or turn.state.pending_file_action:
+        return 0
+    try:
+        answer = input(_("Answer (blank to skip): ")).strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return 0
+    if answer:
+        _print_mentor_turn(project_root, continue_mentor_workflow(mentor_repo_root, answer=answer))
+    return 0
+
+
+def _run_menu(project_root: Path, repo_override: str | None) -> int:
+    """`kob menu`: the numbered menu over status, mentor, models, scan and audit."""
+    from .menu import run_menu
+
+    repo_root = resolve_runtime_repo_root(project_root, repo_override)
+    actions = {
+        "status": lambda: _run_status(project_root, repo_root, as_json=False),
+        "mentor": lambda: _run_menu_mentor(project_root),
+        "models": lambda: _run_models(as_json=False),
+        "scan": lambda: _run_scan(project_root, dry_run=False, as_json=False, assume_yes=False),
+        "audit": lambda: _run_audit_command(
+            str(project_root),
+            as_json=False,
+            severity=None,
+            fail_under=None,
+            fail_on_critical=False,
+        ),
+    }
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    return run_menu(actions, interactive=interactive)
+
+
 def _run_tui(args: argparse.Namespace) -> int:
     """Open the interactive TUI for the global --project and --repo options."""
     try:
@@ -1152,6 +1201,9 @@ def _run_cli(argv: list[str]) -> int:
 
     if args.command == "models":
         return _run_models(as_json=args.json)
+
+    if args.command == "menu":
+        return _run_menu(project_root, args.repo)
 
     repo_root = resolve_runtime_repo_root(project_root, args.repo)
 

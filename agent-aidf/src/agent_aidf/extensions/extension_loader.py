@@ -65,6 +65,7 @@ BUILTIN_COMMANDS: frozenset[str] = frozenset(
         "help",
         "models",
         "scan",
+        "menu",
         # Workspace commands (workspace_commands.WORKSPACE_COMMANDS), promoted from `kob shell`.
         "packs",
         "docs",

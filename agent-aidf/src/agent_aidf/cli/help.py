@@ -255,6 +255,17 @@ COMMAND_DOCS: dict[str, CommandDoc] = {
             Example("kob scan --yes", "Write the drafts, corpus and dataset without asking."),
         ),
     ),
+    "menu": CommandDoc(
+        description=(
+            "A numbered menu over the everyday commands: status, mentor, models, scan and audit. "
+            "Choose by number or name. Scan still asks before it writes. Without a terminal it "
+            "only lists the choices and exits, so it is safe in scripts and CI."
+        ),
+        examples=(
+            Example("kob menu", "Open the menu in a terminal."),
+            Example("kob menu < /dev/null", "Print the choices; no prompt."),
+        ),
+    ),
     "models": CommandDoc(
         description=(
             "List the models the active inference provider serves, from its /v1/models. The "
