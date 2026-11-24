@@ -34,9 +34,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from .document_rules import REQUIRED_FRONT_MATTER
 from .repo import _parse_front_matter, resolve_repo_root
 
-REQUIRED_FRONT_MATTER = ("id", "title", "document_class", "phase", "visibility", "status")
 MAX_SCAN_BYTES = 1_000_000
 SKIPPED_DIR_NAMES = {".git", ".venv", "node_modules", "__pycache__"}
 TIERS = (("Platinum", 90), ("Gold", 75), ("Silver", 60))

@@ -6,7 +6,9 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .artifacts import grounding_block
+import yaml
+
+from .artifacts import document_problems, grounding_block, repair_draft
 from .instant_apps import (
     append_mentor_note,
     apply_mentor_update,
@@ -264,6 +266,11 @@ def _handle_normal_answer(
         # user can answer again without the mentor treating the attempt as an interaction.
         return MentorTurn(message=mentor_reply, state=state, token_usage=None)
     cleaned_reply, proposed_action = extract_proposed_action(mentor_reply)
+    validation_note: str | None = None
+    if proposed_action is not None and proposed_action.kind == "write_file":
+        proposed_action, validation_note = _validated_draft(
+            repo, proposed_action, phase_dir=phase_dir
+        )
 
     action_summary, current_app_id = _apply_answer_actions(
         repo,
@@ -322,7 +329,7 @@ def _handle_normal_answer(
                     cleaned_reply.strip(),
                     "",
                     f"Action: {action_summary}",
-                    "",
+                    *([validation_note, ""] if validation_note else []),
                     prompt_text,
                 ]
             ).strip()
@@ -330,13 +337,15 @@ def _handle_normal_answer(
 
     documents_after = load_documents(repo)
     message_lines = [cleaned_reply.strip(), "", f"Action: {action_summary}"]
+    if validation_note:
+        message_lines.extend(["", validation_note])
     if yolo_action_note:
         message_lines.extend(["", yolo_action_note])
 
     if (
         check_acceptance
         and phase["order"] not in state.accepted_phases
-        and _phase_ready_for_acceptance(documents_after, phase_dir)
+        and _phase_ready_for_acceptance(documents_after, phase_dir, repo)
     ):
         acceptance_question = _acceptance_question(phase, phase_dir)
         next_state = replace(
@@ -390,7 +399,7 @@ def _handle_file_action_response(
 
     documents_after = load_documents(repo)
     if phase["order"] not in cleared_state.accepted_phases and _phase_ready_for_acceptance(
-        documents_after, phase_dir
+        documents_after, phase_dir, repo
     ):
         acceptance_question = _acceptance_question(phase, phase_dir)
         next_state = replace(
@@ -818,11 +827,71 @@ def _is_artifact_filled_in(doc: Document) -> bool:
     return any(not line.startswith("#") for line in body_lines)
 
 
-def _phase_ready_for_acceptance(documents: list[Document], phase_dir: str) -> bool:
+def _phase_ready_for_acceptance(documents: list[Document], phase_dir: str, repo_root: Path) -> bool:
     artifacts = _phase_artifact_documents(documents, phase_dir)
     if not artifacts:
         return False
-    return all(_is_artifact_filled_in(doc) for doc in artifacts)
+    if not all(_is_artifact_filled_in(doc) for doc in artifacts):
+        return False
+    # The same document checks the self-repair loop uses: a document that fails them cannot be
+    # accepted, however full it looks.
+    return all(
+        not document_problems(doc.path, _document_text(doc), repo_root, phase_dir)
+        for doc in artifacts
+    )
+
+
+def _document_text(doc: Document) -> str:
+    """The document as a file: its Front Matter fields, then its body."""
+    front = {
+        name: getattr(doc, name)
+        for name in ("id", "title", "document_class", "phase", "visibility", "status")
+    }
+    return "---\n" + yaml.safe_dump(front, sort_keys=False, allow_unicode=True) + "---\n" + doc.body
+
+
+def _ask_model(repo_root: Path, prompt: str) -> str:
+    from .controller import MENTOR_CHAT_INSTRUCTIONS, build_controller
+
+    return build_controller().chat(prompt, repo_root, instructions=MENTOR_CHAT_INSTRUCTIONS)
+
+
+def _validated_draft(
+    repo: Path, action: ProposedAction, *, phase_dir: str
+) -> tuple[ProposedAction | None, str | None]:
+    """Check a drafted file, repairing it with the model. Returns the action to offer, or None.
+
+    A draft that still fails after the repair attempts is not offered; the note says why.
+    """
+    outcome = repair_draft(
+        repo,
+        action,
+        ask=lambda prompt: _ask_model(repo, prompt),
+        phase_dir=phase_dir,
+    )
+    final = outcome.action or action
+    if outcome.action is None:
+        result = "rejected: " + "; ".join(outcome.problems)
+    else:
+        result = "accepted"
+    _log_action(
+        repo,
+        "self-repair",
+        final,
+        source="validation",
+        result=f"attempts={outcome.attempts} {result}",
+    )
+    if outcome.action is None:
+        return None, (
+            f"Draft for {action.path} was not offered after {outcome.attempts} repair "
+            f"attempt(s): " + "; ".join(outcome.problems)
+        )
+    if outcome.attempts:
+        return outcome.action, (
+            f"Draft for {action.path} passed the document checks after "
+            f"{outcome.attempts} repair attempt(s)."
+        )
+    return outcome.action, None
 
 
 def _format_pending_question(state: MentorState) -> str:
