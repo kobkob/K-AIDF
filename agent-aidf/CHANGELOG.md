@@ -14,9 +14,12 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 - The web UI header shows the active model-setup profile: mood, strategy, RAG and QLoRA state, and any fallback (#159)
 - `kob mentor --transcript` lists every mentor question asked so far with its answer, in order, and the pending question apart; `--json` prints the same record for tooling (#90)
 - `kob review <path> "<instruction>"` asks the active model to revise one project document and shows the change as a unified diff. Nothing is written until you confirm, and declining leaves the file untouched. The path must stay inside the project, and each applied edit is logged with the model used. `--yes` follows the `kob scan --yes` rule (#91)
+- `kob scan` registers each detected `apps/<id>` by reference: a manifest in `.kaidf/apps/<id>/` whose entrypoint points at the project's own `main.py`. No source is copied, an existing manifest is never overwritten, and nothing is started (#157)
+- The web UI's Mentor Q&A panel lists answered questions with their categories, documents and actions, and the pending question apart. It reads `GET /api/mentor/transcript` and refreshes after each mentor turn (#159)
 
 ### Changed
 
+- The `.deb` depends only on `python3` and `python3-venv`. Its Python libraries go into a private virtualenv at `/usr/lib/kaidf/venv`, created by the postinst from `requirements.txt`, because Ubuntu 22.04's packages are older than the agent needs (for example `python3-textual` 0.1.13). If the libraries are missing, `kob` says to run `install-deps.sh` instead of raising a traceback (#158)
 - The mentor prompt carries the phase's canonical template, its required sections, the Front Matter v2 skeleton, the audit criteria and a golden example when the project ships one, within a character budget (#164)
 - A drafted file is checked before it is offered: front matter, visibility, credentials, template sections, echo of the template, JSON and YAML. A failing draft goes back to the model for up to two repairs and is not offered if it still fails. The phase acceptance gate uses the same checks (#165)
 
