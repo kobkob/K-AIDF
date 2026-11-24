@@ -1,0 +1,13 @@
+Package: kaidf
+Version: @VERSION@
+Section: devel
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.10), python3-yaml, python3-jsonschema, python3-flask, python3-werkzeug, python3-rich, python3-textual, python3-pyperclip
+Maintainer: K-AIDF maintainers <https://github.com/kobkob/K-AIDF>
+Homepage: https://github.com/kobkob/K-AIDF
+Description: K-AIDF terminal agent (kob) and generator
+ kob is the terminal agent for K-AIDF repositories. The package bundles the
+ kaidf_gen generator and starts from /usr/bin/kob. Project state (.kaidf/) and
+ user settings (~/.config/kaidf) are not package files, so upgrades and removal
+ keep them.
