@@ -21,8 +21,17 @@ updates:
     directory: "/mcp-aidf"
     schedule:
       interval: weekly
+    ignore:
+      # gunicorn 27 changes the ASGI/WSGI runtime behavior; upgrade deliberately, in a release.
+      - dependency-name: "gunicorn"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: "/mcp-aidf"
     schedule:
       interval: weekly
+    ignore:
+      # Runtime base image: the v0.6.x/v0.7.0 series stays on python 3.11. Dependabot reads a
+      # 3.11 -> 3.15 tag change as a minor update, so both minor and major are ignored.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
