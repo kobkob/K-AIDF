@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .artifacts import grounding_block
 from .instant_apps import (
     append_mentor_note,
     apply_mentor_update,
@@ -497,6 +498,7 @@ def _build_mentor_reply(
         phase_dir=phase_dir,
         answer=answer,
         profile_context=mentor_context(repo_root, answer or pending_question),
+        grounding=grounding_block(repo_root, phase_dir),
     )
     raw_reply = controller.chat(prompt, repo_root, instructions=MENTOR_CHAT_INSTRUCTIONS)
     next_response_id = getattr(controller, "previous_response_id", state.previous_response_id)
@@ -517,6 +519,7 @@ def _build_mentor_prompt(
     phase_dir: str,
     answer: str,
     profile_context: str = "",
+    grounding: str = "",
 ) -> str:
     recent = state.interactions[-3:]
     history_lines = []
@@ -559,6 +562,7 @@ def _build_mentor_prompt(
             "question at the end, unless you are proposing a file action instead.",
             "",
             *([profile_context, ""] if profile_context else []),
+            *([grounding, ""] if grounding else []),
             ACTION_PROTOCOL_INSTRUCTIONS,
             "",
             UNTRUSTED_INSTRUCTION,
