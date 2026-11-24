@@ -9,6 +9,11 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 ### Added
 
 - `kob scan` bootstraps a project from its files: it detects languages, manifests, CI and apps, drafts the system map and blueprint, builds a RAG corpus and a synthetic QLoRA dataset with source hashes, and points `model-setup.json` at them. A credential in any file stops the scan; `--dry-run`, `--json` and `--yes` control the output (#157)
+- `kob scan` also ingests the URL sources of `model-setup.json` whose host is in `allowed_url_hosts` into the RAG corpus and the QLoRA dataset. Other hosts are never requested, and what was withheld is noted in the plan (#157)
+- `kob menu` opens a numbered keyboard menu over `status`, `mentor`, `models`, `scan` and `audit`. Without a terminal it lists the choices and exits, so it is safe in scripts (#159)
+- The web UI header shows the active model-setup profile: mood, strategy, RAG and QLoRA state, and any fallback (#159)
+- `kob mentor --transcript` lists every mentor question asked so far with its answer, in order, and the pending question apart; `--json` prints the same record for tooling (#90)
+- `kob review <path> "<instruction>"` asks the active model to revise one project document and shows the change as a unified diff. Nothing is written until you confirm, and declining leaves the file untouched. The path must stay inside the project, and each applied edit is logged with the model used. `--yes` follows the `kob scan --yes` rule (#91)
 
 ### Changed
 
