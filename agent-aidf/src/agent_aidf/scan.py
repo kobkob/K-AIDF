@@ -528,4 +528,39 @@ def write_outputs(plan: ScanPlan, scaffold: Path) -> list[str]:
         json.dumps(plan.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     written.append(str(INVENTORY))
+    written.extend(register_apps(plan, scaffold))
+    return written
+
+
+def register_apps(plan: ScanPlan, scaffold: Path) -> list[str]:
+    """Register each detected apps/<id> by reference: a manifest under .kaidf/apps/<id>/ whose
+    entrypoint points at the project's own main.py. No source is copied. An existing manifest is
+    never overwritten, since the operator may have edited it. Returns the manifests written.
+
+    The kind is "shell", so registering does not start anything: running a web app stays an
+    explicit `kob app-run`.
+    """
+    project = scaffold.parent
+    written: list[str] = []
+    for app_id in plan.apps:
+        app_dir = scaffold / "apps" / app_id
+        manifest = app_dir / "app.json"
+        if manifest.exists():
+            continue
+        entry = project / "apps" / app_id / "main.py"
+        if not entry.is_file():
+            continue
+        relative_entry = os.path.relpath(entry, app_dir)
+        metadata = {
+            "app_id": app_id,
+            "mode": "persistent",
+            "kind": "shell",
+            "title": app_id,
+            "description": f"Detected by kob scan at apps/{app_id}/main.py.",
+            "entrypoint": Path(relative_entry).as_posix(),
+            "url": None,
+        }
+        app_dir.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        written.append(f"apps/{app_id}/app.json")
     return written
