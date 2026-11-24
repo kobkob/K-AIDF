@@ -18,7 +18,7 @@ from werkzeug.serving import BaseWSGIServer, make_server
 
 from .i18n import _
 from .maturity import phase_progress, phase_snapshot
-from .mentor import continue_mentor_workflow
+from .mentor import continue_mentor_workflow, mentor_transcript_data
 from .model_setup import status_summary as model_setup_status
 from .project import MentorNotInitializedError, read_project_status, resolve_mentor_repo_root
 from .tools import is_yolo_enabled
@@ -181,6 +181,15 @@ def create_app(
     @require_session_or_token
     def api_status():
         return jsonify(_status_payload(project_root, repo_root))
+
+    @app.get("/api/mentor/transcript")
+    @require_session_or_token
+    def api_mentor_transcript():
+        try:
+            mentor_repo_root = resolve_mentor_repo_root(project_root)
+        except MentorNotInitializedError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(mentor_transcript_data(mentor_repo_root))
 
     @app.post("/api/mentor")
     @require_api_token

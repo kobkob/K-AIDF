@@ -46,6 +46,72 @@ interface Status {
   yolo: boolean
 }
 
+interface TranscriptItem {
+  step: number
+  category: string
+  document_path: string
+  question: string
+  answer: string
+  app_id: string | null
+  action_summary: string | null
+}
+
+interface Transcript {
+  step_count: number
+  accepted_phases: number[]
+  completed: boolean
+  interactions: TranscriptItem[]
+  pending_question: string | null
+  pending_category: string | null
+  pending_document_path: string | null
+}
+
+// The Q&A record of the mentor workflow: answered questions in order, then the pending one.
+function MentorTranscriptPanel({ transcript }: { transcript: Transcript | null }) {
+  const answered = transcript?.interactions.length ?? 0
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Mentor Q&amp;A</CardTitle>
+        <CardDescription>
+          {transcript
+            ? `${answered} answered · ${transcript.accepted_phases.length} phase(s) accepted`
+            : "Loading transcript..."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="max-h-72 space-y-3 overflow-y-auto">
+        {transcript && answered === 0 && !transcript.pending_question && (
+          <p className="text-sm text-muted-foreground">No mentor questions have been answered yet.</p>
+        )}
+        {transcript?.interactions.map((item) => (
+          <div key={item.step} className="rounded-md border p-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline">#{item.step}</Badge>
+              <span>{item.category}</span>
+              <span className="break-all">{item.document_path}</span>
+            </div>
+            <p className="mt-1 font-medium">Q: {item.question}</p>
+            <p className="mt-1 whitespace-pre-wrap">A: {item.answer}</p>
+            {item.action_summary && (
+              <p className="mt-1 text-xs italic text-muted-foreground">Action: {item.action_summary}</p>
+            )}
+          </div>
+        ))}
+        {transcript?.pending_question && (
+          <div className="rounded-md border-2 border-dashed p-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">pending</Badge>
+              <span>{transcript.pending_category}</span>
+            </div>
+            <p className="mt-1 font-medium">Q: {transcript.pending_question}</p>
+            <p className="mt-1 italic text-muted-foreground">A: awaiting your answer</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // The active model-setup profile: who the model is, what grounding it uses, and any fallback.
 function ModelSetupLine({ setup }: { setup: ModelSetup | null | undefined }) {
   if (!setup) {
@@ -103,6 +169,12 @@ const SPINNER_VERBS = [
   "Noodling",
   "Faffing",
 ]
+
+async function getTranscript(): Promise<Transcript> {
+  const response = await fetch("/api/mentor/transcript")
+  if (!response.ok) throw new Error(`GET /api/mentor/transcript -> ${response.status}`)
+  return response.json()
+}
 
 async function getStatus(): Promise<Status> {
   const response = await fetch("/api/status")
@@ -225,6 +297,23 @@ export default function App() {
     },
     [clearSpinner],
   )
+
+  const [transcript, setTranscript] = useState<Transcript | null>(null)
+  const mentorStep = status?.mentor_step_count
+  const mentorPending = status?.mentor_pending_category
+  useEffect(() => {
+    let cancelled = false
+    getTranscript()
+      .then((next) => {
+        if (!cancelled) setTranscript(next)
+      })
+      .catch(() => {
+        if (!cancelled) setTranscript(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mentorStep, mentorPending])
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -350,6 +439,8 @@ export default function App() {
       <div className="grid grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 lg:grid-cols-3">
         {status?.phases.map((phase) => <PhaseCard key={phase.order} phase={phase} />)}
       </div>
+
+      <MentorTranscriptPanel transcript={transcript} />
 
       <Card className="flex-1 overflow-hidden">
         <CardHeader>
