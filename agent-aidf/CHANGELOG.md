@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project follows SemVer while in 
 
 ## [Unreleased]
 
+### Added
+
+- `kob scan` bootstraps a project from its files: it detects languages, manifests, CI and apps, drafts the system map and blueprint, builds a RAG corpus and a synthetic QLoRA dataset with source hashes, and points `model-setup.json` at them. A credential in any file stops the scan; `--dry-run`, `--json` and `--yes` control the output (#157)
+
+### Changed
+
+- The mentor prompt carries the phase's canonical template, its required sections, the Front Matter v2 skeleton, the audit criteria and a golden example when the project ships one, within a character budget (#164)
+- A drafted file is checked before it is offered: front matter, visibility, credentials, template sections, echo of the template, JSON and YAML. A failing draft goes back to the model for up to two repairs and is not offered if it still fails. The phase acceptance gate uses the same checks (#165)
+
 ## [0.6.4] - 2026-11-23
 
 ### Added
